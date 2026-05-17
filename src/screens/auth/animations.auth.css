@@ -1,0 +1,42 @@
+@keyframes wheel-in {
+  from {
+    opacity: 0;
+    transform: perspective(600px) translateY(40%) rotateX(-30deg);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(600px) translateY(0) rotateX(0deg);
+  }
+}
+
+@keyframes drag-in-fwd {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes drag-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-wheel-in {
+  animation: wheel-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-drag-in-fwd {
+  animation: drag-in-fwd 0.38s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+.animate-drag-in-back {
+  animation: drag-in-back 0.38s cubic-bezier(0.25, 1, 0.5, 1) both;
+}

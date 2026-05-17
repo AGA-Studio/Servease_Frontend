@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+
+  --main-bg: #f6f8f8;
+  --primary: #1b244c;
+  --sidebar-bg: #ffffff;
+  --sidebar-selected: #2ebccc;
+  --sidebar-inactive: rgba(27, 36, 76, 0.7);
+  --sidebar-inactive-icon: #1b244c;
+  --text: #000000;
+  --text-secondary: #989898;
+  --divider: #cccccc;
+  --border-container: #e5e7eb;
+  --input-bg: #f8fafc;
+  --aqua: #2ebccc;
+  --aqua-hover: #239aaa;
+  --orange: #ffb200;
+  --blue-kpi: #0432ff;
+  --green: #4aa825;
+  --red: #ff0000;
+}
+
+[data-theme="dark"] {
+  --main-bg: #1b244c;
+  --primary: #1b244c;
+  --sidebar-bg: #1b244c;
+  --sidebar-selected: #2ebccc;
+  --sidebar-inactive: #efefef;
+  --sidebar-inactive-icon: #989898;
+  --text: #ffffff;
+  --text-secondary: #989898;
+  --divider: #273570;
+  --border-container: #1b244c;
+  --input-bg: #273570;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: var(--font-sans);
+  background-color: var(--main-bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+#root {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
