@@ -1,4 +1,5 @@
-import React, { useState, useCallback, FormEvent } from "react";
+import React, { useState, useCallback } from "react";
+import type { FormEvent } from "react";
 import {
   Mail,
   Lock,
