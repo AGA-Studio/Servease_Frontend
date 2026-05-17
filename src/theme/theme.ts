@@ -1,4 +1,23 @@
-export const lightTheme = {
+export interface AppTheme {
+  mainBg: string;
+  primary: string;
+  sidebarBg: string;
+  sidebarSelected: string;
+  sidebarInactive: string;
+  sidebarInactiveIcon: string;
+  text: string;
+  textSecondary: string;
+  divider: string;
+  borderContainer: string;
+  input: string;
+  aqua: string;
+  orange: string;
+  blueKpi: string;
+  green: string;
+  red: string;
+}
+
+export const lightTheme: AppTheme = {
   mainBg: "#F6F8F8",
   primary: "#1B244C",
   sidebarBg: "#FFFFFF",
@@ -15,9 +34,9 @@ export const lightTheme = {
   blueKpi: "#0432FF",
   green: "#4AA825",
   red: "#FF0000",
-} as const;
+};
 
-export const darkTheme = {
+export const darkTheme: AppTheme = {
   mainBg: "#1B244C",
   primary: "#1B244C",
   sidebarBg: "#1B244C",
@@ -34,9 +53,8 @@ export const darkTheme = {
   blueKpi: "#0432FF",
   green: "#4AA825",
   red: "#FF0000",
-} as const;
+};
 
-export type AppTheme = typeof lightTheme;
 export type ThemeMode = "light" | "dark";
 
 export const getTheme = (mode: ThemeMode): AppTheme =>
