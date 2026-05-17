@@ -16,7 +16,7 @@ import ToastContainer from "../../components/Toast/ToastContainer";
 import { useToast } from "../../components/Toast/useToast";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
-import "../../styles/Animations.global.css";
+import "../../styles/animations.global.css";
 import "./animations.auth.css";
 import ServeaseLogo from "../../assets/Servease-Icono.svg";
 
