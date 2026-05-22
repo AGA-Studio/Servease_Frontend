@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import AuthScreen from "./screens/auth/AuthScreen";
+import { AuthProvider } from "./context/AuthContext";
+import AppRouter from "./router/AppRouter";
 import "./App.css";
 
 function App() {
@@ -13,9 +14,9 @@ function App() {
   }, []);
 
   return (
-    <main className="min-h-screen w-full">
-      <AuthScreen />
-    </main>
+    <AuthProvider>
+      <AppRouter />
+    </AuthProvider>
   );
 }
 

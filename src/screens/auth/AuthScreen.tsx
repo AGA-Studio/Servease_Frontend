@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -18,7 +19,9 @@ import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
 import "../../styles/animations.global.css";
 import "./animations.auth.css";
-import ServeaseLogo from "../../assets/Servease-Icono-Modo-Oscuro.svg";
+import ServeaseLogoDark from "../../assets/Servease-Icono-Modo-Oscuro.svg";
+import ServeaseLogo from "../../assets/Servease-Icono.svg";
+import { useAuth } from "../../context/AuthContext";
 
 type AuthMode = "login" | "signup";
 
@@ -267,6 +270,7 @@ const LangToggle: React.FC<{ theme: ThemeMode }> = ({ theme }) => {
 const AuthScreen: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
+  const authLogo = isDark ? ServeaseLogoDark : ServeaseLogo;
   const { toasts, addToast, removeToast } = useToast();
   const { t } = useI18n();
 
@@ -301,6 +305,9 @@ const AuthScreen: React.FC = () => {
 
   const isLogin = mode === "login";
   const auth = t("auth");
+
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const switchMode = (next: AuthMode) => {
     setStepDirection("forward");
@@ -374,7 +381,13 @@ const AuthScreen: React.FC = () => {
       setIsLoading(true);
       setTimeout(() => {
         setIsLoading(false);
-        setShowDevModal(true);
+        login({
+          id: "mock-signup",
+          email: signupData.email,
+          firstName: signupData.firstName,
+          role: "client",
+        });
+        navigate("/app/home", { replace: true });
       }, 1800);
     }
   };
@@ -385,7 +398,13 @@ const AuthScreen: React.FC = () => {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      setShowDevModal(true);
+      login({
+        id: "mock-1",
+        email: loginData.email,
+        firstName: "Miguel",
+        role: loginData.email.includes("provider") ? "provider" : "client",
+      });
+      navigate("/app/home", { replace: true });
     }, 1800);
   };
 
@@ -393,7 +412,13 @@ const AuthScreen: React.FC = () => {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      setShowDevModal(true);
+      login({
+        id: "mock-google",
+        email: "miguel@gmail.com",
+        firstName: "Miguel",
+        role: "client",
+      });
+      navigate("/app/home", { replace: true });
     }, 1400);
   };
 
@@ -422,7 +447,7 @@ const AuthScreen: React.FC = () => {
       )}
 
       <div
-        className={`min-h-screen w-full flex items-center justify-center p-6 transition-colors duration-400 ${isDark ? "bg-[#1B244C]" : "bg-[#F6F8F8]"}`}
+        className={`page-enter min-h-screen w-full flex items-center justify-center p-6 transition-colors duration-400 ${isDark ? "bg-[#1B244C]" : "bg-[#F6F8F8]"}`}
       >
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-24 -left-24 w-[28rem] h-[28rem] bg-[#2EBCCC]/10 rounded-full blur-[60px]" />
@@ -443,7 +468,7 @@ const AuthScreen: React.FC = () => {
               <div className="flex items-center gap-3.5 mb-14">
                 <div className="w-10 h-10 rounded-[8px] bg-cyan-500/30 flex items-center justify-center p-1.5">
                   <img
-                    src={ServeaseLogo}
+                    src={authLogo}
                     alt="Servease"
                     className="w-full h-full object-contain"
                   />
