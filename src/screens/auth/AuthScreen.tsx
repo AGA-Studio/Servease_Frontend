@@ -306,7 +306,7 @@ const AuthScreen: React.FC = () => {
   const isLogin = mode === "login";
   const auth = t("auth");
 
-  const { login } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const switchMode = (next: AuthMode) => {
@@ -372,54 +372,45 @@ const AuthScreen: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     const valid = signupStep === 0 ? validateStep0() : validateStep1();
     if (!valid) return;
     if (signupStep < auth.signup.steps.length - 1) {
       animateStep("forward", () => setSignupStep((s) => s + 1));
     } else {
       setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        login({
-          id: "mock-signup",
-          email: signupData.email,
-          firstName: signupData.firstName,
-          role: "client",
-        });
+      const error = await signup({
+        email: signupData.email,
+        password: signupData.password,
+        firstName: signupData.firstName,
+        lastNameP: signupData.lastNameP,
+        lastNameM: signupData.lastNameM,
+      });
+      setIsLoading(false);
+      if (error) {
+        addToast("error", error);
+      } else {
         navigate("/app/home", { replace: true });
-      }, 1800);
+      }
     }
   };
 
-  const handleLogin = (e: FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!validateLoginForm()) return;
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      login({
-        id: "mock-1",
-        email: loginData.email,
-        firstName: "Miguel",
-        role: loginData.email.includes("provider") ? "provider" : "client",
-      });
+    const error = await login(loginData.email, loginData.password);
+    setIsLoading(false);
+    if (error) {
+      addToast("error", error);
+    } else {
       navigate("/app/home", { replace: true });
-    }, 1800);
+    }
   };
 
-  const handleGoogleAuth = () => {
+  const handleGoogleAuth = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      login({
-        id: "mock-google",
-        email: "miguel@gmail.com",
-        firstName: "Miguel",
-        role: "client",
-      });
-      navigate("/app/home", { replace: true });
-    }, 1400);
+    await loginWithGoogle();
   };
 
   const fieldsAnimClass = fieldsVisible

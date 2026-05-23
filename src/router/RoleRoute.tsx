@@ -24,7 +24,7 @@ const RoleRoute: React.FC<Props> = ({ allowedRoles, children }) => {
   const hasAccess = allowedRoles.some((r) => userEffectiveRoles.includes(r));
 
   if (!hasAccess) {
-    return <Navigate to={ROUTES.CLIENT.DASHBOARD} replace />;
+    return <Navigate to={ROUTES.APP.HOME} replace />;
   }
 
   return <>{children}</>;

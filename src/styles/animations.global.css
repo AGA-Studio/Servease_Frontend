@@ -86,22 +86,19 @@
 @keyframes iconShake {
   0%,
   100% {
-    transform: translateX(0) rotate(0deg);
+    transform: rotate(0deg) scale(1);
   }
-  15% {
-    transform: translateX(-3px) rotate(-6deg);
+  20% {
+    transform: rotate(-10deg) scale(1.12);
   }
-  30% {
-    transform: translateX(3px) rotate(6deg);
-  }
-  45% {
-    transform: translateX(-2px) rotate(-4deg);
+  40% {
+    transform: rotate(10deg) scale(1.12);
   }
   60% {
-    transform: translateX(2px) rotate(4deg);
+    transform: rotate(-7deg) scale(1.06);
   }
-  75% {
-    transform: translateX(-1px) rotate(-2deg);
+  80% {
+    transform: rotate(7deg) scale(1.06);
   }
 }
 

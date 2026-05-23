@@ -15,6 +15,7 @@ interface Props {
   isDark: boolean;
   onNavClick: () => void;
   onToggle: () => void;
+  onExpand: () => void;
 }
 
 const HamburgerIcon: React.FC<{ isDark: boolean }> = ({ isDark }) => {
@@ -42,6 +43,7 @@ const SidebarContent: React.FC<Props> = ({
   isDark,
   onNavClick,
   onToggle,
+  onExpand,
 }) => {
   const { user } = useAuth();
   const location = useLocation();
@@ -50,8 +52,8 @@ const SidebarContent: React.FC<Props> = ({
     (item) => !item.providerOnly || isProvider,
   );
   const divider = isDark ? "#273570" : "#CCCCCC";
-  
-  const logo = isDark ? ServeaseLogoDark : ServeaseLogo
+
+  const logo = isDark ? ServeaseLogoDark : ServeaseLogo;
 
   const [logoHovered, setLogoHovered] = useState(false);
 
@@ -84,15 +86,17 @@ const SidebarContent: React.FC<Props> = ({
           >
             {isCollapsed ? (
               <div className="relative w-full h-full flex items-center justify-center">
-                  <img
-                    src={logo}
-                    alt="Servease"
-                    className="absolute w-full h-full object-contain transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    style={{
-                      opacity: logoHovered ? 0 : 1,
-                      transform: logoHovered ? "scale(0.7)" : "scale(1)",
-                    }}
-                  />
+                <img
+                  src={logo}
+                  alt="Servease"
+                  className="absolute w-full h-full object-contain transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  style={{
+                    opacity: logoHovered ? 0 : 1,
+                    transform: logoHovered ? "scale(0.7)" : "scale(1)",
+                  }}
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                />
 
                 <div
                   className="absolute flex items-center justify-center transition-all duration-250 ease-[cubic-bezier(0.4,0,0.2,1)]"
@@ -109,6 +113,8 @@ const SidebarContent: React.FC<Props> = ({
                 src={logo}
                 alt="Servease"
                 className="w-full h-full object-contain"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
               />
             )}
           </div>
@@ -185,7 +191,11 @@ const SidebarContent: React.FC<Props> = ({
         className="px-2 pt-3 pb-2"
         style={{ borderTop: `1px solid ${divider}` }}
       >
-        <UserMenu isCollapsed={isCollapsed} isDark={isDark} />
+        <UserMenu
+          isCollapsed={isCollapsed}
+          isDark={isDark}
+          onExpand={onExpand}
+        />
       </div>
     </div>
   );

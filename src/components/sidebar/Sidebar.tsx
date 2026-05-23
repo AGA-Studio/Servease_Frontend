@@ -48,6 +48,7 @@ const Sidebar: React.FC<Props> = ({ isDark }) => {
           isDark={isDark}
           onNavClick={() => {}}
           onToggle={() => setCollapsed((c) => !c)}
+          onExpand={() => setCollapsed(false)}
         />
       </div>
     </aside>

@@ -10,10 +10,12 @@ import { useI18n } from "../../i18n";
 interface Props {
   isCollapsed: boolean;
   isDark: boolean;
+  onExpand: () => void;
 }
 
-const UserMenu: React.FC<Props> = ({ isCollapsed, isDark }) => {
-  const { user, logout } = useAuth();
+const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
+  const { user, profile, logout } = useAuth();
+
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -25,6 +27,8 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark }) => {
   const roleLabel = isProvider
     ? sidebar.providerAccount
     : sidebar.clientAccount;
+
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -78,9 +82,18 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark }) => {
   return (
     <div ref={ref} className="relative">
       <button
+        ref={buttonRef}
         onClick={() => {
-          setOpen((o) => !o);
-          setActiveIndex(null);
+          if (isCollapsed) {
+            onExpand();
+            setTimeout(() => {
+              setOpen(true);
+              setActiveIndex(null);
+            }, 100);
+          } else {
+            setOpen((o) => !o);
+            setActiveIndex(null);
+          }
         }}
         className="w-full flex items-center rounded-[12px] border-none cursor-pointer transition-colors duration-200"
         style={{
@@ -98,10 +111,18 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark }) => {
       >
         <div className="flex items-center gap-[10px] min-w-0">
           <div
-            className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-white font-extrabold text-[0.85rem]"
+            className="w-9 h-9 rounded-full shrink-0 overflow-hidden flex items-center justify-center text-white font-extrabold text-[0.85rem]"
             style={{ background: "linear-gradient(135deg, #2EBCCC, #1B244C)" }}
           >
-            {user?.firstName?.[0]?.toUpperCase() ?? "U"}
+            {profile?.url_foto_perfil ? (
+              <img
+                src={profile.url_foto_perfil}
+                alt={user?.firstName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (user?.firstName?.[0]?.toUpperCase() ?? "U")
+            )}
           </div>
           {!isCollapsed && (
             <div className="text-left min-w-0">
@@ -130,7 +151,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark }) => {
         className="absolute left-0 right-0 rounded-[14px] overflow-hidden p-[6px]"
         style={{
           bottom: "calc(100% + 8px)",
-          background: dropBg,
+          background: cardBg,
           border: `1px solid ${borderColor}`,
           boxShadow: dropShadow,
           transformOrigin: "bottom center",
