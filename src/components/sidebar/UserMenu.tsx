@@ -72,7 +72,6 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
     },
   ];
 
-  const dropBg = isDark ? "#0f1a3e" : "#FFFFFF";
   const borderColor = isDark ? "#273570" : "#CCCCCC";
   const dropShadow = isDark
     ? "0 8px 32px rgba(0,0,0,0.5)"

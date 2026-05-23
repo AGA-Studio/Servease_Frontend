@@ -6,7 +6,6 @@ import {
   Palette,
   Shield,
   FileText,
-  ChevronRight,
   Sun,
   Moon,
   Check,
