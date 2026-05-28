@@ -4,7 +4,6 @@ import AppRouter from "./router/AppRouter";
 import { useAuth } from "./context/AuthContext";
 import "./App.css";
 
-
 function App() {
   useEffect(() => {
     const saved = localStorage.getItem("servease-theme") as
