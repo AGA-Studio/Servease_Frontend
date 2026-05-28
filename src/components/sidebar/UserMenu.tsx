@@ -130,7 +130,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
                 className="m-0 font-bold text-[0.82rem] whitespace-nowrap overflow-hidden text-ellipsis"
                 style={{ color: isDark ? "#FFFFFF" : "#1B244C" }}
               >
-                {user?.firstName} {(user as any)?.lastName ?? ""}
+                {user?.firstName} {(user as any)?.lastnameP ?? ""}
               </p>
               <p className="m-0 text-[0.7rem] text-[#989898] whitespace-nowrap">
                 {roleLabel}
