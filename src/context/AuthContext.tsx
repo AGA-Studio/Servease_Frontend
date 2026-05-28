@@ -15,6 +15,8 @@ export interface AuthUser {
   id: string;
   email: string;
   firstName: string;
+  lastnameP: string;
+  lastnameM?: string;
   role: UserRole;
 }
 
@@ -41,6 +43,8 @@ const sessionToUser = (session: Session): AuthUser => ({
   id: session.user.id,
   email: session.user.email ?? "",
   firstName: session.user.user_metadata?.first_name ?? "",
+  lastnameP: session.user.user_metadata?.last_name_p ?? "",
+  lastnameM: session.user.user_metadata?.last_name_m ?? "",
   role: (session.user.user_metadata?.role as UserRole) ?? "client",
 });
 
@@ -59,6 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         id: session.user.id,
         email: session.user.email ?? "",
         firstName: userProfile.nombre,
+        lastnameP: userProfile.apellido_paterno,
+        lastnameM: userProfile.apellido_materno,
         role: userProfile.rol,
       });
     } else {
