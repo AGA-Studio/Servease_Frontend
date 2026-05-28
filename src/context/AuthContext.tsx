@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email: session.user.email ?? "",
         firstName: userProfile.nombre,
         lastnameP: userProfile.apellido_paterno,
-        lastnameM: userProfile.apellido_materno,
+        lastnameM: userProfile.apellido_materno ?? undefined,
         role: userProfile.rol,
       });
     } else {
