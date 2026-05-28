@@ -19,6 +19,7 @@ const SidebarNavLink: React.FC<Props> = ({
   onClick,
 }) => {
   const [hovered, setHovered] = useState(false);
+  const itemRef = useRef<HTMLDivElement>(null);
   const [fillWidth, setFillWidth] = useState(0);
   const animRef = useRef<number | null>(null);
   const fillState = useRef(0);
@@ -55,6 +56,7 @@ const SidebarNavLink: React.FC<Props> = ({
       className="block no-underline relative"
     >
       <div
+        ref={itemRef}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={`relative flex items-center rounded-[10px] cursor-pointer overflow-hidden ${isCollapsed ? "icon-shake" : ""}`}
@@ -111,21 +113,44 @@ const SidebarNavLink: React.FC<Props> = ({
 
       {isCollapsed && hovered && (
         <div
-          className="fixed z-[999] px-3 py-[6px] rounded-[8px] text-xs font-semibold whitespace-nowrap pointer-events-none"
+          className="fixed z-[999] pointer-events-none"
           style={{
-            left: 80,
-            background: isDark ? "#0f1a3e" : "#1B244C",
-            color: "#FFFFFF",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            left: 84,
+            top: itemRef.current
+              ? itemRef.current.getBoundingClientRect().top +
+                itemRef.current.getBoundingClientRect().height / 2
+              : 0,
             transform: "translateY(-50%)",
-            top: "50%",
           }}
         >
-          {sidebar[item.key]}
           <div
-            className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 rotate-45"
-            style={{ background: isDark ? "#0f1a3e" : "#1B244C" }}
-          />
+            style={{
+              position: "relative",
+              animation:
+                "tooltipIn 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards",
+            }}
+          >
+            <div
+              className="absolute left-0 top-1/2 -translate-y-1/2"
+              style={{
+                left: -6,
+                width: 8,
+                height: 8,
+                background: isDark ? "#0f1a3e" : "#1B244C",
+                transform: "translateY(-50%) rotate(45deg)",
+                borderRadius: 2,
+              }}
+            />
+            <div
+              className="px-3 py-[6px] text-xs font-semibold whitespace-nowrap text-white rounded-[8px]"
+              style={{
+                background: isDark ? "#0f1a3e" : "#1B244C",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+              }}
+            >
+              {sidebar[item.key]}
+            </div>
+          </div>
         </div>
       )}
     </NavLink>
