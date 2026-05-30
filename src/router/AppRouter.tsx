@@ -21,7 +21,8 @@ import ProfileScreen from "../screens/app/ProfileScreen";
 import SettingsScreen from "../screens/app/SettingsScreen";
 
 const RootRedirect: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
   return (
     <Navigate to={isAuthenticated ? ROUTES.APP.HOME : ROUTES.AUTH} replace />
   );
