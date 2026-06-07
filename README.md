@@ -131,6 +131,6 @@ npm run preview
 
 <div align="center">
 
-Hecho con por el equipo **AGA Studio**
+Creado por el equipo **AGA Studio**
 
 </div>
