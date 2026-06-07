@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../router/routes";
 import {
   Mail,
   Lock,
@@ -268,6 +269,7 @@ const LangToggle: React.FC<{ theme: ThemeMode }> = ({ theme }) => {
 };
 
 const AuthScreen: React.FC = () => {
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const authLogo = isDark ? ServeaseLogoDark : ServeaseLogo;
@@ -302,12 +304,13 @@ const AuthScreen: React.FC = () => {
   const [signupStep1Errors, setSignupStep1Errors] = useState<SignupStep1Errors>(
     {},
   );
+  const [signupAcceptedTerms, setSignupAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
 
   const isLogin = mode === "login";
   const auth = t("auth");
 
   const { login, signup, loginWithGoogle } = useAuth();
-  const navigate = useNavigate();
 
   const switchMode = (next: AuthMode) => {
     setStepDirection("forward");
@@ -327,6 +330,8 @@ const AuthScreen: React.FC = () => {
       });
       setSignupStep0Errors({});
       setSignupStep1Errors({});
+      setSignupAcceptedTerms(false);
+      setTermsError(null);
       setFieldsVisible(true);
       setHeaderVisible(true);
     }, 50);
@@ -368,8 +373,13 @@ const AuthScreen: React.FC = () => {
       errors.email = auth.errors.emailInvalid;
     if (signupData.password.length < 6)
       errors.password = auth.errors.passwordMin;
+    if (!signupAcceptedTerms) {
+      setTermsError(auth.errors.termsRequired);
+    } else {
+      setTermsError(null);
+    }
     setSignupStep1Errors(errors);
-    return Object.keys(errors).length === 0;
+    return Object.keys(errors).length === 0 && !!signupAcceptedTerms;
   };
 
   const handleNextStep = async () => {
@@ -491,7 +501,7 @@ const AuthScreen: React.FC = () => {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => {}}
+                    onClick={() => window.open(ROUTES.TERMS, "_blank")}
                     className="text-[#2EBCCC] text-[0.78rem] font-bold underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer p-0 hover:text-white transition-colors duration-200"
                   >
                     {auth.sidebar.terms}
@@ -499,7 +509,7 @@ const AuthScreen: React.FC = () => {
                   <span className="text-white/20 text-[0.78rem]">·</span>
                   <button
                     type="button"
-                    onClick={() => {}}
+                    onClick={() => window.open(ROUTES.PRIVACY, "_blank")}
                     className="text-[#2EBCCC] text-[0.78rem] font-bold underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer p-0 hover:text-white transition-colors duration-200"
                   >
                     {auth.sidebar.privacy}
@@ -798,6 +808,51 @@ const AuthScreen: React.FC = () => {
                             </button>
                           }
                         />
+
+                        <div
+                          className={`flex items-start gap-3 mt-5 p-4 rounded-2xl border ${isDark ? "border-[#273570] bg-white/5" : "border-[#E5E7EB] bg-[#F6F8F8]"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            id="accept-terms"
+                            checked={signupAcceptedTerms}
+                            onChange={(e) => {
+                              setSignupAcceptedTerms(e.target.checked);
+                              setTermsError(null);
+                            }}
+                            className="mt-0.5 w-4 h-4 rounded shrink-0 accent-[#2EBCCC]"
+                          />
+                          <label
+                            htmlFor="accept-terms"
+                            className="text-sm font-medium leading-5 cursor-pointer select-none"
+                            style={{
+                              color: isDark ? "#EFEFEF" : "rgba(27,36,76,0.85)",
+                            }}
+                          >
+                            {auth.signup.acceptTerms}
+                            <button
+                              type="button"
+                              onClick={() => window.open(ROUTES.TERMS, "_blank")}
+                              className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
+                            >
+                              {auth.signup.termsLink}
+                            </button>
+                            {auth.signup.and}
+                            <button
+                              type="button"
+                              onClick={() => window.open(ROUTES.PRIVACY, "_blank")}
+                              className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
+                            >
+                              {auth.signup.privacyLink}
+                            </button>
+                          </label>
+                        </div>
+                        {termsError && (
+                          <p className="text-red-400 text-[0.75rem] font-semibold mt-1 flex items-center gap-1.5 animate-fade-up ml-1">
+                            <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                            {termsError}
+                          </p>
+                        )}
                       </>
                     )}
                   </div>
