@@ -106,7 +106,7 @@ const SidebarNavLink: React.FC<Props> = ({
                   : "rgba(27,36,76,0.7)",
             }}
           >
-            {sidebar[item.key]}
+            {String(sidebar[item.key])}
           </span>
         )}
       </div>
@@ -136,19 +136,24 @@ const SidebarNavLink: React.FC<Props> = ({
                 left: -6,
                 width: 8,
                 height: 8,
-                background: isDark ? "#0f1a3e" : "#1B244C",
+                background: isDark ? "#1e2d5e" : "#ffffff",
+                border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
                 transform: "translateY(-50%) rotate(45deg)",
                 borderRadius: 2,
               }}
             />
             <div
-              className="px-3 py-[6px] text-xs font-semibold whitespace-nowrap text-white rounded-[8px]"
+              className="px-3 py-[6px] text-xs font-semibold whitespace-nowrap rounded-[8px]"
               style={{
-                background: isDark ? "#0f1a3e" : "#1B244C",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+                background: isDark ? "#1e2d5e" : "#ffffff",
+                color: isDark ? "#ffffff" : "#000000",
+                border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
+                boxShadow: isDark
+                  ? "0 4px 16px rgba(0,0,0,0.45)"
+                  : "0 4px 16px rgba(0,0,0,0.10)",
               }}
             >
-              {sidebar[item.key]}
+              {String(sidebar[item.key])}
             </div>
           </div>
         </div>
