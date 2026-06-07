@@ -106,7 +106,7 @@ const SidebarNavLink: React.FC<Props> = ({
                   : "rgba(27,36,76,0.7)",
             }}
           >
-            {sidebar[item.key]}
+            {String(sidebar[item.key])}
           </span>
         )}
       </div>
@@ -153,7 +153,7 @@ const SidebarNavLink: React.FC<Props> = ({
                   : "0 4px 16px rgba(0,0,0,0.10)",
               }}
             >
-              {sidebar[item.key]}
+              {String(sidebar[item.key])}
             </div>
           </div>
         </div>
