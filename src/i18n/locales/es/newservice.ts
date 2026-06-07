@@ -1,0 +1,73 @@
+// i18n translations (Spanish) for the New Service / Create Post form screen
+
+export const newservice = {
+  title: "Crear Nueva Publicación de Servicio",
+  subtitle:
+    "Completa los detalles para encontrar al profesional perfecto para tus necesidades.",
+  steps: {
+    step1: "Info Básica",
+    step2: "Detalles",
+    step3: "Fotos",
+  },
+  basicInfo: {
+    sectionTitle: "Información Básica",
+    titleLabel: "¿Con qué necesitas ayuda?",
+    titlePlaceholder: "ej. Cerrajero de emergencia para puerta principal",
+    categoryLabel: "Categoría de Servicio",
+    categoryPlaceholder: "Seleccionar Categoría",
+    descriptionLabel: "Descripción Detallada",
+    descriptionPlaceholder:
+      "Describe el problema con detalle. Incluye requisitos específicos, marcas de aparatos si aplica, o instrucciones de acceso.",
+    descriptionLimit: "caracteres",
+  },
+  details: {
+    sectionTitle: "Detalles",
+    locationLabel: "Ubicación",
+    locationPlaceholder: "Dirección o Ciudad",
+    dateLabel: "Fecha y Hora",
+    datePlaceholder: "Fecha y Hora Programada",
+    budgetLabel: "Presupuesto",
+    budgetPlaceholder: "0.00",
+    currency: "MXN",
+    changeLocation: "Cambiar Ubicación",
+  },
+  photos: {
+    sectionTitle: "Fotos",
+    uploadLabel: "Click para subir",
+    uploadHint: "SVG, PNG, JPG, o GIF (MÁX. 800×400px)",
+    uploadTitle: "Arrastra y suelta o",
+    uploadButton: "Subir Archivo",
+    uploadSubtitle: "o arrastra tus archivos aquí",
+    uploading: "Subiendo...",
+    cancel: "Cancelar",
+    maxFiles: "Máx 6 archivos",
+    errorType: "Tipo de archivo inválido",
+    errorSize: "El archivo supera 5MB",
+    addMoreHint: "Arrastra o haz clic para agregar más fotos (máx 6)",
+  },
+  actions: {
+    postService: "Publicar Servicio",
+    cancel: "Limpiar Formulario",
+    next: "Siguiente",
+    back: "Atrás",
+    reviewPost: "Revisar Publicación",
+  },
+  categories: [
+    "Plomería",
+    "Electricidad",
+    "Cerrajería",
+    "Limpieza",
+    "Pintura",
+    "Carpintería",
+    "Aire Acondicionado",
+    "Control de Plagas",
+    "Mudanza",
+    "Otro",
+  ],
+  validation: {
+    titleRequired: "Por favor ingresa un título para tu solicitud.",
+    categoryRequired: "Por favor selecciona una categoría.",
+    descriptionRequired: "Por favor agrega una descripción.",
+    locationRequired: "Por favor ingresa una ubicación.",
+  },
+};

@@ -1,3 +1,7 @@
 import { auth } from "./auth";
 import { common } from "./common";
-export const en = { auth, common };
+import { sidebar } from "./sidebar";
+import { settings } from "./settings";
+import { homescreen } from "./homescreen";
+import { newservice } from "./newservice";
+export const en = { auth, common, sidebar, settings, homescreen, newservice };
