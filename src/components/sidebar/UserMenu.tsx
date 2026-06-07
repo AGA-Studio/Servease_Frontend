@@ -56,7 +56,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
 
   const items = [
     {
-      label: "Profile",
+      label: sidebar.userMenu?.profile || "Profile",
       icon: <User size={15} />,
       action: () => {
         setOpen(false);
@@ -64,7 +64,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       },
     },
     {
-      label: "Settings",
+      label: sidebar.userMenu?.settings || "Settings",
       icon: <Settings size={15} />,
       action: () => {
         setOpen(false);
@@ -72,7 +72,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       },
     },
     {
-      label: "Logout",
+      label: sidebar.userMenu?.logout || "Logout",
       icon: <LogOut size={15} />,
       action: handleLogoutClick,
       danger: true,
@@ -136,7 +136,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
                 className="m-0 font-bold text-[0.82rem] whitespace-nowrap overflow-hidden text-ellipsis"
                 style={{ color: isDark ? "#FFFFFF" : "#1B244C" }}
               >
-                {user?.firstName} {(user as any)?.lastName ?? ""}
+                {user?.firstName} {(user as any)?.lastnameP ?? (user as any)?.lastName ?? ""}
               </p>
               <p className="m-0 text-[0.7rem] text-[#989898] whitespace-nowrap">
                 {roleLabel}
