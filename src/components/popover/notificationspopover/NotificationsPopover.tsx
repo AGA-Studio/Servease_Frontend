@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Bell, CheckCheck, BellOff, ChevronRight } from "lucide-react";
 import { useI18n } from "../../../i18n";
+import IconTooltip from "../../tooltip/IconTooltip";
 
 interface NotificationItem {
   id: string;
@@ -162,7 +163,9 @@ const NotificationsPopover = ({ isDark }: Props) => {
   const [isAnimatedIn, setIsAnimatedIn] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
   const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 500 : false,
+  );
   const [viewAllHovered, setViewAllHovered] = useState(false);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -240,46 +243,58 @@ const NotificationsPopover = ({ isDark }: Props) => {
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        onClick={toggle}
-        onMouseEnter={() => setBtnHovered(true)}
-        onMouseLeave={() => setBtnHovered(false)}
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 12,
-          border: `1px solid ${c.divider}`,
-          background:
-            isOpen || btnHovered ? "rgba(46,188,204,0.08)" : c.inputBg,
-          color: isOpen || btnHovered ? "#2EBCCC" : c.secondary,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          transition: "all 0.2s",
-          flexShrink: 0,
-          position: "relative",
-          outline: "none",
-          fontFamily: "inherit",
-        }}
+      <IconTooltip
+        label={h.tooltips.notifications}
+        isDark={isDark}
+        disabled={isOpen || isMobile}
       >
-        <Bell size={18} />
-        <span
-          style={{
-            position: "absolute",
-            top: 9,
-            right: 9,
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: "#FF4444",
-            border: `2px solid ${c.sidebarBg}`,
-            transform: unreadCount > 0 ? "scale(1)" : "scale(0)",
-            transition: "transform 0.25s cubic-bezier(0.34,1.56,0.64,1)",
-          }}
-        />
-      </button>
+        {({ ref, onMouseEnter, onMouseLeave }, hovered) => (
+          <button
+            ref={(el) => {
+              (ref as React.MutableRefObject<HTMLButtonElement | null>).current = el;
+              (buttonRef as React.MutableRefObject<HTMLButtonElement | null>).current = el;
+            }}
+            onClick={toggle}
+            onMouseEnter={() => { setBtnHovered(true); onMouseEnter(); }}
+            onMouseLeave={() => { setBtnHovered(false); onMouseLeave(); }}
+            className={hovered || btnHovered ? "icon-shake" : ""}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              border: `1px solid ${c.divider}`,
+              background:
+                isOpen || hovered ? "rgba(46,188,204,0.08)" : c.inputBg,
+              color: isOpen || hovered ? "#2EBCCC" : c.secondary,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              flexShrink: 0,
+              position: "relative",
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          >
+            <Bell size={18} />
+            <span
+              style={{
+                position: "absolute",
+                top: 9,
+                right: 9,
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#FF4444",
+                border: `2px solid ${c.sidebarBg}`,
+                transform: unreadCount > 0 ? "scale(1)" : "scale(0)",
+                transition: "transform 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+              }}
+            />
+          </button>
+        )}
+      </IconTooltip>
 
       {isOpen &&
         createPortal(
