@@ -1,73 +1,136 @@
-# React + TypeScript + Vite
+<div align="center">
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# Servease — Frontend
 
-Currently, two official plugins are available:
+**Plataforma para conectar proveedores de servicios con clientes.**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 
-## React Compiler
+</div>
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## ¿Qué es Servease?
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Servease es una plataforma web moderna que conecta a **proveedores de servicios** con **clientes** que buscan contratar. Los usuarios pueden publicar servicios, explorar ofertas, comunicarse a través de mensajes directos y gestionar sus empleos activos, todo desde una interfaz fluida y responsiva.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## ✨ Funcionalidades principales
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Módulo | Descripción |
+|---|---|
+| 🔐 **Autenticación** | Registro, inicio de sesión y gestión de sesión con Supabase Auth |
+| 🏠 **Home** | Vista principal personalizada para el usuario |
+| 🔍 **Job Feed** | Exploración y búsqueda de servicios disponibles |
+| 📋 **Mis Servicios** | Gestión de los servicios publicados por el usuario |
+| 💼 **Mis Empleos** | Seguimiento de trabajos contratados o en progreso |
+| ➕ **Nuevo Servicio** | Formulario animado para publicar un nuevo servicio |
+| 💬 **Mensajes** | Sistema de mensajería entre usuarios |
+| 👤 **Perfil** | Vista y edición del perfil del usuario |
+| ⚙️ **Configuración** | Preferencias de cuenta, idioma y tema |
+
+---
+
+## 🧰 Stack tecnológico
+
+### Core
+- **[React 19](https://react.dev)** — UI declarativa con los últimos features del ecosistema
+- **[TypeScript 6](https://www.typescriptlang.org)** — Tipado estático para mayor robustez
+- **[Vite 8](https://vite.dev)** — Bundler ultrarrápido con HMR
+
+### Estilos y UI
+- **[Tailwind CSS 4](https://tailwindcss.com)** — Utilidades CSS de alto rendimiento
+- **[Lucide React](https://lucide.dev)** — Íconos modernos y consistentes
+- **[Motion](https://motion.dev)** — Animaciones fluidas y declarativas
+
+### Routing e internacionalización
+- **[React Router v7](https://reactrouter.com)** — Enrutamiento del lado del cliente
+- **i18n personalizado** — Soporte multilenguaje (Español + extensible)
+
+---
+
+## 📁 Estructura del proyecto
+
+```
+src/
+├── api/              # Llamadas a Supabase y lógica de datos
+├── assets/           # Imágenes y recursos estáticos
+├── components/       # Componentes reutilizables (sidebar, toast, tooltip...)
+├── context/          # Contextos globales de React
+├── i18n/             # Traducciones y configuración de idiomas
+├── layouts/          # Layouts base de la aplicación
+├── lib/              # Utilidades y configuración de librerías
+├── router/           # Definición de rutas
+├── screens/          # Pantallas principales (auth + app)
+│   ├── auth/         # Login, registro
+│   └── app/          # Home, Feed, Profile, etc.
+├── styles/           # Estilos globales y animaciones CSS
+└── theme/            # Configuración de tema (colores, dark mode)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 Inicio rápido
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerrequisitos
+
+- Node.js `>=18`
+- npm o pnpm
+
+### Instalación
+
+```bash
+# Clonar el repositorio
+git clone <repo-url>
+cd Servease_Frontend
+
+# Instalar dependencias
+npm install
+
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales de Supabase
 ```
+
+### Variables de entorno
+
+```env
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu-anon-key
+```
+
+### Desarrollo
+
+```bash
+npm run dev
+```
+
+### Producción
+
+```bash
+npm run build
+npm run preview
+```
+
+---
+
+## 🛠️ Scripts disponibles
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Servidor de desarrollo con HMR |
+| `npm run build` | Build de producción |
+| `npm run preview` | Preview del build |
+| `npm run lint` | Análisis de código con ESLint |
+
+---
+
+<div align="center">
+
+Hecho con por el equipo **AGA Studio**
+
+</div>
