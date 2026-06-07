@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from "react";
 import {
   MapPin,
   ChevronDown,
-  Upload,
   X,
   ArrowRight,
   ArrowLeft,
@@ -538,7 +537,7 @@ const NewServiceScreen: React.FC = () => {
   const ns = t("newservice");
 
   const [mobileStep, setMobileStep] = useState(1);
-  const [prevStep, setPrevStep] = useState(1);
+  const [_prevStep, setPrevStep] = useState(1);
   const [stepDirection, setStepDirection] = useState<"forward" | "back">(
     "forward",
   );
@@ -546,7 +545,6 @@ const NewServiceScreen: React.FC = () => {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [categoryClosing, setCategoryClosing] = useState(false);
-  const [previewHovered, setPreviewHovered] = useState<number | null>(null);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

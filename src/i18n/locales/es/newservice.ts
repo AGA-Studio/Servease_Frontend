@@ -22,8 +22,11 @@ export const newservice = {
   },
   details: {
     sectionTitle: "Detalles",
+    locationLabel: "Ubicación",
     locationPlaceholder: "Dirección o Ciudad",
+    dateLabel: "Fecha y Hora",
     datePlaceholder: "Fecha y Hora Programada",
+    budgetLabel: "Presupuesto",
     budgetPlaceholder: "0.00",
     currency: "MXN",
     changeLocation: "Cambiar Ubicación",
