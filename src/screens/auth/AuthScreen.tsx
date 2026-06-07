@@ -386,8 +386,8 @@ const AuthScreen: React.FC = () => {
         lastNameP: signupData.lastNameP,
         lastNameM: signupData.lastNameM,
       });
-      setIsLoading(false);
       if (error) {
+        setIsLoading(false);
         addToast("error", error);
       } else {
         navigate("/app/home", { replace: true });
@@ -400,12 +400,14 @@ const AuthScreen: React.FC = () => {
     if (!validateLoginForm()) return;
     setIsLoading(true);
     const error = await login(loginData.email, loginData.password);
-    setIsLoading(false);
     if (error) {
+      setIsLoading(false);
       addToast("error", error);
-    } else {
-      navigate("/app/home", { replace: true });
+      return;
     }
+
+    setIsLoading(false);
+    navigate("/app/home", { replace: true });
   };
 
   const handleGoogleAuth = async () => {

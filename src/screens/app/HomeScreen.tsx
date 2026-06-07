@@ -1,6 +1,6 @@
 // Client home screen: greeting, KPI stats, active posts list, and recent activity feed.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   MapPin,
@@ -20,6 +20,9 @@ import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPopover from "../../components/popover/notificationspopover/NotificationsPopover";
+import IconTooltip from "../../components/tooltip/IconTooltip";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../router/routes";
 
 const useTheme = () => {
   const [theme] = useState<ThemeMode>(() =>
@@ -89,7 +92,7 @@ const POSTS: Post[] = [
     accentColor: "#FFB200",
   },
   {
-    id: "3",
+    id: "4",
     title: "Children's Party",
     location: "El Refugio, Tijuana",
     postedAgo: "5d ago",
@@ -100,7 +103,7 @@ const POSTS: Post[] = [
     accentColor: "#FFB200",
   },
   {
-    id: "3",
+    id: "5",
     title: "Children's Party",
     location: "El Refugio, Tijuana",
     postedAgo: "5d ago",
@@ -473,7 +476,16 @@ const ActivityDot = ({
 const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [postHovered, setPostHovered] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 600 : false,
+  );
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 600);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const { t } = useI18n();
   const h = t("homescreen");
@@ -645,32 +657,45 @@ const HomeScreen: React.FC = () => {
           >
             <NotificationsPopover isDark={isDark} />
 
-            <button
-              onMouseEnter={() => setPostHovered(true)}
-              onMouseLeave={() => setPostHovered(false)}
-              className="post-btn"
-              style={{
-                height: 44,
-                borderRadius: 12,
-                border: "none",
-                background: postHovered ? "#26a8b8" : "#2EBCCC",
-                color: "#FFFFFF",
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "0 18px",
-                fontSize: "0.875rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                transition: "background 0.2s",
-                fontFamily: "inherit",
-                flexShrink: 0,
-                whiteSpace: "nowrap",
-              }}
+            <IconTooltip
+              label={h.tooltips.postService}
+              isDark={isDark}
+              disabled={!isMobile}
             >
-              <Plus size={17} strokeWidth={2.5} className="post-btn-icon" />
-              <span className="post-btn-label">Post a Service</span>
-            </button>
+              {({ ref, onMouseEnter, onMouseLeave }, hovered) => (
+                <button
+                  ref={ref}
+                  onClick={() => navigate(ROUTES.APP.NEW_SERVICE)}
+                  onMouseEnter={onMouseEnter}
+                  onMouseLeave={onMouseLeave}
+                  className="post-btn"
+                  style={{
+                    height: 44,
+                    borderRadius: 12,
+                    border: "none",
+                    background: hovered ? "#239aaa" : "#2EBCCC",
+                    color: "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "0 18px",
+                    fontSize: "0.875rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "background 0.2s, box-shadow 0.2s",
+                    boxShadow: hovered
+                      ? "0 4px 14px rgba(46,188,204,0.45)"
+                      : "none",
+                    fontFamily: "inherit",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Plus size={17} strokeWidth={2.5} className="post-btn-icon" />
+                  <span className="post-btn-label">{h.tooltips.postService}</span>
+                </button>
+              )}
+            </IconTooltip>
           </div>
         </div>
 
