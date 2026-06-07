@@ -55,7 +55,7 @@ const LogoutModal: React.FC<Props> = ({ isOpen, isDark, onClose, onConfirm }) =>
             : "0 8px 32px rgba(27,36,76,0.12)",
           animation: closing
             ? "none"
-            : "scale-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+            : "scale-in 0.28s cubic-bezier(0.23, 1, 0.32, 1) both",
           transform: closing ? "scale(0.93)" : "none",
           opacity: closing ? 0 : 1,
           transition: "transform 0.2s ease, opacity 0.2s ease",
@@ -101,10 +101,11 @@ const LogoutModal: React.FC<Props> = ({ isOpen, isDark, onClose, onConfirm }) =>
           <div className="flex gap-3 w-full">
             <button
               onClick={onClose}
-              className="flex-1 py-[10px] rounded-[10px] border-none text-sm font-semibold cursor-pointer transition-all duration-200"
+              className="flex-1 py-[10px] rounded-[10px] border-none text-sm font-semibold cursor-pointer"
               style={{
                 background: isDark ? "#273570" : "#F3F4F6",
-                //color: isDark ? "#EFEFEF" : "#1B244C",
+                color: isDark ? "#EFEFEF" : "#1B244C",
+                transition: "background 200ms ease, transform 160ms ease-out",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = isDark
@@ -114,15 +115,22 @@ const LogoutModal: React.FC<Props> = ({ isOpen, isDark, onClose, onConfirm }) =>
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = isDark ? "#273570" : "#F3F4F6";
               }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.97)";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+              }}
             >
               {labels.cancel}
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 py-[10px] rounded-[10px] border-none text-sm font-semibold cursor-pointer transition-all duration-200"
+              className="flex-1 py-[10px] rounded-[10px] border-none text-sm font-semibold cursor-pointer"
               style={{
                 background: "#FF0000",
                 color: "#FFFFFF",
+                transition: "background 200ms ease, transform 160ms ease-out",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = isDark
@@ -131,6 +139,12 @@ const LogoutModal: React.FC<Props> = ({ isOpen, isDark, onClose, onConfirm }) =>
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "#FF0000";
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.97)";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
               }}
             >
               {labels.confirm}
