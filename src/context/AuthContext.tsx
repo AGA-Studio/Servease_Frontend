@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email: session.user.email ?? "",
         firstName: userProfile.nombre,
         lastnameP: userProfile.apellido_paterno,
-        lastnameM: userProfile.apellido_materno,
+        lastnameM: userProfile.apellido_materno ?? undefined,
         role: userProfile.rol,
       });
     } else {
@@ -75,15 +75,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) loadProfile(session);
-      else setIsLoading(false);
+      if (session) {
+        loadProfile(session).finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        loadProfile(session).then(() => setIsLoading(false));
+        loadProfile(session).finally(() => setIsLoading(false));
       } else {
         setUser(null);
         setProfile(null);
@@ -96,13 +99,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = useCallback(
     async (email: string, password: string): Promise<string | null> => {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      if (data?.session) {
+        await loadProfile(data.session);
+      }
+
       return error ? error.message : null;
     },
-    [],
+    [loadProfile],
   );
 
   const loginWithGoogle = useCallback(async () => {

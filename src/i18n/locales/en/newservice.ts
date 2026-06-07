@@ -1,0 +1,70 @@
+// i18n translations (English) for the New Service / Create Post form screen
+
+export const newservice = {
+  title: "Create New Service Publication",
+  subtitle:
+    "Fill in the details below to find the perfect professional for your needs.",
+  steps: {
+    step1: "Basic Info",
+    step2: "Details",
+    step3: "Photos",
+  },
+  basicInfo: {
+    sectionTitle: "Basic Information",
+    titleLabel: "What help do you need?",
+    titlePlaceholder: "e.g. Emergency Locksmith required for front door",
+    categoryLabel: "Service Category",
+    categoryPlaceholder: "Select Category",
+    descriptionLabel: "Detailed Description",
+    descriptionPlaceholder:
+      "Describe the problem in detail. Include specific requirements, brand names of appliances if relevant, or access instructions.",
+    descriptionLimit: "characters",
+  },
+  details: {
+    sectionTitle: "Details",
+    locationPlaceholder: "Address or City",
+    datePlaceholder: "Scheduled Date & Time",
+    budgetPlaceholder: "0.00",
+    currency: "MXN",
+    changeLocation: "Change Location",
+  },
+  photos: {
+    sectionTitle: "Photos",
+    uploadLabel: "Click to upload",
+    uploadHint: "SVG, PNG, JPG, or GIF (MAX. 800×400px)",
+    uploadTitle: "Drag and drop or",
+    uploadButton: "Upload File",
+    uploadSubtitle: "or drag and drop your files here",
+    uploading: "Uploading...",
+    cancel: "Cancel",
+    maxFiles: "Max 6 files",
+    errorType: "Invalid file type",
+    errorSize: "File exceeds 5MB",
+    addMoreHint: "Drag & drop or click to add more photos (max 6)",
+  },
+  actions: {
+    postService: "Post Service",
+    cancel: "Clear Form",
+    next: "Next",
+    back: "Back",
+    reviewPost: "Review Post",
+  },
+  categories: [
+    "Plumbing",
+    "Electricity",
+    "Locksmith",
+    "Cleaning",
+    "Painting",
+    "Carpentry",
+    "Air Conditioning",
+    "Pest Control",
+    "Moving",
+    "Other",
+  ],
+  validation: {
+    titleRequired: "Please enter a title for your request.",
+    categoryRequired: "Please select a service category.",
+    descriptionRequired: "Please add a description.",
+    locationRequired: "Please enter a location.",
+  },
+};

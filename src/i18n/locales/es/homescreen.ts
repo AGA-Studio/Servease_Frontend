@@ -29,4 +29,8 @@ export const homescreen = {
     viewAll: "Ver todas las notificaciones",
     empty: "Sin nuevas notificaciones",
   },
+  tooltips: {
+    notifications: "Notificaciones",
+    postService: "Publicar Servicio",
+  },
 };
