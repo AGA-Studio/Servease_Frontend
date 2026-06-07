@@ -49,7 +49,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
 
   const items = [
     {
-      label: "Profile",
+      label: sidebar.userMenu.profile,
       icon: <User size={15} />,
       action: () => {
         setOpen(false);
@@ -57,7 +57,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       },
     },
     {
-      label: "Settings",
+      label: sidebar.userMenu.settings,
       icon: <Settings size={15} />,
       action: () => {
         setOpen(false);
@@ -65,7 +65,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       },
     },
     {
-      label: "Logout",
+      label: sidebar.userMenu.logout,
       icon: <LogOut size={15} />,
       action: handleLogout,
       danger: true,

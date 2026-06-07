@@ -7,4 +7,9 @@ export const sidebar = {
   myJobs: "My Jobs",
   clientAccount: "Client Account",
   providerAccount: "Provider Account",
+  userMenu: {
+    profile: "Profile",
+    settings: "Settings",
+    logout: "Logout",
+  },
 };

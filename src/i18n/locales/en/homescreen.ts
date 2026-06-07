@@ -29,4 +29,8 @@ export const homescreen = {
     viewAll: "View all notifications",
     empty: "No new notifications",
   },
+  tooltips: {
+    notifications: "Notifications",
+    postService: "Post a Service",
+  },
 };
