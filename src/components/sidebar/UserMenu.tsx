@@ -176,9 +176,16 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
             onClick={item.action}
             onMouseEnter={() => setActiveIndex(i)}
             onMouseLeave={() => setActiveIndex(null)}
-            className="w-full flex items-center gap-[10px] px-3 py-[9px] rounded-[9px] border-none text-[0.82rem] font-semibold cursor-pointer transition-colors duration-150 text-left"
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = "scale(0.97)";
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+            className="w-full flex items-center gap-[10px] px-3 py-[9px] rounded-[9px] border-none text-[0.82rem] font-semibold cursor-pointer text-left"
             style={{
               fontFamily: "inherit",
+              transition: "background 150ms ease, color 150ms ease, transform 160ms ease-out",
               background:
                 activeIndex === i
                   ? item.danger
