@@ -1,5 +1,7 @@
 export const settings = {
   title: "Settings",
+  badge: "Preferences",
+  subtitle: "Manage your account and preferences",
   tabs: {
     account: "Account",
     appearance: "Appearance",
