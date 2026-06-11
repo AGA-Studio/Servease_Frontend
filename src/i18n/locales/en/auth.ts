@@ -42,6 +42,10 @@ export const auth = {
     roleClient: "Client",
     roleProvider: "Provider",
     roleProviderUnavailable: "Not available",
+    acceptTerms: "I accept the ",
+    termsLink: "Terms & Conditions",
+    and: " and ",
+    privacyLink: "Privacy Policy",
   },
   sidebar: {
     tagline: "The most",
@@ -61,6 +65,7 @@ export const auth = {
     passwordMin: "At least 6 characters.",
     firstNameRequired: "First name is required.",
     lastNamePRequired: "Last name is required.",
+    termsRequired: "You must accept the terms to continue.",
   },
   devModal: {
     title: "Platform Under Development",
@@ -71,5 +76,11 @@ export const auth = {
   },
   toast: {
     forgotPassword: "We'll send a recovery link to your email.",
+  },
+  logoutModal: {
+    title: "Log out",
+    message: "Are you sure you want to log out?",
+    cancel: "Cancel",
+    confirm: "Log out",
   },
 };

@@ -6,6 +6,7 @@ import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
 import { useI18n } from "../../i18n";
+import LogoutModal from "./LogoutModal";
 
 interface Props {
   isCollapsed: boolean;
@@ -19,6 +20,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const { t } = useI18n();
@@ -41,15 +43,20 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
     setOpen(false);
-    logout();
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutModal(false);
+    await logout();
     navigate(ROUTES.AUTH, { replace: true });
   };
 
   const items = [
     {
-      label: sidebar.userMenu.profile,
+      label: sidebar.userMenu?.profile || "Profile",
       icon: <User size={15} />,
       action: () => {
         setOpen(false);
@@ -57,7 +64,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       },
     },
     {
-      label: sidebar.userMenu.settings,
+      label: sidebar.userMenu?.settings || "Settings",
       icon: <Settings size={15} />,
       action: () => {
         setOpen(false);
@@ -65,9 +72,9 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       },
     },
     {
-      label: sidebar.userMenu.logout,
+      label: sidebar.userMenu?.logout || "Logout",
       icon: <LogOut size={15} />,
-      action: handleLogout,
+      action: handleLogoutClick,
       danger: true,
     },
   ];
@@ -129,7 +136,7 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
                 className="m-0 font-bold text-[0.82rem] whitespace-nowrap overflow-hidden text-ellipsis"
                 style={{ color: isDark ? "#FFFFFF" : "#1B244C" }}
               >
-                {user?.firstName} {(user as any)?.lastnameP ?? ""}
+                {user?.firstName} {(user as any)?.lastnameP ?? (user as any)?.lastName ?? ""}
               </p>
               <p className="m-0 text-[0.7rem] text-[#989898] whitespace-nowrap">
                 {roleLabel}
@@ -169,9 +176,16 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
             onClick={item.action}
             onMouseEnter={() => setActiveIndex(i)}
             onMouseLeave={() => setActiveIndex(null)}
-            className="w-full flex items-center gap-[10px] px-3 py-[9px] rounded-[9px] border-none text-[0.82rem] font-semibold cursor-pointer transition-colors duration-150 text-left"
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = "scale(0.97)";
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+            className="w-full flex items-center gap-[10px] px-3 py-[9px] rounded-[9px] border-none text-[0.82rem] font-semibold cursor-pointer text-left"
             style={{
               fontFamily: "inherit",
+              transition: "background 150ms ease, color 150ms ease, transform 160ms ease-out",
               background:
                 activeIndex === i
                   ? item.danger
@@ -190,6 +204,13 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
           </button>
         ))}
       </div>
+
+      <LogoutModal
+        isOpen={showLogoutModal}
+        isDark={isDark}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogoutConfirm}
+      />
     </div>
   );
 };
