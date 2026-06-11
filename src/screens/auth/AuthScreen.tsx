@@ -501,7 +501,7 @@ const AuthScreen: React.FC = () => {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => window.open(ROUTES.TERMS, "_blank")}
+                    onClick={() => navigate(ROUTES.TERMS)}
                     className="text-[#2EBCCC] text-[0.78rem] font-bold underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer p-0 hover:text-white transition-colors duration-200"
                   >
                     {auth.sidebar.terms}
@@ -509,7 +509,7 @@ const AuthScreen: React.FC = () => {
                   <span className="text-white/20 text-[0.78rem]">·</span>
                   <button
                     type="button"
-                    onClick={() => window.open(ROUTES.PRIVACY, "_blank")}
+                    onClick={() => navigate(ROUTES.PRIVACY)}
                     className="text-[#2EBCCC] text-[0.78rem] font-bold underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer p-0 hover:text-white transition-colors duration-200"
                   >
                     {auth.sidebar.privacy}
@@ -832,7 +832,7 @@ const AuthScreen: React.FC = () => {
                             {auth.signup.acceptTerms}
                             <button
                               type="button"
-                              onClick={() => window.open(ROUTES.TERMS, "_blank")}
+                              onClick={() => navigate(ROUTES.TERMS)}
                               className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
                             >
                               {auth.signup.termsLink}
@@ -840,7 +840,7 @@ const AuthScreen: React.FC = () => {
                             {auth.signup.and}
                             <button
                               type="button"
-                              onClick={() => window.open(ROUTES.PRIVACY, "_blank")}
+                              onClick={() => navigate(ROUTES.PRIVACY)}
                               className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
                             >
                               {auth.signup.privacyLink}
