@@ -139,26 +139,58 @@ const SettingsScreen: React.FC = () => {
         className="sticky top-0 z-20"
         style={{
           background: isDark
-            ? "rgba(10, 15, 42, 0.85)"
-            : "rgba(246, 248, 248, 0.85)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+            ? "rgba(10, 15, 42, 0.88)"
+            : "rgba(246, 248, 248, 0.88)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           borderBottom: `1px solid ${glassBorder}`,
         }}
       >
-        <div className="max-w-3xl mx-auto px-5 pt-5 pb-0">
-          <div className="mb-4">
-            <h1
-              className="text-xl font-bold tracking-tight"
-              style={{ color: textPrimary }}
+        <div className="max-w-3xl mx-auto px-5 pt-6 pb-5">
+          {/* Title row */}
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <div
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: "#2EBCCC" }}
+                />
+                <span
+                  className="text-[0.68rem] font-extrabold tracking-widest uppercase"
+                  style={{ color: "#2EBCCC" }}
+                >
+                  {s.badge}
+                </span>
+              </div>
+              <h1
+                className="text-[1.875rem] font-extrabold tracking-tight leading-tight"
+                style={{ color: textPrimary }}
+              >
+                {s.title}
+              </h1>
+              <p
+                className="text-sm mt-1 font-medium"
+                style={{ color: textSecondary }}
+              >
+                {user?.firstName
+                  ? `${user.firstName}${user.lastnameP ? ` ${user.lastnameP}` : ""} · ${user?.email ?? ""}`
+                  : s.subtitle}
+              </p>
+            </div>
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg shrink-0 mt-0.5"
+              style={{
+                background: "linear-gradient(135deg, #2EBCCC, #1B244C)",
+                boxShadow: "0 4px 20px rgba(46,188,204,0.25)",
+              }}
             >
-              {s.title}
-            </h1>
+              {user?.firstName?.[0]?.toUpperCase() ?? "U"}
+            </div>
           </div>
 
           {/* Segment control */}
           <div
-            className="flex p-1 rounded-2xl mb-0"
+            className="flex p-1 rounded-2xl"
             style={{
               background: isDark
                 ? "rgba(255,255,255,0.04)"
@@ -235,9 +267,9 @@ const SettingsScreen: React.FC = () => {
                         ? `${user.firstName} ${user.lastnameP ?? ""}`
                         : "User"}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-1">
                       <span
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold"
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold shrink-0"
                         style={{
                           background:
                             user?.role === "provider"
@@ -253,7 +285,7 @@ const SettingsScreen: React.FC = () => {
                           : s.account.roleClient}
                       </span>
                       <span
-                        className="text-[11px] font-medium"
+                        className="text-[11px] font-medium min-w-0 break-all"
                         style={{ color: textSecondary }}
                       >
                         {user?.email}
@@ -630,10 +662,10 @@ const SettingsScreen: React.FC = () => {
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
                 <div
-                  className="px-6 py-5 border-b flex items-center justify-between"
+                  className="px-4 py-4 sm:px-6 sm:py-5 border-b flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                   style={{ borderColor: glassBorder }}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{
@@ -658,7 +690,7 @@ const SettingsScreen: React.FC = () => {
                     </div>
                   </div>
                   <span
-                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ml-4"
+                    className="self-end sm:self-auto px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 sm:ml-4"
                     style={{
                       background: "rgba(255,178,0,0.1)",
                       color: "#FFB200",
@@ -669,10 +701,10 @@ const SettingsScreen: React.FC = () => {
                 </div>
 
                 <div
-                  className="px-6 py-5 border-b flex items-center justify-between"
+                  className="px-4 py-4 sm:px-6 sm:py-5 border-b flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                   style={{ borderColor: glassBorder }}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{
@@ -700,7 +732,7 @@ const SettingsScreen: React.FC = () => {
                     onMouseDown={press}
                     onMouseUp={release}
                     onMouseLeave={release}
-                    className="px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer shrink-0 ml-4"
+                    className="self-end sm:self-auto px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer shrink-0 sm:ml-4"
                     style={{
                       borderColor: glassBorder,
                       color: textPrimary,
@@ -712,8 +744,8 @@ const SettingsScreen: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="px-6 py-5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{
@@ -741,7 +773,7 @@ const SettingsScreen: React.FC = () => {
                     onMouseDown={press}
                     onMouseUp={release}
                     onMouseLeave={release}
-                    className="px-4 py-2 rounded-xl text-xs font-bold shrink-0 ml-4 cursor-pointer"
+                    className="self-end sm:self-auto px-4 py-2 rounded-xl text-xs font-bold shrink-0 sm:ml-4 cursor-pointer"
                     style={{
                       background: "rgba(255,0,0,0.08)",
                       color: "#FF0000",
