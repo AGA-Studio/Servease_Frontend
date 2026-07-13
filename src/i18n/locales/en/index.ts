@@ -4,4 +4,21 @@ import { sidebar } from "./sidebar";
 import { settings } from "./settings";
 import { homescreen } from "./homescreen";
 import { newservice } from "./newservice";
-export const en = { auth, common, sidebar, settings, homescreen, newservice };
+import { dashboardscreen } from "./dashboardscreen";
+import { jobfeedscreen } from "./jobfeedscreen";
+import { myjobsscreen } from "./myjobsscreen";
+import { postdetailsscreen } from "./postdetailsscreen";
+import { applyjobmodal } from "./applyjobmodal";
+export const en = {
+  auth,
+  common,
+  sidebar,
+  settings,
+  homescreen,
+  newservice,
+  dashboardscreen,
+  jobfeedscreen,
+  myjobsscreen,
+  postdetailsscreen,
+  applyjobmodal,
+};
