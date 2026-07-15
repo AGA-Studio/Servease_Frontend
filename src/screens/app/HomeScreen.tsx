@@ -793,6 +793,7 @@ const HomeScreen: React.FC = () => {
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background = "none")
                   }
+                  onClick={() => navigate(ROUTES.APP.MY_POST) }
                 >
                   {h.viewAll}
                 </button>

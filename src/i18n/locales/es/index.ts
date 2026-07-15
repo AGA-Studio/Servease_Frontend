@@ -4,4 +4,5 @@ import { sidebar } from "./sidebar";
 import { settings } from "./settings";
 import { homescreen } from "./homescreen";
 import { newservice } from "./newservice";
-export const es = { auth, common, sidebar, settings, homescreen, newservice };
+import { myposts } from "./myposts";
+export const es = { auth, common, sidebar, settings, homescreen, newservice, myposts };
