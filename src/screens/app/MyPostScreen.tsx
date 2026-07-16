@@ -6,8 +6,9 @@ import {
   DollarSign,
   Users,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FileText,
-  Loader2,
   X,
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "motion/react";
@@ -16,7 +17,8 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import type { ThemeMode } from "../../theme/theme";
-import { ROUTES } from "../../router/routes";
+import { ROUTES, buildPostOffersPath } from "../../router/routes";
+import { MOCK_POSTS, type MyPost, type PostStatus } from "../../data/mockPosts";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -39,98 +41,8 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   return { theme, isDark: theme === "dark" };
 };
 
-type PostStatus = "receiving" | "in_progress" | "completed";
-
-interface MyPost {
-  id: string;
-  title: string;
-  category: string;
-  status: PostStatus;
-  postedAgo: string;
-  budget: number;
-  currency: string;
-  applicantCount: number;
-  imageUrl?: string;
-}
-
-const PLACEHOLDER_IMAGE =
-  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80";
-
-const MOCK_POSTS: MyPost[] = [
-  {
-    id: "1",
-    title: "Emergency Locksmith Needed for Front Door",
-    category: "locksmith",
-    status: "receiving",
-    postedAgo: "2h",
-    budget: 780,
-    currency: "MXN",
-    applicantCount: 8,
-    imageUrl: PLACEHOLDER_IMAGE,
-  },
-  {
-    id: "2",
-    title: "Plumbing Repair — Kitchen Burst Pipe",
-    category: "plumbing",
-    status: "in_progress",
-    postedAgo: "1d",
-    budget: 1200,
-    currency: "MXN",
-    applicantCount: 5,
-    imageUrl:
-      "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&q=80",
-  },
-  {
-    id: "3",
-    title: "House Deep Cleaning Service",
-    category: "cleaning",
-    status: "completed",
-    postedAgo: "3d",
-    budget: 600,
-    currency: "MXN",
-    applicantCount: 12,
-    imageUrl:
-      "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=800&q=80",
-  },
-  {
-    id: "4",
-    title: "Electrical Panel Upgrade",
-    category: "electrical",
-    status: "receiving",
-    postedAgo: "5h",
-    budget: 2500,
-    currency: "MXN",
-    applicantCount: 3,
-    imageUrl:
-      "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&q=80",
-  },
-  {
-    id: "5",
-    title: "Interior Painting — 3 Rooms",
-    category: "painting",
-    status: "completed",
-    postedAgo: "1w",
-    budget: 3200,
-    currency: "MXN",
-    applicantCount: 7,
-    imageUrl:
-      "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=800&q=80",
-  },
-  {
-    id: "6",
-    title: "Garden Maintenance & Trimming",
-    category: "gardening",
-    status: "in_progress",
-    postedAgo: "2d",
-    budget: 450,
-    currency: "MXN",
-    applicantCount: 6,
-    imageUrl:
-      "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&q=80",
-  },
-];
-
 const PAGE_SIZE = 6;
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
 const CATEGORY_KEYS = [
   "locksmith",
@@ -411,7 +323,7 @@ const AnimatedCard = ({
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => navigate(ROUTES.APP.HOME)}
+          onClick={() => navigate(buildPostOffersPath(post.id), { state: { post } })}
           style={{
             width: "100%",
             padding: "10px 0",
@@ -605,6 +517,85 @@ const FilterDropdown = ({
   );
 };
 
+const getPageList = (page: number, totalPages: number): (number | "...")[] => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1]);
+  const sorted = Array.from(pages)
+    .filter((p) => p >= 1 && p <= totalPages)
+    .sort((a, b) => a - b);
+
+  const result: (number | "...")[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push("...");
+    result.push(p);
+  });
+  return result;
+};
+
+const Pagination = ({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (p: number) => void;
+}) => {
+  const { t } = useI18n();
+  const mp = t("myposts");
+  const pages = getPageList(page, totalPages);
+
+  return (
+    <nav className="mp-pagination" aria-label="Pagination">
+      <button
+        className="mp-page-arrow"
+        onClick={() => onChange(page - 1)}
+        disabled={page === 1}
+        aria-label={mp.pagination.previous}
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {pages.map((p, i) =>
+        p === "..." ? (
+          <span key={`ellipsis-${i}`} className="mp-page-ellipsis">
+            &hellip;
+          </span>
+        ) : (
+          <button
+            key={p}
+            className="mp-page-num"
+            data-active={p === page}
+            onClick={() => onChange(p)}
+            aria-label={`${mp.pagination.goToPage} ${p}`}
+            aria-current={p === page ? "page" : undefined}
+          >
+            {p === page && (
+              <motion.span
+                layoutId="mp-page-active-bg"
+                className="mp-page-active-bg"
+                transition={{ type: "spring", duration: 0.45, bounce: 0.18 }}
+              />
+            )}
+            <span className="mp-page-num-label">{p}</span>
+          </button>
+        )
+      )}
+
+      <button
+        className="mp-page-arrow"
+        onClick={() => onChange(page + 1)}
+        disabled={page === totalPages}
+        aria-label={mp.pagination.next}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </nav>
+  );
+};
+
 const EmptyState = ({
   hasFilters,
   isDark,
@@ -729,7 +720,6 @@ const MyPostScreen: React.FC = () => {
 
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [posts, setPosts] = useState<MyPost[]>([]);
 
   useEffect(() => {
@@ -756,17 +746,23 @@ const MyPostScreen: React.FC = () => {
     return matchSearch && matchStatus && matchCategory;
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(0, page * PAGE_SIZE);
-  const hasMore = page * PAGE_SIZE < filtered.length;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
 
-  const handleLoadMore = useCallback(() => {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setPage((p) => p + 1);
-      setIsLoadingMore(false);
-    }, 600);
-  }, []);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handlePageChange = useCallback(
+    (p: number) => {
+      if (p < 1 || p > totalPages || p === safePage) return;
+      setPage(p);
+      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [totalPages, safePage]
+  );
 
   const clearFilters = () => {
     setSearch("");
@@ -821,6 +817,16 @@ const MyPostScreen: React.FC = () => {
           overflow-y: auto;
           padding: 28px;
           background: var(--main-bg);
+        }
+        .mp-pagination-bar {
+          padding: 12px 28px;
+          border-top: 1px solid var(--divider);
+          background: var(--sidebar-bg);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-shrink: 0;
         }
         .mp-filters {
           display: flex;
@@ -895,29 +901,87 @@ const MyPostScreen: React.FC = () => {
           background-size: 800px 100%;
           animation: mp-shimmer 1.4s infinite linear;
         }
-        .mp-load-more-btn {
+        .mp-pagination {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 11px 28px;
-          border-radius: 10px;
+          gap: 4px;
+        }
+        .mp-page-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
           border: 1.5px solid ${isDark ? "#273570" : "#e5e7eb"};
           background: transparent;
           color: var(--text);
-          font-size: 0.875rem;
-          font-weight: 600;
           cursor: pointer;
-          font-family: inherit;
-          transition: border-color 0.18s, color 0.18s, background 0.18s;
+          transition: transform 120ms ${EASE_OUT}, border-color 160ms ease, color 160ms ease, background 160ms ease;
         }
-        .mp-load-more-btn:hover {
-          border-color: #2EBCCC;
-          color: #2EBCCC;
-          background: ${isDark ? "rgba(46,188,204,0.07)" : "rgba(46,188,204,0.05)"};
+        @media (hover: hover) and (pointer: fine) {
+          .mp-page-arrow:not(:disabled):hover {
+            border-color: #2EBCCC;
+            color: #2EBCCC;
+            background: ${isDark ? "rgba(46,188,204,0.07)" : "rgba(46,188,204,0.05)"};
+          }
         }
-        .mp-load-more-btn:disabled {
-          opacity: 0.6;
+        .mp-page-arrow:active:not(:disabled) {
+          transform: scale(0.93);
+        }
+        .mp-page-arrow:disabled {
+          opacity: 0.4;
           cursor: not-allowed;
+        }
+        .mp-page-num {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 34px;
+          height: 34px;
+          padding: 0 4px;
+          border-radius: 9px;
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: color 160ms ease, transform 120ms ${EASE_OUT};
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .mp-page-num:not([data-active="true"]):hover {
+            color: #2EBCCC;
+          }
+        }
+        .mp-page-num:active {
+          transform: scale(0.93);
+        }
+        .mp-page-num[data-active="true"] {
+          color: #ffffff;
+        }
+        .mp-page-num-label {
+          position: relative;
+          z-index: 1;
+        }
+        .mp-page-active-bg {
+          position: absolute;
+          inset: 0;
+          border-radius: 9px;
+          background: #2EBCCC;
+          box-shadow: 0 3px 10px rgba(46,188,204,0.35);
+        }
+        .mp-page-ellipsis {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 24px;
+          height: 34px;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          user-select: none;
         }
         @media (max-width: 600px) {
           .mp-topbar {
@@ -931,6 +995,16 @@ const MyPostScreen: React.FC = () => {
           }
           .mp-title-row h1 {
             font-size: 1.25rem !important;
+          }
+          .mp-pagination-bar {
+            padding: 10px 16px;
+            flex-direction: column;
+            gap: 8px;
+          }
+        }
+        @media (max-width: 767px) {
+          .mp-post-btn {
+            display: none !important;
           }
         }
         @media (max-width: 480px) {
@@ -978,6 +1052,7 @@ const MyPostScreen: React.FC = () => {
           </div>
 
           <motion.button
+            className="mp-post-btn"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate(ROUTES.APP.NEW_SERVICE)}
@@ -1014,7 +1089,7 @@ const MyPostScreen: React.FC = () => {
           </motion.button>
         </div>
 
-        <div className="mp-content">
+        <div className="mp-content" ref={contentRef}>
           <div className="mp-filters">
             <div className="mp-search-wrap">
               <span className="mp-search-icon">
@@ -1075,82 +1150,48 @@ const MyPostScreen: React.FC = () => {
             />
           ) : (
             <>
-              <div className="mp-grid">
-                <AnimatePresence>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={safePage}
+                  className="mp-grid"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                >
                   {paginated.map((post, i) => (
                     <AnimatedCard
                       key={post.id}
                       post={post}
-                      index={i % PAGE_SIZE}
+                      index={i}
                       isDark={isDark}
                     />
                   ))}
-                </AnimatePresence>
-              </div>
-
-              {filtered.length > PAGE_SIZE && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 10,
-                    marginTop: 28,
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "var(--text-secondary)",
-                      margin: 0,
-                    }}
-                  >
-                    {mp.pagination.page} {Math.min(page, totalPages)}{" "}
-                    {mp.pagination.of} {totalPages}
-                  </p>
-
-                  {hasMore ? (
-                    <button
-                      className="mp-load-more-btn"
-                      onClick={handleLoadMore}
-                      disabled={isLoadingMore}
-                    >
-                      {isLoadingMore ? (
-                        <>
-                          <Loader2
-                            size={15}
-                            style={{
-                              animation: "spin 0.8s linear infinite",
-                            }}
-                          />
-                          {mp.pagination.loading}
-                        </>
-                      ) : (
-                        mp.pagination.loadMore
-                      )}
-                    </button>
-                  ) : (
-                    <p
-                      style={{
-                        fontSize: "0.82rem",
-                        color: "var(--text-secondary)",
-                        margin: 0,
-                        padding: "10px 0",
-                      }}
-                    >
-                      {mp.pagination.noMore}
-                    </p>
-                  )}
-                </div>
-              )}
+                </motion.div>
+              </AnimatePresence>
             </>
           )}
         </div>
-      </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+        {!isLoading && totalPages > 1 && (
+          <div className="mp-pagination-bar">
+            <p
+              style={{
+                fontSize: "0.78rem",
+                color: "var(--text-secondary)",
+                margin: 0,
+              }}
+            >
+              {mp.pagination.page} {safePage} {mp.pagination.of} {totalPages}
+            </p>
+            <Pagination
+              page={safePage}
+              totalPages={totalPages}
+              onChange={handlePageChange}
+            />
+          </div>
+        )}
+      </div>
     </>
   );
 };

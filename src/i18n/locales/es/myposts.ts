@@ -26,6 +26,9 @@ export const myposts = {
     noMore: "Has visto todas tus publicaciones",
     page: "Página",
     of: "de",
+    previous: "Página anterior",
+    next: "Página siguiente",
+    goToPage: "Ir a la página",
   },
   empty: {
     title: "Sin publicaciones aún",
