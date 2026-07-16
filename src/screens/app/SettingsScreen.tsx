@@ -127,7 +127,7 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen page-enter"
       style={{
         background: isDark
           ? "linear-gradient(160deg, #0a0f2a 0%, #1B244C 50%, #0f1a3e 100%)"

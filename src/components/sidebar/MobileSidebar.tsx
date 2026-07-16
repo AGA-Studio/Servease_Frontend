@@ -61,6 +61,7 @@ const MobileSidebar: React.FC<Props> = ({ isOpen, onClose, isDark }) => {
             onNavClick={onClose}
             onToggle={() => {}}
             onExpand={() => {}}
+            showCollapseToggle={false}
           />
         </div>
       </aside>

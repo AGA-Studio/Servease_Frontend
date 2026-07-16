@@ -5,4 +5,6 @@ import { settings } from "./settings";
 import { homescreen } from "./homescreen";
 import { newservice } from "./newservice";
 import { myposts } from "./myposts";
-export const es = { auth, common, sidebar, settings, homescreen, newservice, myposts };
+import { profile } from "./profile";
+import { postoffers } from "./postoffers";
+export const es = { auth, common, sidebar, settings, homescreen, newservice, myposts, profile, postoffers };
