@@ -13,6 +13,7 @@ import AppLayout from "../layouts/AppLayout";
 
 import HomeScreen from "../screens/app/HomeScreen";
 import MyPostScreen from "../screens/app/MyPostScreen";
+import PostOffersScreen from "../screens/app/PostOffersScreen";
 import NewServiceScreen from "../screens/app/NewServiceScreen";
 import MessagesScreen from "../screens/app/MessagesScreen";
 import JobFeedScreen from "../screens/app/JobFeedScreen";
@@ -47,6 +48,7 @@ const AppRouter: React.FC = () => (
         <Route index element={<Navigate to={ROUTES.APP.HOME} replace />} />
         <Route path="home" element={<HomeScreen />} />
         <Route path="my-post" element={<MyPostScreen />} />
+        <Route path="my-post/:postId" element={<PostOffersScreen />} />
         <Route path="new-service" element={<NewServiceScreen />} />
         <Route path="messages" element={<MessagesScreen />} />
         <Route path="profile" element={<ProfileScreen />} />

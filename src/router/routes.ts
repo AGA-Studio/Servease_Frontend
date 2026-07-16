@@ -13,9 +13,14 @@ export const ROUTES = {
     MY_JOBS: "/app/my-jobs",
     PROFILE: "/app/profile",
     SETTINGS: "/app/settings",
+    POST_OFFERS: "/app/my-post/:postId",
   },
   ADMIN: {
     DASHBOARD: "/admin/dashboard",
   },
 } as const;
+
+// Builds a concrete path to the post-offers screen for a given post id.
+export const buildPostOffersPath = (postId: string): string =>
+  `/app/my-post/${postId}`;
   
