@@ -26,6 +26,9 @@ export const myposts = {
     noMore: "You've seen all your posts",
     page: "Page",
     of: "of",
+    previous: "Previous page",
+    next: "Next page",
+    goToPage: "Go to page",
   },
   empty: {
     title: "No posts yet",
