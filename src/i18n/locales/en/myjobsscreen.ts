@@ -5,6 +5,7 @@ export const myjobsscreen = {
   filters: {
     allStatuses: "All Statuses",
     category: "Category",
+    allCategories: "All Categories",
   },
   card: {
     posted: "Posted",
@@ -16,7 +17,33 @@ export const myjobsscreen = {
     pending: "Pending Proposal",
   },
   actions: {
-    viewMessages: "View Messages",
-    viewApplicants: "View Applicants",
+    viewDetails: "View Details",
+  },
+  pagination: {
+    page: "Page",
+    of: "of",
+    previous: "Previous page",
+    next: "Next page",
+    goToPage: "Go to page",
+  },
+  empty: {
+    title: "No jobs yet",
+    subtitle: "Apply to jobs from the Job Feed to see them here.",
+    noResults: "No jobs match your filters.",
+    clearFilters: "Clear filters",
+  },
+  errors: {
+    fetchFailed: "Failed to load jobs. Please try again.",
+  },
+  categories: {
+    locksmith: "Locksmith",
+    plumbing: "Plumbing",
+    electrical: "Electrical",
+    cleaning: "Cleaning",
+    painting: "Painting",
+    carpentry: "Carpentry",
+    moving: "Moving",
+    gardening: "Gardening",
+    other: "Other",
   },
 };

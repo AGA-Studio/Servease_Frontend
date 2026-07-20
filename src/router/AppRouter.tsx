@@ -15,6 +15,7 @@ import HomeScreen from "../screens/app/HomeScreen";
 import DashboardScreen from "../screens/app/DashboardScreen";
 import MyPostScreen from "../screens/app/MyPostScreen";
 import PostOffersScreen from "../screens/app/PostOffersScreen";
+import PostDetailsScreen from "../screens/app/PostDetailsScreen";
 import NewServiceScreen from "../screens/app/NewServiceScreen";
 import MessagesScreen from "../screens/app/MessagesScreen";
 import JobFeedScreen from "../screens/app/JobFeedScreen";
@@ -65,22 +66,9 @@ const AppRouter: React.FC = () => (
             </RoleRoute>
           }
         />
-        <Route
-          path="my-post"
-          element={
-            <RoleRoute allowedRoles={["provider"]}>
-              <MyPostScreen />
-            </RoleRoute>
-          }
-        />
-        <Route
-          path="my-post/:postId"
-          element={
-            <RoleRoute allowedRoles={["provider"]}>
-              <PostOffersScreen />
-            </RoleRoute>
-          }
-        />
+        <Route path="my-post" element={<MyPostScreen />} />
+        <Route path="my-post/:postId" element={<PostOffersScreen />} />
+        <Route path="my-post/:postId/details" element={<PostDetailsScreen />} />
         <Route path="new-service" element={<NewServiceScreen />} />
         <Route path="messages" element={<MessagesScreen />} />
         <Route path="profile" element={<ProfileScreen />} />

@@ -30,7 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
     key: "dashboard",
     icon: React.createElement(LayoutDashboard, { size: 19 }),
     to: ROUTES.APP.DASHBOARD,
-    providerOnly: true,
+    group: "provider",
   },
   {
     key: "myPost",
