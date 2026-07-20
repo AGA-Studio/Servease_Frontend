@@ -12,8 +12,10 @@ import PrivacyScreen from "../screens/legal/PrivacyScreen";
 import AppLayout from "../layouts/AppLayout";
 
 import HomeScreen from "../screens/app/HomeScreen";
+import DashboardScreen from "../screens/app/DashboardScreen";
 import MyPostScreen from "../screens/app/MyPostScreen";
 import PostOffersScreen from "../screens/app/PostOffersScreen";
+import PostDetailsScreen from "../screens/app/PostDetailsScreen";
 import NewServiceScreen from "../screens/app/NewServiceScreen";
 import MessagesScreen from "../screens/app/MessagesScreen";
 import JobFeedScreen from "../screens/app/JobFeedScreen";
@@ -21,12 +23,21 @@ import MyJobsScreen from "../screens/app/MyJobsScreen";
 import ProfileScreen from "../screens/app/ProfileScreen";
 import SettingsScreen from "../screens/app/SettingsScreen";
 
+const getDefaultAppRoute = (role?: string) => {
+  if (role === "provider" || role === "admin") return ROUTES.APP.DASHBOARD;
+  return ROUTES.APP.HOME;
+};
+
 const RootRedirect: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   if (isLoading) return null;
-  return (
-    <Navigate to={isAuthenticated ? ROUTES.APP.HOME : ROUTES.AUTH} replace />
-  );
+  if (!isAuthenticated) return <Navigate to={ROUTES.AUTH} replace />;
+  return <Navigate to={getDefaultAppRoute(user?.role)} replace />;
+};
+
+const AppIndexRedirect: React.FC = () => {
+  const { user } = useAuth();
+  return <Navigate to={getDefaultAppRoute(user?.role)} replace />;
 };
 
 const AppRouter: React.FC = () => (
@@ -45,10 +56,19 @@ const AppRouter: React.FC = () => (
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to={ROUTES.APP.HOME} replace />} />
+        <Route index element={<AppIndexRedirect />} />
         <Route path="home" element={<HomeScreen />} />
+        <Route
+          path="dashboard"
+          element={
+            <RoleRoute allowedRoles={["provider"]}>
+              <DashboardScreen />
+            </RoleRoute>
+          }
+        />
         <Route path="my-post" element={<MyPostScreen />} />
         <Route path="my-post/:postId" element={<PostOffersScreen />} />
+        <Route path="my-post/:postId/details" element={<PostDetailsScreen />} />
         <Route path="new-service" element={<NewServiceScreen />} />
         <Route path="messages" element={<MessagesScreen />} />
         <Route path="profile" element={<ProfileScreen />} />

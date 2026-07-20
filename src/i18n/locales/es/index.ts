@@ -7,4 +7,24 @@ import { newservice } from "./newservice";
 import { myposts } from "./myposts";
 import { profile } from "./profile";
 import { postoffers } from "./postoffers";
-export const es = { auth, common, sidebar, settings, homescreen, newservice, myposts, profile, postoffers };
+import { dashboardscreen } from "./dashboardscreen";
+import { jobfeedscreen } from "./jobfeedscreen";
+import { myjobsscreen } from "./myjobsscreen";
+import { postdetailsscreen } from "./postdetailsscreen";
+import { applyjobmodal } from "./applyjobmodal";
+export const es = {
+  auth,
+  common,
+  sidebar,
+  settings,
+  homescreen,
+  newservice,
+  myposts,
+  profile,
+  postoffers,
+  dashboardscreen,
+  jobfeedscreen,
+  myjobsscreen,
+  postdetailsscreen,
+  applyjobmodal,
+};

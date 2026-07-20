@@ -1,6 +1,7 @@
 // Desktop sidebar with collapsible state, hamburger toggle on logo hover, click-outside to close, and persistent collapse preference via localStorage.
 
 import { useState, useEffect, useRef } from "react";
+import { LayoutGroup } from "motion/react";
 import SidebarContent from "./SidebarContent";
 
 interface Props {
@@ -43,13 +44,15 @@ const Sidebar: React.FC<Props> = ({ isDark }) => {
       }}
     >
       <div className="flex-1 overflow-x-visible pt-6">
-        <SidebarContent
-          isCollapsed={collapsed}
-          isDark={isDark}
-          onNavClick={() => {}}
-          onToggle={() => setCollapsed((c) => !c)}
-          onExpand={() => setCollapsed(false)}
-        />
+        <LayoutGroup id="desktop-sidebar">
+          <SidebarContent
+            isCollapsed={collapsed}
+            isDark={isDark}
+            onNavClick={() => {}}
+            onToggle={() => setCollapsed((c) => !c)}
+            onExpand={() => setCollapsed(false)}
+          />
+        </LayoutGroup>
       </div>
     </aside>
   );
