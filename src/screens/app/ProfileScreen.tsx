@@ -4,7 +4,12 @@ import ProviderProfileScreen from "./ProviderProfileScreen";
 
 const ProfileScreen: React.FC = () => {
   const { user } = useAuth();
-  if (user?.role === "provider") return <ProviderProfileScreen />;
+  const role = user?.role;
+
+  if (role === "provider" || role === "admin") {
+    return <ProviderProfileScreen />;
+  }
+
   return <ClientProfileScreen />;
 };
 

@@ -27,4 +27,36 @@ export const profile = {
       receiving: "Recibiendo Propuestas",
     },
   },
+  provider: {
+    editProfile: "Editar Perfil",
+    verifiedProvider: "Proveedor Verificado",
+    availability: "Disponibilidad",
+    availableForWork: "Disponible para trabajar",
+    currentlyUnavailable: "No disponible",
+    stats: {
+      completedJobs: "Trabajos Completados",
+      totalEarnings: "Ganancias Totales",
+      responseRate: "Tasa de Respuesta",
+      overallRating: "Calificación General",
+      seeAll: "Ver todas",
+    },
+    about: {
+      title: "Acerca de",
+      yearsExperience: "Años de experiencia",
+      languages: "Idiomas",
+      services: "Servicios",
+      hourlyRate: "Tarifa por hora",
+      memberSince: "Miembro Desde",
+    },
+    portfolio: {
+      title: "Portafolio",
+      viewAll: "Ver todas",
+      empty: "Aún no hay proyectos en el portafolio.",
+    },
+    reviews: {
+      title: "Reseñas",
+      viewAll: "Ver todas",
+      empty: "Aún no hay reseñas.",
+    },
+  },
 };
