@@ -1,15 +1,18 @@
 // Provider job post details: full job info, client card, map and apply action.
 
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   MapPin,
   Calendar,
   Clock,
   Star,
-  ChevronRight,
 } from "lucide-react";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
+import { ROUTES } from "../../router/routes";
+import { MOCK_POSTS } from "../../data/mockPosts";
+import Breadcrumbs from "../../components/Breadcrumbs";
 import ApplyJobModal, {
   type ApplyJobData,
 } from "../../components/applyjobmodal/ApplyJobModal";
@@ -147,6 +150,10 @@ const PostDetailsScreen: React.FC = () => {
   const isDark = theme === "dark";
   const { t } = useI18n();
   const d = t("postdetailsscreen");
+  const sb = t("sidebar");
+  const { postId } = useParams<{ postId: string }>();
+  const post = MOCK_POSTS.find((p) => p.id === postId);
+  const title = post?.title ?? JOB.title;
 
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [selectedThumb, setSelectedThumb] = useState(0);
@@ -205,22 +212,13 @@ const PostDetailsScreen: React.FC = () => {
             background: "var(--sidebar-bg)",
           }}
         >
-          <nav
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: "0.78rem",
-              color: "var(--text-secondary)",
-              marginBottom: 10,
-            }}
-          >
-            <span>{d.breadcrumb.jobFeed}</span>
-            <ChevronRight size={12} />
-            <span style={{ color: "var(--text)", fontWeight: 600 }}>
-              {d.breadcrumb.jobDetails}
-            </span>
-          </nav>
+          <Breadcrumbs
+            items={[
+              { label: sb.myPost, to: ROUTES.APP.MY_POST },
+              { label: title },
+            ]}
+            backTo={ROUTES.APP.MY_POST}
+          />
 
           <div
             style={{
@@ -240,7 +238,7 @@ const PostDetailsScreen: React.FC = () => {
                   color: "var(--text)",
                 }}
               >
-                {JOB.title}
+                {title}
               </h1>
               <div
                 style={{

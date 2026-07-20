@@ -17,7 +17,7 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import type { ThemeMode } from "../../theme/theme";
-import { ROUTES, buildPostOffersPath } from "../../router/routes";
+import { ROUTES, buildPostOffersPath, buildPostDetailsPath } from "../../router/routes";
 import { MOCK_POSTS, type MyPost, type PostStatus } from "../../data/mockPosts";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
@@ -320,36 +320,66 @@ const AnimatedCard = ({
           />
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => navigate(buildPostOffersPath(post.id), { state: { post } })}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            borderRadius: 10,
-            border: "none",
-            background: "#2EBCCC",
-            color: "#ffffff",
-            fontWeight: 700,
-            fontSize: "0.875rem",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            letterSpacing: "0.01em",
-            transition: "background 0.18s",
-            marginTop: "auto",
-          }}
-          onHoverStart={(e) => {
-            (e.target as HTMLButtonElement).style.background = "#239aaa";
-          }}
-          onHoverEnd={(e) => {
-            (e.target as HTMLButtonElement).style.background = "#2EBCCC";
-          }}
-        >
-          {post.status === "receiving"
-            ? mp.card.viewApplicants
-            : mp.card.viewDetails}
-        </motion.button>
+        <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate(buildPostOffersPath(post.id), { state: { post } })}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              borderRadius: 10,
+              border: "none",
+              background: "#2EBCCC",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: "0.83rem",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              letterSpacing: "0.01em",
+              transition: "background 160ms ease-out",
+            }}
+            onHoverStart={(e) => {
+              (e.target as HTMLButtonElement).style.background = "#239aaa";
+            }}
+            onHoverEnd={(e) => {
+              (e.target as HTMLButtonElement).style.background = "#2EBCCC";
+            }}
+          >
+            {mp.card.viewApplicants}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => navigate(buildPostDetailsPath(post.id), { state: { post } })}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              borderRadius: 10,
+              border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
+              background: "transparent",
+              color: "var(--text)",
+              fontWeight: 700,
+              fontSize: "0.83rem",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              letterSpacing: "0.01em",
+              transition: "border-color 160ms ease-out, color 160ms ease-out",
+            }}
+            onHoverStart={(e) => {
+              (e.target as HTMLButtonElement).style.borderColor = "#2EBCCC";
+              (e.target as HTMLButtonElement).style.color = "#2EBCCC";
+            }}
+            onHoverEnd={(e) => {
+              (e.target as HTMLButtonElement).style.borderColor = isDark
+                ? "#273570"
+                : "#e5e7eb";
+              (e.target as HTMLButtonElement).style.color = "var(--text)";
+            }}
+          >
+            {mp.card.viewDetails}
+          </motion.button>
+        </div>
       </div>
     </motion.div>
   );

@@ -20,6 +20,13 @@ export async function fetchUserProfile(
     .eq("id", userId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error("fetchUserProfile failed:", error);
+    return null;
+  }
+  if (!data) {
+    console.warn("fetchUserProfile: no row found for user", userId);
+    return null;
+  }
   return data as UserProfile;
 }
