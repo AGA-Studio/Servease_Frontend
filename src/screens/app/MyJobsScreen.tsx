@@ -295,12 +295,10 @@ const AnimatedJobCard = ({
           <MetaChip
             icon={<Clock size={12} />}
             label={`${d.card.posted} ${job.postedAgo}`}
-            isDark={isDark}
           />
           <MetaChip
             icon={<Wallet size={12} />}
             label={`${d.card.budget}: $${job.budget.toLocaleString()} ${job.currency}`}
-            isDark={isDark}
           />
         </div>
 
@@ -339,12 +337,10 @@ const AnimatedJobCard = ({
 const MetaChip = ({
   icon,
   label,
-  isDark,
   accent = false,
 }: {
   icon: React.ReactNode;
   label: string;
-  isDark: boolean;
   accent?: boolean;
 }) => (
   <div

@@ -6,7 +6,9 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Star, Check, ArrowLeft } from "lucide-react";
 import { useI18n } from "../../i18n";
-import type { postoffers as PostOffersStrings } from "../../i18n/locales/en/postoffers";
+import { postoffers } from "../../i18n/locales/en/postoffers";
+
+type PostOffersStrings = typeof postoffers;
 import { ROUTES } from "../../router/routes";
 import { MOCK_POSTS, type MyPost } from "../../data/mockPosts";
 import Breadcrumbs from "../../components/Breadcrumbs";
