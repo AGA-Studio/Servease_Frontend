@@ -6,6 +6,7 @@ export const ROUTES = {
   PRIVACY: "/privacy",
   APP: {
     HOME: "/app/home",
+    DASHBOARD: "/app/dashboard",
     MY_POST: "/app/my-post",
     NEW_SERVICE: "/app/new-service",
     MESSAGES: "/app/messages",

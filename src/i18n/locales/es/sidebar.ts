@@ -1,5 +1,6 @@
 export const sidebar = {
   home: "Inicio",
+  dashboard: "Dashboard",
   myPost: "Mis Publicaciones",
   newService: "Nuevo Servicio",
   messages: "Mensajes",
