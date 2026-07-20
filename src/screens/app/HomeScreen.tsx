@@ -1,6 +1,6 @@
 // Client home screen: greeting, KPI stats, active posts list, and recent activity feed.
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Plus,
   MapPin,
@@ -20,7 +20,6 @@ import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPopover from "../../components/popover/notificationspopover/NotificationsPopover";
-import IconTooltip from "../../components/tooltip/IconTooltip";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../router/routes";
 
@@ -476,16 +475,7 @@ const ActivityDot = ({
 const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 600 : false,
-  );
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 600);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
 
   const { t } = useI18n();
   const h = t("homescreen");
@@ -586,16 +576,10 @@ const HomeScreen: React.FC = () => {
     .hs-kpi-row {
       gap: 10px;
     }
-    .post-btn-label {
-      display: none;
-    }
-    .post-btn-icon {
-      margin: 0 !important;
-    }
+  }
+  @media (max-width: 767px) {
     .post-btn {
-      width: 44px !important;
-      padding: 0 !important;
-      justify-content: center !important;
+      display: none !important;
     }
   }
   .load-btn:hover {
@@ -657,45 +641,40 @@ const HomeScreen: React.FC = () => {
           >
             <NotificationsPopover isDark={isDark} />
 
-            <IconTooltip
-              label={h.tooltips.postService}
-              isDark={isDark}
-              disabled={!isMobile}
+            <button
+              onClick={() => navigate(ROUTES.APP.NEW_SERVICE)}
+              className="post-btn"
+              style={{
+                height: 44,
+                borderRadius: 12,
+                border: "none",
+                background: "#2EBCCC",
+                color: "#FFFFFF",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "0 18px",
+                fontSize: "0.875rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "background 0.2s, box-shadow 0.2s",
+                fontFamily: "inherit",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#239aaa";
+                e.currentTarget.style.boxShadow =
+                  "0 4px 14px rgba(46,188,204,0.45)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#2EBCCC";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             >
-              {({ ref, onMouseEnter, onMouseLeave }, hovered) => (
-                <button
-                  ref={ref}
-                  onClick={() => navigate(ROUTES.APP.NEW_SERVICE)}
-                  onMouseEnter={onMouseEnter}
-                  onMouseLeave={onMouseLeave}
-                  className="post-btn"
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    border: "none",
-                    background: hovered ? "#239aaa" : "#2EBCCC",
-                    color: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    padding: "0 18px",
-                    fontSize: "0.875rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "background 0.2s, box-shadow 0.2s",
-                    boxShadow: hovered
-                      ? "0 4px 14px rgba(46,188,204,0.45)"
-                      : "none",
-                    fontFamily: "inherit",
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <Plus size={17} strokeWidth={2.5} className="post-btn-icon" />
-                  <span className="post-btn-label">{h.tooltips.postService}</span>
-                </button>
-              )}
-            </IconTooltip>
+              <Plus size={17} strokeWidth={2.5} />
+              <span>{h.tooltips.postService}</span>
+            </button>
           </div>
         </div>
 
@@ -793,6 +772,7 @@ const HomeScreen: React.FC = () => {
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background = "none")
                   }
+                  onClick={() => navigate(ROUTES.APP.MY_POST) }
                 >
                   {h.viewAll}
                 </button>
