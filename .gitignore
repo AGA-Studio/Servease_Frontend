@@ -24,11 +24,9 @@ dist-ssr
 *.sw?
 .env
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
-nginx.conf
-
 # opencode
 opencode.json
+
+# agents / claude
+.agents/
+.claude/

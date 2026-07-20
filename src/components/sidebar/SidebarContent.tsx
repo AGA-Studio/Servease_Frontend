@@ -205,14 +205,15 @@ const SidebarContent: React.FC<Props> = ({
                 )}
                 <nav className="flex flex-col relative">
                   {activeIndex >= 0 && (
-                    <div
+                    <motion.div
+                      layoutId="sidebar-active-bg"
                       className="absolute left-0 right-0 rounded-[10px] pointer-events-none z-0"
                       style={{
                         height: 40,
                         background: "#2EBCCC",
                         top: `${activeIndex * 42 + 1}px`,
-                        transition: "top 0.35s cubic-bezier(0.4,0,0.2,1)",
                       }}
+                      transition={{ type: "spring", duration: 0.45, bounce: 0.18 }}
                     />
                   )}
                   <div className="flex flex-col gap-[2px] relative z-10">

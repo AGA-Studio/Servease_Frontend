@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import { LayoutGroup } from "motion/react";
 import SidebarContent from "./SidebarContent";
 
 interface Props {
@@ -55,14 +56,16 @@ const MobileSidebar: React.FC<Props> = ({ isOpen, onClose, isDark }) => {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto pt-2">
-          <SidebarContent
-            isCollapsed={false}
-            isDark={isDark}
-            onNavClick={onClose}
-            onToggle={() => {}}
-            onExpand={() => {}}
-            showCollapseToggle={false}
-          />
+          <LayoutGroup id="mobile-sidebar">
+            <SidebarContent
+              isCollapsed={false}
+              isDark={isDark}
+              onNavClick={onClose}
+              onToggle={() => {}}
+              onExpand={() => {}}
+              showCollapseToggle={false}
+            />
+          </LayoutGroup>
         </div>
       </aside>
     </>
