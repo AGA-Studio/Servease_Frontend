@@ -305,17 +305,14 @@ const AnimatedCard = ({
           <MetaChip
             icon={<Clock size={12} />}
             label={`${mp.card.postedAgo} ${post.postedAgo}`}
-            isDark={isDark}
           />
           <MetaChip
             icon={<DollarSign size={12} />}
             label={`${mp.card.budget}: $${post.budget.toLocaleString()} ${post.currency}`}
-            isDark={isDark}
           />
           <MetaChip
             icon={<Users size={12} />}
             label={`${post.applicantCount} ${mp.card.applicants}`}
-            isDark={isDark}
             accent={post.applicantCount > 0 && post.status === "receiving"}
           />
         </div>
@@ -388,12 +385,10 @@ const AnimatedCard = ({
 const MetaChip = ({
   icon,
   label,
-  isDark,
   accent = false,
 }: {
   icon: React.ReactNode;
   label: string;
-  isDark: boolean;
   accent?: boolean;
 }) => (
   <div
