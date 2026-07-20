@@ -1,5 +1,6 @@
 import {
   Home,
+  LayoutDashboard,
   FileText,
   PlusSquare,
   MessageSquare,
@@ -24,6 +25,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: React.createElement(Home, { size: 19 }),
     to: ROUTES.APP.HOME,
     group: "client",
+  },
+  {
+    key: "dashboard",
+    icon: React.createElement(LayoutDashboard, { size: 19 }),
+    to: ROUTES.APP.DASHBOARD,
+    group: "provider",
   },
   {
     key: "myPost",
