@@ -8,17 +8,8 @@ import {
   ArrowRight,
   Navigation,
 } from "lucide-react";
-import type { ThemeMode } from "../../theme/theme";
+import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
-
-const useTheme = () => {
-  const [theme] = useState<ThemeMode>(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("servease-theme") as ThemeMode) || "light"
-      : "light",
-  );
-  return { theme };
-};
 
 interface Job {
   id: string;
@@ -442,8 +433,7 @@ const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
 };
 
 const JobFeedScreen: React.FC = () => {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { isDark } = useThemeMode();
   const { t } = useI18n();
   const d = t("jobfeedscreen");
 

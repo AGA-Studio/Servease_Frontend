@@ -19,6 +19,9 @@ export const ROUTES = {
   },
   ADMIN: {
     DASHBOARD: "/admin/dashboard",
+    USERS: "/admin/users",
+    POSTS: "/admin/posts",
+    LOGS: "/admin/logs",
   },
 } as const;
 
