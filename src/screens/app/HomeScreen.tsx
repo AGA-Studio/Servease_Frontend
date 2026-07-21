@@ -16,21 +16,12 @@ import {
   Sparkles,
 } from "lucide-react";
 import SearchBar from "../../components/searchbar/SearchBar";
-import type { ThemeMode } from "../../theme/theme";
+import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPopover from "../../components/popover/notificationspopover/NotificationsPopover";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../router/routes";
-
-const useTheme = () => {
-  const [theme] = useState<ThemeMode>(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("servease-theme") as ThemeMode) || "light"
-      : "light",
-  );
-  return { theme };
-};
 
 interface Post {
   id: string;
@@ -473,8 +464,7 @@ const ActivityDot = ({
 );
 
 const HomeScreen: React.FC = () => {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { isDark } = useThemeMode();
   const navigate = useNavigate();
 
   const { t } = useI18n();
