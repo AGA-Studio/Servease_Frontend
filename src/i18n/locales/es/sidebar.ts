@@ -17,4 +17,10 @@ export const sidebar = {
     settings: "Ajustes",
     logout: "Cerrar sesión",
   },
+  theme: {
+    switchToLight: "Cambiar a modo claro",
+    switchToDark: "Cambiar a modo oscuro",
+    light: "Claro",
+    dark: "Oscuro",
+  },
 };
