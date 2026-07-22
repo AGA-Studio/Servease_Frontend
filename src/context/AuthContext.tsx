@@ -8,6 +8,7 @@ import React, {
 import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import { fetchUserProfile, type UserProfile } from "../api/userApi";
+import { apiPostPublic, ApiError } from "../api/apiClient";
 
 export type UserRole = "client" | "provider" | "admin";
 
@@ -31,6 +32,7 @@ interface AuthContextValue {
     email: string;
     password: string;
     firstName: string;
+    secondName?: string;
     lastNameP: string;
     lastNameM?: string;
   }) => Promise<string | null>;
@@ -45,7 +47,9 @@ const sessionToUser = (session: Session): AuthUser => ({
   firstName: session.user.user_metadata?.first_name ?? "",
   lastnameP: session.user.user_metadata?.last_name_p ?? "",
   lastnameM: session.user.user_metadata?.last_name_m ?? "",
-  role: (session.user.user_metadata?.role as UserRole) ?? "client",
+  // El rol nunca debe salir de user_metadata: el usuario puede editarlo.
+  // Fallback siempre al menor privilegio; el rol real lo entrega el backend.
+  role: "client",
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -56,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   const loadProfile = useCallback(async (session: Session) => {
-    const userProfile = await fetchUserProfile(session.user.id);
+    const userProfile = await fetchUserProfile();
     if (userProfile) {
       setProfile(userProfile);
       setUser({
@@ -125,28 +129,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       email,
       password,
       firstName,
+      secondName,
       lastNameP,
       lastNameM,
     }: {
       email: string;
       password: string;
       firstName: string;
+      secondName?: string;
       lastNameP: string;
       lastNameM?: string;
     }): Promise<string | null> => {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name_p: lastNameP,
-            last_name_m: lastNameM ?? "",
-            role: "client",
-          },
-        },
-      });
-      return error ? error.message : null;
+      try {
+        await apiPostPublic("/api/usuarios/signup/", {
+          email,
+          password,
+          nombre: firstName,
+          segundo_nombre: secondName ?? "",
+          apellido_pa: lastNameP,
+          apellido_ma: lastNameM ?? "",
+        });
+        return null;
+      } catch (err) {
+        return err instanceof ApiError
+          ? err.message
+          : "No pudimos crear tu cuenta. Intenta de nuevo.";
+      }
     },
     [],
   );
