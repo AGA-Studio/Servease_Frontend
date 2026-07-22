@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { apiGet } from "./apiClient";
 import type { UserRole } from "../context/AuthContext";
 
 export interface UserProfile {
@@ -9,24 +9,50 @@ export interface UserProfile {
   url_foto_perfil: string | null;
   fecha_registro: string;
   rol: UserRole;
+  correo: string;
+  celular: string | null;
+  estado: boolean;
+  segundo_nombre: string | null;
+  id_categoria: number | null;
+  id_empresa: number | null;
 }
 
-export async function fetchUserProfile(
-  userId: string,
-): Promise<UserProfile | null> {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
+interface UsuarioResponse {
+  id_usuario: string;
+  nombre: string;
+  segundo_nombre: string | null;
+  apellido_pa: string;
+  apellido_ma: string | null;
+  correo: string;
+  celular: string | null;
+  url_foto_perfil: string | null;
+  fecha_registro: string;
+  estado: boolean;
+  rol: UserRole;
+  id_categoria: number | null;
+  id_empresa: number | null;
+}
 
-  if (error) {
+export async function fetchUserProfile(): Promise<UserProfile | null> {
+  try {
+    const data = await apiGet<UsuarioResponse>("/api/usuarios/auth/");
+    return {
+      id: data.id_usuario,
+      nombre: data.nombre,
+      apellido_paterno: data.apellido_pa,
+      apellido_materno: data.apellido_ma,
+      url_foto_perfil: data.url_foto_perfil,
+      fecha_registro: data.fecha_registro,
+      rol: data.rol,
+      correo: data.correo,
+      celular: data.celular,
+      estado: data.estado,
+      segundo_nombre: data.segundo_nombre,
+      id_categoria: data.id_categoria,
+      id_empresa: data.id_empresa,
+    };
+  } catch (error) {
     console.error("fetchUserProfile failed:", error);
     return null;
   }
-  if (!data) {
-    console.warn("fetchUserProfile: no row found for user", userId);
-    return null;
-  }
-  return data as UserProfile;
 }
