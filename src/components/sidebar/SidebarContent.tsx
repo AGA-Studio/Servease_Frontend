@@ -5,6 +5,7 @@ import { useI18n } from "../../i18n";
 import { NAV_ITEMS, type NavItem } from "./SidebarNavItems";
 import SidebarNavLink from "./SidebarNavLink";
 import UserMenu from "./UserMenu";
+import ThemeToggle from "./ThemeToggle";
 import ServeaseLogoDark from "../../assets/Servease-Icono-Modo-Oscuro.svg";
 import ServeaseLogo from "../../assets/Servease-Icono.svg";
 import { ChevronLeft } from "lucide-react";
@@ -236,9 +237,10 @@ const SidebarContent: React.FC<Props> = ({
       </div>
 
       <div
-        className="px-2 pt-3 pb-2"
+        className="px-2 pt-3 pb-2 flex flex-col gap-2"
         style={{ borderTop: `1px solid ${divider}` }}
       >
+        <ThemeToggle isDark={isDark} isCollapsed={isCollapsed} />
         <UserMenu
           isCollapsed={isCollapsed}
           isDark={isDark}

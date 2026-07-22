@@ -400,7 +400,7 @@ const AuthScreen: React.FC = () => {
         setIsLoading(false);
         addToast("error", error);
       } else {
-        navigate("/app/home", { replace: true });
+        navigate("/", { replace: true });
       }
     }
   };
@@ -417,7 +417,7 @@ const AuthScreen: React.FC = () => {
     }
 
     setIsLoading(false);
-    navigate("/app/home", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleGoogleAuth = async () => {

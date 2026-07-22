@@ -17,4 +17,10 @@ export const sidebar = {
     settings: "Settings",
     logout: "Logout",
   },
+  theme: {
+    switchToLight: "Switch to light mode",
+    switchToDark: "Switch to dark mode",
+    light: "Light",
+    dark: "Dark",
+  },
 };

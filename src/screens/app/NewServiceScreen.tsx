@@ -17,19 +17,10 @@ import {
   Clock,
   UploadCloud,
 } from "lucide-react";
-import type { ThemeMode } from "../../theme/theme";
+import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import "./animations.newservice.css";
 import { motion } from "motion/react";
-
-const useTheme = () => {
-  const [theme] = useState<ThemeMode>(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("servease-theme") as ThemeMode) || "light"
-      : "light",
-  );
-  return { theme };
-};
 
 interface FormState {
   title: string;
@@ -531,8 +522,7 @@ const inputStyles = (isDark: boolean, hasError?: boolean) => ({
 });
 
 const NewServiceScreen: React.FC = () => {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { isDark } = useThemeMode();
   const { t } = useI18n();
   const ns = t("newservice");
 
