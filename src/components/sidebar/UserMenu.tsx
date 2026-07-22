@@ -84,9 +84,10 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
     ? "0 8px 32px rgba(0,0,0,0.5)"
     : "0 8px 32px rgba(27,36,76,0.12)";
   const cardBg = isDark ? "rgba(255,255,255,0.03)" : "rgba(27,36,76,0.02)";
+  const dropdownBg = isDark ? "#222D5E" : "#FFFFFF";
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative z-4000">
       <button
         ref={buttonRef}
         onClick={() => {
@@ -154,10 +155,10 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
       </button>
 
       <div
-        className="absolute left-0 right-0 rounded-[14px] overflow-hidden p-[6px]"
+        className="absolute left-0 right-0 z-60 rounded-[14px] overflow-hidden p-[6px]"
         style={{
           bottom: "calc(100% + 8px)",
-          background: cardBg,
+          background: dropdownBg,
           border: `1px solid ${borderColor}`,
           boxShadow: dropShadow,
           transformOrigin: "bottom center",
