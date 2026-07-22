@@ -32,11 +32,11 @@
 }
 
 .animate-wheel-in {
-  animation: wheel-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: wheel-in 0.26s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 .animate-drag-in-fwd {
-  animation: drag-in-fwd 0.38s cubic-bezier(0.25, 1, 0.5, 1) both;
+  animation: drag-in-fwd 0.22s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 .animate-drag-in-back {
-  animation: drag-in-back 0.38s cubic-bezier(0.25, 1, 0.5, 1) both;
+  animation: drag-in-back 0.22s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
