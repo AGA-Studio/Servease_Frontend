@@ -7,7 +7,11 @@ import React, {
 } from "react";
 import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
-import { fetchUserProfile, type UserProfile } from "../api/userApi";
+import {
+  fetchUserProfile,
+  uploadProfilePhoto,
+  type UserProfile,
+} from "../api/userApi";
 import { apiPostPublic, ApiError } from "../api/apiClient";
 
 export type UserRole = "client" | "provider" | "admin";
@@ -35,6 +39,7 @@ interface AuthContextValue {
     secondName?: string;
     lastNameP: string;
     lastNameM?: string;
+    photo?: File | null;
   }) => Promise<string | null>;
   logout: () => Promise<void>;
 }
@@ -132,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       secondName,
       lastNameP,
       lastNameM,
+      photo,
     }: {
       email: string;
       password: string;
@@ -139,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       secondName?: string;
       lastNameP: string;
       lastNameM?: string;
+      photo?: File | null;
     }): Promise<string | null> => {
       try {
         await apiPostPublic("/api/usuarios/signup/", {
@@ -149,14 +156,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           apellido_pa: lastNameP,
           apellido_ma: lastNameM ?? "",
         });
-        return null;
       } catch (err) {
         return err instanceof ApiError
           ? err.message
           : "No pudimos crear tu cuenta. Intenta de nuevo.";
       }
+
+      // La cuenta ya queda confirmada en el backend, así que iniciamos
+      // sesión de una vez (no hay paso de confirmación por correo por ahora).
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error || !data.session) {
+        return error?.message ?? null;
+      }
+
+      if (photo) {
+        try {
+          await uploadProfilePhoto(data.session.user.id, photo);
+        } catch (err) {
+          console.error("uploadProfilePhoto failed:", err);
+        }
+      }
+
+      await loadProfile(data.session);
+      return null;
     },
-    [],
+    [loadProfile],
   );
 
   const logout = useCallback(async () => {

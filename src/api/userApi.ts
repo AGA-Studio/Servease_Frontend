@@ -1,4 +1,5 @@
-import { apiGet } from "./apiClient";
+import { apiGet, apiPatch } from "./apiClient";
+import { supabase } from "../lib/supabase";
 import type { UserRole } from "../context/AuthContext";
 
 export interface UserProfile {
@@ -55,4 +56,29 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
     console.error("fetchUserProfile failed:", error);
     return null;
   }
+}
+
+// Sube la foto al bucket "profile_photos" (path: `user_${userId}/avatar.<ext>`,
+// misma convención que ya existe en el bucket) y guarda la URL pública en el
+// registro del usuario vía el backend.
+export async function uploadProfilePhoto(
+  userId: string,
+  file: File,
+): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `user_${userId}/avatar.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("profile_photos")
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) throw uploadError;
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("profile_photos").getPublicUrl(path);
+
+  await apiPatch("/api/usuarios/auth/", { url_foto_perfil: publicUrl });
+
+  return publicUrl;
 }
