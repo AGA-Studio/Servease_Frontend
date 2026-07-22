@@ -12,20 +12,11 @@ import {
   RefreshCw,
 } from "lucide-react";
 import SearchBar from "../../components/searchbar/SearchBar";
-import type { ThemeMode } from "../../theme/theme";
+import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPopover from "../../components/popover/notificationspopover/NotificationsPopover";
 import IconTooltip from "../../components/tooltip/IconTooltip";
-
-const useTheme = () => {
-  const [theme] = useState<ThemeMode>(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("servease-theme") as ThemeMode) || "light"
-      : "light",
-  );
-  return { theme };
-};
 
 interface Job {
   id: string;
@@ -383,8 +374,7 @@ const ActivityDot = ({
 );
 
 const DashboardScreen: React.FC = () => {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { isDark } = useThemeMode();
   const { t } = useI18n();
   const d = t("dashboardscreen");
 

@@ -12,6 +12,7 @@ import { jobfeedscreen } from "./jobfeedscreen";
 import { myjobsscreen } from "./myjobsscreen";
 import { postdetailsscreen } from "./postdetailsscreen";
 import { applyjobmodal } from "./applyjobmodal";
+import { admin } from "./admin";
 export const en = {
   auth,
   common,
@@ -27,4 +28,5 @@ export const en = {
   myjobsscreen,
   postdetailsscreen,
   applyjobmodal,
+  admin,
 };
