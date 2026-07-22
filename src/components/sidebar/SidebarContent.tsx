@@ -240,7 +240,9 @@ const SidebarContent: React.FC<Props> = ({
         className="px-2 pt-3 pb-2 flex flex-col gap-2"
         style={{ borderTop: `1px solid ${divider}` }}
       >
-        <ThemeToggle isDark={isDark} isCollapsed={isCollapsed} />
+        <div>
+          <ThemeToggle isDark={isDark} isCollapsed={isCollapsed} />
+        </div>
         <UserMenu
           isCollapsed={isCollapsed}
           isDark={isDark}
