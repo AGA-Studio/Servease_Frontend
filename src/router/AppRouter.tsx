@@ -10,6 +10,7 @@ import AuthScreen from "../screens/auth/AuthScreen";
 import TermsScreen from "../screens/legal/TermsScreen";
 import PrivacyScreen from "../screens/legal/PrivacyScreen";
 import AppLayout from "../layouts/AppLayout";
+import AdminLayout from "../layouts/AdminLayout";
 
 import HomeScreen from "../screens/app/HomeScreen";
 import DashboardScreen from "../screens/app/DashboardScreen";
@@ -23,8 +24,14 @@ import MyJobsScreen from "../screens/app/MyJobsScreen";
 import ProfileScreen from "../screens/app/ProfileScreen";
 import SettingsScreen from "../screens/app/SettingsScreen";
 
+import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
+import AdminUsersScreen from "../screens/admin/AdminUsersScreen";
+import AdminPostsScreen from "../screens/admin/AdminPostsScreen";
+import AdminLogsScreen from "../screens/admin/AdminLogsScreen";
+
 const getDefaultAppRoute = (role?: string) => {
-  if (role === "provider" || role === "admin") return ROUTES.APP.DASHBOARD;
+  if (role === "admin") return ROUTES.ADMIN.DASHBOARD;
+  if (role === "provider") return ROUTES.APP.DASHBOARD;
   return ROUTES.APP.HOME;
 };
 
@@ -89,6 +96,23 @@ const AppRouter: React.FC = () => (
             </RoleRoute>
           }
         />
+      </Route>
+
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <RoleRoute allowedRoles={["admin"]}>
+              <AdminLayout />
+            </RoleRoute>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to={ROUTES.ADMIN.DASHBOARD} replace />} />
+        <Route path="dashboard" element={<AdminDashboardScreen />} />
+        <Route path="users" element={<AdminUsersScreen />} />
+        <Route path="posts" element={<AdminPostsScreen />} />
+        <Route path="logs" element={<AdminLogsScreen />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

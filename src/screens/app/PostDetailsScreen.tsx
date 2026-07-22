@@ -8,7 +8,7 @@ import {
   Clock,
   Star,
 } from "lucide-react";
-import type { ThemeMode } from "../../theme/theme";
+import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { ROUTES } from "../../router/routes";
 import { MOCK_POSTS } from "../../data/mockPosts";
@@ -16,15 +16,6 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import ApplyJobModal, {
   type ApplyJobData,
 } from "../../components/applyjobmodal/ApplyJobModal";
-
-const useTheme = () => {
-  const [theme] = useState<ThemeMode>(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("servease-theme") as ThemeMode) || "light"
-      : "light",
-  );
-  return { theme };
-};
 
 interface JobDetails {
   title: string;
@@ -146,8 +137,7 @@ const MapPlaceholder = () => (
 );
 
 const PostDetailsScreen: React.FC = () => {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { isDark } = useThemeMode();
   const { t } = useI18n();
   const d = t("postdetailsscreen");
   const sb = t("sidebar");
