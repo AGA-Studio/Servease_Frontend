@@ -22,4 +22,19 @@ export const dashboardscreen = {
     notifications: "Notificaciones",
     refresh: "Actualizar",
   },
+  charts: {
+    earnings: {
+      title: "Resumen de Ganancias",
+      tooltipLabel: "Ganancias",
+    },
+    categories: {
+      title: "Trabajos por Categoría",
+    },
+  },
+  empty: {
+    jobs: {
+      title: "No hay trabajos disponibles",
+      description: "Vuelve más tarde para encontrar nuevas oportunidades cerca de ti.",
+    },
+  },
 };
