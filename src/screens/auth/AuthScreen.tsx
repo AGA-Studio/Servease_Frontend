@@ -10,9 +10,9 @@ import {
   EyeOff,
   ArrowRight,
   ArrowLeft,
-  CheckCircle,
   Wrench,
-  Briefcase,
+  Camera,
+  X,
 } from "lucide-react";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { useToast } from "../../components/Toast/useToast";
@@ -28,6 +28,7 @@ type AuthMode = "login" | "signup";
 
 interface SignupData {
   firstName: string;
+  secondName: string;
   lastNameP: string;
   lastNameM: string;
   email: string;
@@ -37,6 +38,7 @@ interface SignupData {
 type LoginErrors = { email?: string; password?: string };
 type SignupStep0Errors = {
   firstName?: string;
+  secondName?: string;
   lastNameP?: string;
   lastNameM?: string;
 };
@@ -127,6 +129,43 @@ const useTheme = () => {
   }, []);
 
   return { theme, toggleTheme };
+};
+
+const ConfirmEmailModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
+  onClose,
+  theme,
+}) => {
+  const { t } = useI18n();
+  const cm = t("auth").confirmEmailModal;
+  const isDark = theme === "dark";
+
+  return (
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[10000] flex items-center justify-center p-6 animate-fade-in">
+      <div
+        className={`${isDark ? "bg-[#1B244C] border-[#273570]" : "bg-white border-gray-200"} border rounded-3xl p-10 max-w-[420px] w-full text-center shadow-[0_32px_80px_rgba(0,0,0,0.3)] animate-scale-in`}
+      >
+        <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6">
+          <Mail size={32} className="text-[#2EBCCC]" />
+        </div>
+        <h2
+          className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+        >
+          {cm.title}
+        </h2>
+        <p
+          className={`text-[0.9375rem] leading-7 mb-8 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+        >
+          {cm.body}
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] active:scale-[0.97] text-white font-extrabold text-[0.9375rem] py-4 rounded-2xl border-none cursor-pointer shadow-[0_8px_24px_#2EBCCC44] transition-[transform,background-color] duration-150 ease-out"
+        >
+          {cm.confirm}
+        </button>
+      </div>
+    </div>
+  );
 };
 
 const DevModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
@@ -280,6 +319,7 @@ const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDevModal, setShowDevModal] = useState(false);
+  const [showConfirmEmailModal, setShowConfirmEmailModal] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [signupStep, setSignupStep] = useState(0);
   const [stepDirection, setStepDirection] = useState<"forward" | "back">(
@@ -293,6 +333,7 @@ const AuthScreen: React.FC = () => {
 
   const [signupData, setSignupData] = useState<SignupData>({
     firstName: "",
+    secondName: "",
     lastNameP: "",
     lastNameM: "",
     email: "",
@@ -306,6 +347,9 @@ const AuthScreen: React.FC = () => {
   );
   const [signupAcceptedTerms, setSignupAcceptedTerms] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
+  const [, setProfilePhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
 
   const isLogin = mode === "login";
   const auth = t("auth");
@@ -323,6 +367,7 @@ const AuthScreen: React.FC = () => {
       setLoginErrors({});
       setSignupData({
         firstName: "",
+        secondName: "",
         lastNameP: "",
         lastNameM: "",
         email: "",
@@ -332,9 +377,23 @@ const AuthScreen: React.FC = () => {
       setSignupStep1Errors({});
       setSignupAcceptedTerms(false);
       setTermsError(null);
+      setProfilePhoto(null);
+      setPhotoPreview(null);
       setFieldsVisible(true);
       setHeaderVisible(true);
     }, 50);
+  };
+
+  const handlePhotoSelect = (file: File | null) => {
+    if (!file) return;
+    setProfilePhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handlePhotoRemove = () => {
+    setProfilePhoto(null);
+    setPhotoPreview(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
   };
 
   const animateStep = (dir: "forward" | "back", cb: () => void) => {
@@ -343,7 +402,7 @@ const AuthScreen: React.FC = () => {
     setTimeout(() => {
       cb();
       setFieldsVisible(true);
-    }, 240);
+    }, 200);
   };
 
   const validateLoginForm = (): boolean => {
@@ -373,17 +432,26 @@ const AuthScreen: React.FC = () => {
       errors.email = auth.errors.emailInvalid;
     if (signupData.password.length < 6)
       errors.password = auth.errors.passwordMin;
+    setSignupStep1Errors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep2 = (): boolean => {
     if (!signupAcceptedTerms) {
       setTermsError(auth.errors.termsRequired);
-    } else {
-      setTermsError(null);
+      return false;
     }
-    setSignupStep1Errors(errors);
-    return Object.keys(errors).length === 0 && !!signupAcceptedTerms;
+    setTermsError(null);
+    return true;
   };
 
   const handleNextStep = async () => {
-    const valid = signupStep === 0 ? validateStep0() : validateStep1();
+    const valid =
+      signupStep === 0
+        ? validateStep0()
+        : signupStep === 1
+          ? validateStep1()
+          : validateStep2();
     if (!valid) return;
     if (signupStep < auth.signup.steps.length - 1) {
       animateStep("forward", () => setSignupStep((s) => s + 1));
@@ -393,14 +461,15 @@ const AuthScreen: React.FC = () => {
         email: signupData.email,
         password: signupData.password,
         firstName: signupData.firstName,
+        secondName: signupData.secondName,
         lastNameP: signupData.lastNameP,
         lastNameM: signupData.lastNameM,
       });
+      setIsLoading(false);
       if (error) {
-        setIsLoading(false);
         addToast("error", error);
       } else {
-        navigate("/app/home", { replace: true });
+        setShowConfirmEmailModal(true);
       }
     }
   };
@@ -417,7 +486,7 @@ const AuthScreen: React.FC = () => {
     }
 
     setIsLoading(false);
-    navigate("/app/home", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleGoogleAuth = async () => {
@@ -447,6 +516,15 @@ const AuthScreen: React.FC = () => {
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={theme} />
       {showDevModal && (
         <DevModal onClose={() => setShowDevModal(false)} theme={theme} />
+      )}
+      {showConfirmEmailModal && (
+        <ConfirmEmailModal
+          onClose={() => {
+            setShowConfirmEmailModal(false);
+            switchMode("login");
+          }}
+          theme={theme}
+        />
       )}
 
       <div
@@ -577,28 +655,6 @@ const AuthScreen: React.FC = () => {
                 </div>
               )}
 
-              {!isLogin && signupStep === 0 && (
-                <div
-                  className={`flex gap-2 p-1.5 rounded-2xl mb-5 border ${isDark ? "bg-white/5 border-[#273570]" : "bg-[#F6F8F8] border-[#E5E7EB]"}`}
-                >
-                  <div
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-[#2EBCCC] ${isDark ? "bg-[#2EBCCC]/15 ring-1 ring-[#2EBCCC]/30" : "bg-white shadow-md"}`}
-                  >
-                    <User size={15} /> {auth.signup.roleClient}
-                  </div>
-                  <div className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3 rounded-xl font-bold text-[0.8rem] text-slate-400 cursor-not-allowed opacity-55 select-none">
-                    <span className="flex items-center gap-1.5">
-                      <Briefcase size={15} /> {auth.signup.roleProvider}
-                    </span>
-                    <span
-                      className={`text-[0.62rem] font-extrabold px-2 py-0.5 rounded-md ${isDark ? "bg-[#273570]" : "bg-slate-100"}`}
-                    >
-                      {auth.signup.roleProviderUnavailable}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {isLogin ? (
                 <form onSubmit={handleLogin} className="space-y-3.5">
                   <InputField
@@ -707,6 +763,24 @@ const AuthScreen: React.FC = () => {
                           error={signupStep0Errors.firstName}
                         />
                         <InputField
+                          label={auth.signup.secondName}
+                          name="secondName"
+                          placeholder={auth.signup.secondNamePlaceholder}
+                          value={signupData.secondName}
+                          onChange={(e) =>
+                            setSignupData({
+                              ...signupData,
+                              secondName: e.target.value,
+                            })
+                          }
+                          icon={<User size={18} />}
+                          focusedField={focusedField}
+                          onFocus={() => setFocusedField("secondName")}
+                          onBlur={() => setFocusedField(null)}
+                          theme={theme}
+                          badge={auth.signup.optional}
+                        />
+                        <InputField
                           label={auth.signup.lastNameP}
                           name="lastNameP"
                           placeholder={auth.signup.lastNamePPlaceholder}
@@ -747,7 +821,7 @@ const AuthScreen: React.FC = () => {
                           badge={auth.signup.optional}
                         />
                       </>
-                    ) : (
+                    ) : signupStep === 1 ? (
                       <>
                         <InputField
                           label={auth.signup.email}
@@ -808,52 +882,65 @@ const AuthScreen: React.FC = () => {
                             </button>
                           }
                         />
-
-                        <div
-                          className={`flex items-start gap-3 mt-5 p-4 rounded-2xl border ${isDark ? "border-[#273570] bg-white/5" : "border-[#E5E7EB] bg-[#F6F8F8]"}`}
-                        >
-                          <input
-                            type="checkbox"
-                            id="accept-terms"
-                            checked={signupAcceptedTerms}
-                            onChange={(e) => {
-                              setSignupAcceptedTerms(e.target.checked);
-                              setTermsError(null);
-                            }}
-                            className="mt-0.5 w-4 h-4 rounded shrink-0 accent-[#2EBCCC]"
-                          />
-                          <label
-                            htmlFor="accept-terms"
-                            className="text-sm font-medium leading-5 cursor-pointer select-none"
-                            style={{
-                              color: isDark ? "#EFEFEF" : "rgba(27,36,76,0.85)",
-                            }}
-                          >
-                            {auth.signup.acceptTerms}
-                            <button
-                              type="button"
-                              onClick={() => navigate(ROUTES.TERMS)}
-                              className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
-                            >
-                              {auth.signup.termsLink}
-                            </button>
-                            {auth.signup.and}
-                            <button
-                              type="button"
-                              onClick={() => navigate(ROUTES.PRIVACY)}
-                              className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
-                            >
-                              {auth.signup.privacyLink}
-                            </button>
-                          </label>
-                        </div>
-                        {termsError && (
-                          <p className="text-red-400 text-[0.75rem] font-semibold mt-1 flex items-center gap-1.5 animate-fade-up ml-1">
-                            <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
-                            {termsError}
-                          </p>
-                        )}
                       </>
+                    ) : (
+                      <div className="flex flex-col items-center py-2">
+                        <div className="relative">
+                          <div
+                            className={`w-32 h-32 rounded-full flex items-center justify-center overflow-hidden border-2 ${isDark ? "bg-[#273570] border-[#273570]" : "bg-[#F8FAFC] border-[#E5E7EB]"}`}
+                          >
+                            {photoPreview ? (
+                              <img
+                                src={photoPreview}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User
+                                size={44}
+                                className={
+                                  isDark ? "text-slate-500" : "text-slate-300"
+                                }
+                              />
+                            )}
+                          </div>
+                          {photoPreview && (
+                            <button
+                              type="button"
+                              onClick={handlePhotoRemove}
+                              className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center border-none cursor-pointer shadow-md transition-[transform,background-color] duration-150 ease-out active:scale-90 animate-scale-in"
+                            >
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+
+                        <input
+                          ref={photoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={(e) =>
+                            handlePhotoSelect(e.target.files?.[0] ?? null)
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => photoInputRef.current?.click()}
+                          className={`mt-5 flex items-center gap-2 py-3 px-5 rounded-2xl border font-bold text-sm cursor-pointer transition-[transform,background-color] duration-150 ease-out active:scale-[0.97] ${isDark ? "bg-white/4 border-[#273570] text-white hover:bg-white/8" : "bg-white border-[#E5E7EB] text-black hover:bg-slate-50"}`}
+                        >
+                          <Camera size={16} />
+                          {photoPreview
+                            ? auth.signup.photoChange
+                            : auth.signup.photoUpload}
+                        </button>
+
+                        <p
+                          className={`text-xs font-medium text-center mt-4 max-w-[20rem] ${isDark ? "text-slate-400" : "text-[#989898]"}`}
+                        >
+                          {auth.signup.photoHint}
+                        </p>
+                      </div>
                     )}
                   </div>
 
@@ -865,7 +952,7 @@ const AuthScreen: React.FC = () => {
                           animateStep("back", () => setSignupStep((s) => s - 1))
                         }
                         disabled={isLoading}
-                        className={`p-4 rounded-2xl border bg-transparent cursor-pointer flex items-center justify-center shrink-0 transition-all duration-200 hover:border-[#2EBCCC] hover:text-[#2EBCCC] disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "border-[#273570] text-slate-400" : "border-[#E5E7EB] text-slate-400"}`}
+                        className={`p-4 rounded-2xl border bg-transparent cursor-pointer flex items-center justify-center shrink-0 transition-[transform,border-color,color] duration-150 ease-out active:scale-[0.96] hover:border-[#2EBCCC] hover:text-[#2EBCCC] disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "border-[#273570] text-slate-400" : "border-[#E5E7EB] text-slate-400"}`}
                       >
                         <ArrowLeft size={18} />
                       </button>
@@ -889,13 +976,59 @@ const AuthScreen: React.FC = () => {
                           <ArrowRight size={18} />
                         </>
                       ) : (
-                        <>
-                          <span>{auth.signup.submit}</span>
-                          <CheckCircle size={18} />
-                        </>
+                        <span>{auth.signup.submit}</span>
                       )}
                     </button>
                   </div>
+
+                  {signupStep === 2 && (
+                    <div className="animate-fade-up">
+                      <div
+                        className={`flex items-start gap-3 mt-5 p-4 rounded-2xl border ${isDark ? "border-[#273570] bg-white/5" : "border-[#E5E7EB] bg-[#F6F8F8]"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          id="accept-terms"
+                          checked={signupAcceptedTerms}
+                          onChange={(e) => {
+                            setSignupAcceptedTerms(e.target.checked);
+                            setTermsError(null);
+                          }}
+                          className="mt-0.5 w-4 h-4 rounded shrink-0 accent-[#2EBCCC]"
+                        />
+                        <label
+                          htmlFor="accept-terms"
+                          className="text-sm font-medium leading-5 cursor-pointer select-none"
+                          style={{
+                            color: isDark ? "#EFEFEF" : "rgba(27,36,76,0.85)",
+                          }}
+                        >
+                          {auth.signup.acceptTerms}
+                          <button
+                            type="button"
+                            onClick={() => navigate(ROUTES.TERMS)}
+                            className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
+                          >
+                            {auth.signup.termsLink}
+                          </button>
+                          {auth.signup.and}
+                          <button
+                            type="button"
+                            onClick={() => navigate(ROUTES.PRIVACY)}
+                            className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
+                          >
+                            {auth.signup.privacyLink}
+                          </button>
+                        </label>
+                      </div>
+                      {termsError && (
+                        <p className="text-red-400 text-[0.75rem] font-semibold mt-2 flex items-center gap-1.5 animate-fade-up ml-1">
+                          <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                          {termsError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -919,7 +1052,7 @@ const AuthScreen: React.FC = () => {
                 type="button"
                 onClick={handleGoogleAuth}
                 disabled={isLoading}
-                className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl border font-bold text-[0.9rem] cursor-pointer transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${isDark ? "bg-white/4 border-[#273570] text-white hover:bg-white/8" : "bg-white border-[#E5E7EB] text-black hover:bg-slate-50 shadow-sm"}`}
+                className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl border font-bold text-[0.9rem] cursor-pointer transition-[transform,background-color] duration-150 ease-out active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${isDark ? "bg-white/4 border-[#273570] text-white hover:bg-white/8" : "bg-white border-[#E5E7EB] text-black hover:bg-slate-50 shadow-sm"}`}
               >
                 <GoogleIcon />{" "}
                 {isLogin ? auth.login.google : auth.signup.google}
