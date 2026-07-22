@@ -88,6 +88,7 @@ export const auth = {
   },
   toast: {
     forgotPassword: "We'll send a recovery link to your email.",
+    signupSuccess: "Account created! Signing you in...",
   },
   logoutModal: {
     title: "Log out",

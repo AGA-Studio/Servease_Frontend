@@ -27,6 +27,37 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export class ApiError extends Error {}
 
+export async function apiPatch<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) throw new Error("No hay sesión activa");
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const detail =
+      (data && (data.detail || Object.values(data)[0])) ??
+      `Request failed: ${response.status}`;
+    throw new ApiError(String(Array.isArray(detail) ? detail[0] : detail));
+  }
+
+  return data as T;
+}
+
 export async function apiPostPublic<T>(
   path: string,
   body: Record<string, unknown>,
