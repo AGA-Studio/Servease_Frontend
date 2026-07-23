@@ -1,8 +1,7 @@
 // Provider job feed: filter bar, job cards, earnings summary and applied jobs sidebar.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ChevronDown,
   MapPin,
   Clock,
   ArrowRight,
@@ -17,6 +16,9 @@ import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import ApplyJobModal, {
   type ApplyJobData,
 } from "../../components/applyjobmodal/ApplyJobModal";
+import FilterSelect, {
+  type FilterOption,
+} from "../../components/filterselect/FilterSelect";
 
 interface AppliedJob {
   id: string;
@@ -128,154 +130,6 @@ const APPLIED_JOBS: AppliedJob[] = [
     price: "$180.00",
   },
 ];
-
-interface FilterOption {
-  value: string;
-  label: string;
-}
-
-const FilterSelect = ({
-  label,
-  value,
-  options,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: FilterOption[];
-  placeholder: string;
-  onChange: (value: string) => void;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { isDark } = useThemeMode();
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedLabel =
-    options.find((option) => option.value === value)?.label ?? placeholder;
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        position: "relative",
-      }}
-    >
-      <span
-        style={{
-          fontSize: "0.7rem",
-          fontWeight: 700,
-          color: "var(--text-secondary)",
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-        }}
-      >
-        {label}
-      </span>
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 24,
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid var(--divider)",
-          background: "var(--card-bg)",
-          color: "var(--text)",
-          fontSize: "0.85rem",
-          fontWeight: 500,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          minWidth: 140,
-        }}
-      >
-        {selectedLabel}
-        <ChevronDown
-          size={14}
-          color="var(--text-secondary)"
-          style={{
-            transform: isOpen ? "rotate(180deg)" : undefined,
-            transition: "transform 0.2s",
-          }}
-        />
-      </button>
-      {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            background: "var(--card-bg)",
-            border: "1px solid var(--divider)",
-            borderRadius: 10,
-            boxShadow: isDark
-              ? "0 8px 24px rgba(0,0,0,0.4)"
-              : "0 8px 24px rgba(0,0,0,0.1)",
-            maxHeight: 240,
-            overflowY: "auto",
-          }}
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => {
-                onChange(option.value);
-                setIsOpen(false);
-              }}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                padding: "10px 14px",
-                border: "none",
-                background: option.value === value ? "rgba(46,188,204,0.12)" : "transparent",
-                color: option.value === value ? "#2EBCCC" : "var(--text)",
-                fontSize: "0.85rem",
-                fontWeight: option.value === value ? 700 : 500,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background =
-                  option.value === value
-                    ? "rgba(46,188,204,0.16)"
-                    : "rgba(46,188,204,0.08)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background =
-                  option.value === value
-                    ? "rgba(46,188,204,0.12)"
-                    : "transparent")
-              }
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const JobCard = ({ job }: { job: JobDetails }) => {
   const [hovered, setHovered] = useState(false);

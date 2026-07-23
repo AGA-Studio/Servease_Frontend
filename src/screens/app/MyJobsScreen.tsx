@@ -5,7 +5,6 @@ import {
   Search,
   Clock,
   Wallet,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Briefcase,
@@ -15,6 +14,7 @@ import { motion, AnimatePresence, useInView } from "motion/react";
 import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
+import FilterSelect from "../../components/filterselect/FilterSelect";
 import type { ThemeMode } from "../../theme/theme";
 import { MOCK_JOBS, type MyJob, type ProposalStatus } from "../../data/mockJobs";
 import type { JobDetails, JobClient } from "../../types/job";
@@ -522,140 +522,6 @@ const MetaChip = ({
     {label}
   </div>
 );
-
-const FilterDropdown = ({
-  value,
-  options,
-  onChange,
-  isDark,
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-  isDark: boolean;
-}) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const selected = options.find((o) => o.value === value);
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column" }}>
-      <button
-        onClick={() => setOpen((p) => !p)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 7,
-          padding: "0 14px",
-          height: 42,
-          width: "100%",
-          borderRadius: 10,
-          border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-          background: isDark ? "#1e2d5e" : "#ffffff",
-          color: "var(--text)",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          whiteSpace: "nowrap",
-          transition: "border-color 0.18s",
-          boxSizing: "border-box",
-        }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.borderColor = "#2EBCCC")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.borderColor = isDark ? "#273570" : "#e5e7eb")
-        }
-      >
-        {selected?.label}
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.18 }}
-          style={{ display: "flex" }}
-        >
-          <ChevronDown size={15} />
-        </motion.span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-            style={{
-              position: "absolute",
-              top: "calc(100% + 6px)",
-              left: 0,
-              minWidth: 180,
-              background: isDark ? "#1e2d5e" : "#ffffff",
-              border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-              borderRadius: 12,
-              boxShadow: "0 8px 28px rgba(0,0,0,0.14)",
-              zIndex: 100,
-              overflow: "hidden",
-            }}
-          >
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "9px 14px",
-                  background:
-                    opt.value === value
-                      ? isDark
-                        ? "rgba(46,188,204,0.12)"
-                        : "rgba(46,188,204,0.08)"
-                      : "transparent",
-                  color:
-                    opt.value === value ? "#2EBCCC" : "var(--text)",
-                  fontSize: "0.875rem",
-                  fontWeight: opt.value === value ? 600 : 400,
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.14s",
-                }}
-                onMouseEnter={(e) => {
-                  if (opt.value !== value)
-                    e.currentTarget.style.background = isDark
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(0,0,0,0.03)";
-                }}
-                onMouseLeave={(e) => {
-                  if (opt.value !== value)
-                    e.currentTarget.style.background = "transparent";
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
 
 const getPageList = (page: number, totalPages: number): (number | "...")[] => {
   if (totalPages <= 7) {
@@ -1203,18 +1069,16 @@ const MyJobsScreen: React.FC = () => {
             </div>
 
             <div className="mj-filter-row" style={{ display: "flex", gap: 10 }}>
-              <FilterDropdown
+              <FilterSelect
                 value={statusFilter}
                 options={statusOptions}
                 onChange={(v) => { setStatusFilter(v); setPage(1); }}
-                isDark={isDark}
               />
 
-              <FilterDropdown
+              <FilterSelect
                 value={categoryFilter}
                 options={categoryOptions}
                 onChange={(v) => { setCategoryFilter(v); setPage(1); }}
-                isDark={isDark}
               />
             </div>
           </div>
@@ -1248,7 +1112,6 @@ const MyJobsScreen: React.FC = () => {
                     index={i}
                     isDark={isDark}
                     onViewDetails={handleViewDetails}
-                    onCancelProposal={handleCancelProposal}
                   />
                 ))}
               </motion.div>
