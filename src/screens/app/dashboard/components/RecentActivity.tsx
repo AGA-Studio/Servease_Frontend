@@ -62,6 +62,7 @@ export const RecentActivity = ({
         <SkeletonLoader isDark={isDark} variant="activity" />
       ) : (
         <div
+          className="ds-recent-activity-card"
           style={{
             background: "var(--card-bg)",
             borderRadius: 16,
@@ -73,6 +74,7 @@ export const RecentActivity = ({
             {activities?.map((act, i) => (
               <div
                 key={act.id}
+                className="ds-activity-row"
                 style={{
                   display: "flex",
                   gap: 14,

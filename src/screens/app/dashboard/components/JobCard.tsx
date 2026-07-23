@@ -36,6 +36,7 @@ export const JobCard = ({ job }: JobCardProps) => {
   return (
     <>
       <div
+        className="ds-job-card"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{

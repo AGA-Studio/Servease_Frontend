@@ -1,6 +1,8 @@
 import { Briefcase } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { DashboardJob } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
+import { ROUTES } from "../../../../router/routes";
 import { JobCard } from "./JobCard";
 import { SkeletonLoader } from "./SkeletonLoader";
 
@@ -13,6 +15,7 @@ interface AvailableJobsFeedProps {
 export const AvailableJobsFeed = ({ jobs, isLoading, isDark }: AvailableJobsFeedProps) => {
   const { t } = useI18n();
   const d = t("dashboardscreen");
+  const navigate = useNavigate();
 
   return (
     <div className="ds-left-col">
@@ -49,6 +52,7 @@ export const AvailableJobsFeed = ({ jobs, isLoading, isDark }: AvailableJobsFeed
             borderRadius: 8,
             transition: "background 0.2s",
           }}
+          onClick={() => navigate(ROUTES.APP.JOB_FEED)}
           onMouseEnter={(e) =>
             (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
           }

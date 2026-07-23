@@ -103,11 +103,26 @@ const DashboardScreen: React.FC = () => {
           }
           .ds-content {
             flex: 1;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
             min-height: 0;
           }
+          .ds-main-grid {
+            flex: 1;
+            min-height: 0;
+            align-items: stretch;
+            grid-template-rows: 1fr;
+          }
+          .ds-left-col {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+          }
           .ds-jobs-scroll {
-            overflow-y: visible;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
           }
         }
         @media (max-width: 1100px) {
@@ -121,12 +136,20 @@ const DashboardScreen: React.FC = () => {
           }
         }
         @media (max-width: 600px) {
+          .ds-root,
+          .ds-content,
+          .ds-main-grid,
+          .ds-left-col {
+            max-width: 100vw;
+            overflow-x: hidden;
+          }
           .ds-topbar {
             padding: 14px 16px !important;
           }
           .ds-content {
             padding: 16px !important;
             overflow-y: auto !important;
+            box-sizing: border-box;
           }
           .ds-kpi-row {
             gap: 10px;
@@ -137,6 +160,44 @@ const DashboardScreen: React.FC = () => {
           }
           .ds-main-grid {
             gap: 16px;
+          }
+          .ds-jobs-scroll {
+            overflow-x: auto;
+            overflow-y: visible;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -16px;
+            padding: 4px 16px 10px;
+            scrollbar-width: none;
+          }
+          .ds-jobs-scroll::-webkit-scrollbar {
+            display: none;
+          }
+          .ds-jobs-grid {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+          }
+          .ds-job-card {
+            scroll-snap-align: start;
+            flex: 0 0 88%;
+            min-width: 88%;
+            box-sizing: border-box;
+          }
+          .ds-recent-activity-card {
+            padding: 14px !important;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+          }
+          .ds-recent-activity-card .ds-activity-row {
+            padding-bottom: 12px !important;
+            gap: 10px !important;
+          }
+          .ds-recent-activity-card .load-btn {
+            margin-top: 12px !important;
+            padding: 8px !important;
+            font-size: 0.76rem !important;
           }
         }
         .load-btn:hover {

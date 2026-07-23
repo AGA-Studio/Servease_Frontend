@@ -831,7 +831,7 @@ const MyJobsScreen: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const [selectedJob, setSelectedJob] = useState<JobDetails | null>(null);
+  const [selectedJob, setSelectedJob] = useState<MyJob | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -879,9 +879,18 @@ const MyJobsScreen: React.FC = () => {
   );
 
   const handleViewDetails = useCallback((job: MyJob) => {
-    setSelectedJob(mapMyJobToDetails(job));
+    setSelectedJob(job);
     setIsDetailsOpen(true);
   }, []);
+
+  const handleCancelProposal = useCallback(
+    (job: MyJob) => {
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setIsDetailsOpen(false);
+      addToast("success", d.actions.cancelSuccess);
+    },
+    [addToast, d],
+  );
 
   const clearFilters = () => {
     setSearch("");
@@ -1239,6 +1248,7 @@ const MyJobsScreen: React.FC = () => {
                     index={i}
                     isDark={isDark}
                     onViewDetails={handleViewDetails}
+                    onCancelProposal={handleCancelProposal}
                   />
                 ))}
               </motion.div>
@@ -1269,7 +1279,11 @@ const MyJobsScreen: React.FC = () => {
       <JobDetailsModal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        job={selectedJob}
+        job={selectedJob ? mapMyJobToDetails(selectedJob) : null}
+        proposalStatus={selectedJob?.proposalStatus}
+        onCancelProposal={
+          selectedJob ? () => handleCancelProposal(selectedJob) : undefined
+        }
       />
     </>
   );
