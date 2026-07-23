@@ -7,6 +7,7 @@ import RoleRoute from "./RoleRoute";
 import { ROUTES } from "./routes";
 
 import AuthScreen from "../screens/auth/AuthScreen";
+import ConfirmEmailScreen from "../screens/auth/ConfirmEmailScreen";
 import TermsScreen from "../screens/legal/TermsScreen";
 import PrivacyScreen from "../screens/legal/PrivacyScreen";
 import AppLayout from "../layouts/AppLayout";
@@ -52,6 +53,7 @@ const AppRouter: React.FC = () => (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path={ROUTES.AUTH} element={<AuthScreen />} />
+      <Route path={ROUTES.CONFIRM_EMAIL} element={<ConfirmEmailScreen />} />
       <Route path={ROUTES.TERMS} element={<TermsScreen />} />
       <Route path={ROUTES.PRIVACY} element={<PrivacyScreen />} />
 
