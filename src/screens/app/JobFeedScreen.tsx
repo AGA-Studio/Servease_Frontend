@@ -10,19 +10,11 @@ import {
 } from "lucide-react";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
-
-interface Job {
-  id: string;
-  title: string;
-  category: string;
-  postedAgo: string;
-  description: string;
-  priceRange: string;
-  location: string;
-  urgency: string;
-  image: string;
-  distance: string;
-}
+import type { JobDetails } from "../../types/job";
+import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import ApplyJobModal, {
+  type ApplyJobData,
+} from "../../components/applyjobmodal/ApplyJobModal";
 
 interface AppliedJob {
   id: string;
@@ -32,34 +24,65 @@ interface AppliedJob {
   price: string;
 }
 
-const JOBS: Job[] = [
+const JOBS: JobDetails[] = [
   {
     id: "1",
     title: "Emergency Residential Lockout",
     category: "Locksmith",
     postedAgo: "10m ago",
     description:
-      "Costumer is locked out of their apartment on the 3rd floor. Key broke inside the lock cylinder. Requires extraction and potentially replacement.",
+      "Customer is locked out of their apartment on the 3rd floor. Key broke inside the lock cylinder. Requires extraction and potentially replacement.",
     priceRange: "$120 - $150",
+    price: 135,
     location: "El Refugio, Tijuana",
+    when: "Today",
     urgency: "ASAP",
-    image:
-      "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80",
+    mainImage:
+      "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=800&q=80",
+    thumbnails: [
+      "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=200&q=80",
+      "https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?auto=format&fit=crop&w=200&q=80",
+    ],
+    client: {
+      name: "Maria Cazares",
+      avatar:
+        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
+      rating: 4.9,
+      reviewCount: 12,
+      memberSince: "Sep. 2025",
+      jobsPosted: 8,
+    },
     distance: "2.5km",
+    proposalCount: 5,
   },
   {
     id: "2",
-    title: "Emergency Residential Lockout",
+    title: "High-Security Lock Install",
     category: "Locksmith",
-    postedAgo: "10m ago",
+    postedAgo: "1h ago",
     description:
-      "Costumer is locked out of their apartment on the 3rd floor. Key broke inside the lock cylinder. Requires extraction and potentially replacement.",
-    priceRange: "$120 - $150",
-    location: "El Refugio, Tijuana",
-    urgency: "ASAP",
-    image:
-      "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80",
-    distance: "2.5km",
+      "Need to install a high-security deadbolt on the front door of a commercial office. The lock must be ANSI Grade 1 and include key control.",
+    priceRange: "$350 - $500",
+    price: 425,
+    location: "Centro, Tijuana",
+    when: "Tomorrow",
+    urgency: "Flexible",
+    mainImage:
+      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=800&q=80",
+    thumbnails: [
+      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80",
+    ],
+    client: {
+      name: "Carlos Mendoza",
+      avatar:
+        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
+      rating: 4.7,
+      reviewCount: 8,
+      memberSince: "Jan. 2025",
+      jobsPosted: 4,
+    },
+    distance: "4.2km",
+    proposalCount: 3,
   },
 ];
 
@@ -130,32 +153,49 @@ const FilterSelect = ({
   </div>
 );
 
-const JobCard = ({ job }: { job: Job }) => {
+const JobCard = ({ job }: { job: JobDetails }) => {
   const [hovered, setHovered] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
   const { t } = useI18n();
   const d = t("jobfeedscreen");
 
+  const CATEGORY_KEY: Record<string, string> = {
+    Locksmith: "locksmith",
+    Plumbing: "plumbing",
+    Electrical: "electrical",
+    Gardening: "gardening",
+    HVAC: "hvac",
+  };
+
+  const handleApplySubmit = (data: ApplyJobData) => {
+    // TODO: replace with API call to submit proposal
+    console.log("Submit proposal:", { jobId: job.id, ...data });
+    setIsApplyOpen(false);
+  };
+
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: "var(--card-bg)",
-        borderRadius: 14,
-        border: "1px solid var(--divider)",
-        padding: 16,
-        display: "flex",
-        gap: 16,
-        transition: "box-shadow 0.2s, transform 0.2s",
-        boxShadow: hovered
-          ? "0 6px 24px rgba(0,0,0,0.12)"
-          : "0 1px 4px rgba(0,0,0,0.04)",
-        transform: hovered ? "translateY(-1px)" : "none",
-      }}
-    >
+    <>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          background: "var(--card-bg)",
+          borderRadius: 14,
+          border: "1px solid var(--divider)",
+          padding: 16,
+          display: "flex",
+          gap: 16,
+          transition: "box-shadow 0.2s, transform 0.2s",
+          boxShadow: hovered
+            ? "0 6px 24px rgba(0,0,0,0.12)"
+            : "0 1px 4px rgba(0,0,0,0.04)",
+          transform: hovered ? "translateY(-1px)" : "none",
+        }}
+      >
       <div style={{ position: "relative", flexShrink: 0 }}>
         <img
-          src={job.image}
+          src={job.mainImage}
           alt={job.title}
           style={{
             width: 140,
@@ -213,7 +253,7 @@ const JobCard = ({ job }: { job: Job }) => {
                 fontWeight: 600,
               }}
             >
-              {job.category}
+              {d.categories[CATEGORY_KEY[job.category] as keyof typeof d.categories] ?? job.category}
             </span>
             <span>
               {d.card.posted} {job.postedAgo}
@@ -272,11 +312,12 @@ const JobCard = ({ job }: { job: Job }) => {
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <Clock size={12} />
-            {job.urgency}
+            {d.urgency[job.urgency.toLowerCase() as keyof typeof d.urgency] ?? job.urgency}
           </span>
         </div>
 
         <button
+          onClick={() => setIsDetailsOpen(true)}
           style={{
             marginTop: 14,
             background: "#2EBCCC",
@@ -308,6 +349,25 @@ const JobCard = ({ job }: { job: Job }) => {
         </button>
       </div>
     </div>
+
+    <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={job}
+        onApply={() => {
+          setIsDetailsOpen(false);
+          setIsApplyOpen(true);
+        }}
+      />
+
+      <ApplyJobModal
+        isOpen={isApplyOpen}
+        onClose={() => setIsApplyOpen(false)}
+        jobTitle={job.title}
+        clientPrice={job.price}
+        onSubmit={handleApplySubmit}
+      />
+    </>
   );
 };
 

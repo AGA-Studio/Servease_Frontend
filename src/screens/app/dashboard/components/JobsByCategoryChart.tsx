@@ -2,6 +2,13 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import type { CategoryBreakdown } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 
+const CATEGORY_KEY_MAP: Record<string, string> = {
+  Plumbing: "plumbing",
+  Electrical: "electrical",
+  Gardening: "gardening",
+  HVAC: "hvac",
+};
+
 interface JobsByCategoryChartProps {
   data: CategoryBreakdown[] | undefined;
   isDark: boolean;
@@ -11,6 +18,11 @@ export const JobsByCategoryChart = ({ data, isDark }: JobsByCategoryChartProps) 
   const { t } = useI18n();
   const d = t("dashboardscreen");
   const textColor = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)";
+
+  const translatedData = data?.map((entry) => ({
+    ...entry,
+    name: d.categories[CATEGORY_KEY_MAP[entry.name] as keyof typeof d.categories] ?? entry.name,
+  }));
 
   return (
     <div
@@ -47,7 +59,7 @@ export const JobsByCategoryChart = ({ data, isDark }: JobsByCategoryChartProps) 
         <ResponsiveContainer width="100%" height="100%" minHeight={200}>
           <PieChart>
             <Pie
-              data={data}
+              data={translatedData}
               cx="50%"
               cy="50%"
               innerRadius={60}
@@ -56,7 +68,7 @@ export const JobsByCategoryChart = ({ data, isDark }: JobsByCategoryChartProps) 
               dataKey="value"
               stroke="none"
             >
-              {data?.map((entry, index) => (
+              {translatedData?.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>

@@ -6,6 +6,17 @@ import type {
   EarningsPoint,
   CategoryBreakdown,
 } from "../../../../types/dashboard";
+import type { JobClient } from "../../../../types/job";
+
+const MOCK_CLIENT: JobClient = {
+  name: "Maria Cazares",
+  avatar:
+    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
+  rating: 4.9,
+  reviewCount: 12,
+  memberSince: "Sep. 2025",
+  jobsPosted: 8,
+};
 
 export const MOCK_ACTIVITIES: DashboardActivity[] = [
   {
@@ -61,8 +72,19 @@ export const MOCK_AVAILABLE_JOBS: DashboardJob[] = [
     description:
       "Looking for a licensed plumber to fix a burst pipe in the kitchen. Needs to be done immediately.",
     budget: "$350 - $500",
+    priceRange: "$350 - $500",
+    price: 425,
     proposalCount: 5,
     category: "Plumbing",
+    when: "Today",
+    urgency: "ASAP",
+    mainImage:
+      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80",
+    thumbnails: [
+      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=200&q=80",
+      "https://images.unsplash.com/photo-1558002038-1055907df827?w=200&q=80",
+    ],
+    client: MOCK_CLIENT,
   },
   {
     id: "2",
@@ -72,8 +94,18 @@ export const MOCK_AVAILABLE_JOBS: DashboardJob[] = [
     description:
       "Need a certified electrician to install wiring for a new office space. Approximately 2000 sq ft.",
     budget: "$800 - $1,200",
+    priceRange: "$800 - $1,200",
+    price: 1000,
     proposalCount: 3,
     category: "Electrical",
+    when: "Tomorrow",
+    urgency: "Flexible",
+    mainImage:
+      "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&q=80",
+    thumbnails: [
+      "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=200&q=80",
+    ],
+    client: MOCK_CLIENT,
   },
   {
     id: "3",
@@ -83,8 +115,18 @@ export const MOCK_AVAILABLE_JOBS: DashboardJob[] = [
     description:
       "Looking for a landscaper to redesign and maintain a residential garden.",
     budget: "$500 - $700",
+    priceRange: "$500 - $700",
+    price: 600,
     proposalCount: 8,
     category: "Gardening",
+    when: "This week",
+    urgency: "Flexible",
+    mainImage:
+      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
+    thumbnails: [
+      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&q=80",
+    ],
+    client: MOCK_CLIENT,
   },
   {
     id: "4",
@@ -93,8 +135,18 @@ export const MOCK_AVAILABLE_JOBS: DashboardJob[] = [
     postedAgo: "2d ago",
     description: "Central AC unit not cooling properly. Need diagnosis and repair.",
     budget: "$200 - $400",
+    priceRange: "$200 - $400",
+    price: 300,
     proposalCount: 2,
     category: "HVAC",
+    when: "Today",
+    urgency: "ASAP",
+    mainImage:
+      "https://images.unsplash.com/photo-1558002038-1055907df827?w=800&q=80",
+    thumbnails: [
+      "https://images.unsplash.com/photo-1558002038-1055907df827?w=200&q=80",
+    ],
+    client: MOCK_CLIENT,
   },
 ];
 
@@ -139,7 +191,7 @@ export const MOCK_KPIS: KpiData[] = [
     },
   },
   {
-    key: "rating",
+    key: "averageRating",
     label: "Rating",
     value: "4.8",
     iconName: "star",

@@ -1,7 +1,18 @@
 import { useState } from "react";
-import { Briefcase, MapPin, Clock, Users, ArrowRight } from "lucide-react";
+import { Briefcase, MapPin, Clock, Users, ArrowRight, Eye } from "lucide-react";
 import type { DashboardJob } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
+import ApplyJobModal, {
+  type ApplyJobData,
+} from "../../../../components/applyjobmodal/ApplyJobModal";
+import JobDetailsModal from "../../../../components/jobdetailsmodal/JobDetailsModal";
+
+const CATEGORY_KEY: Record<string, string> = {
+  Plumbing: "plumbing",
+  Electrical: "electrical",
+  Gardening: "gardening",
+  HVAC: "hvac",
+};
 
 interface JobCardProps {
   job: DashboardJob;
@@ -9,27 +20,38 @@ interface JobCardProps {
 
 export const JobCard = ({ job }: JobCardProps) => {
   const [hovered, setHovered] = useState(false);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const { t } = useI18n();
   const d = t("dashboardscreen");
 
+  const jobDetails = job;
+
+  const handleApplySubmit = (data: ApplyJobData) => {
+    // TODO: replace with API call to submit proposal
+    console.log("Submit proposal:", { jobId: job.id, ...data });
+    setIsApplyOpen(false);
+  };
+
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: "var(--card-bg)",
-        borderRadius: 14,
-        border: "1px solid var(--divider)",
-        borderLeft: "4px solid #2EBCCC",
-        padding: "16px 20px",
-        transition: "box-shadow 0.2s, transform 0.2s",
-        boxShadow: hovered
-          ? "0 6px 24px rgba(0,0,0,0.12)"
-          : "0 1px 4px rgba(0,0,0,0.04)",
-        transform: hovered ? "translateY(-1px)" : "none",
-        cursor: "default",
-      }}
-    >
+    <>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          background: "var(--card-bg)",
+          borderRadius: 14,
+          border: "1px solid var(--divider)",
+          borderLeft: "4px solid #2EBCCC",
+          padding: "16px 20px",
+          transition: "box-shadow 0.2s, transform 0.2s",
+          boxShadow: hovered
+            ? "0 6px 24px rgba(0,0,0,0.12)"
+            : "0 1px 4px rgba(0,0,0,0.04)",
+          transform: hovered ? "translateY(-1px)" : "none",
+          cursor: "default",
+        }}
+      >
       <div
         style={{
           display: "flex",
@@ -98,7 +120,7 @@ export const JobCard = ({ job }: JobCardProps) => {
             whiteSpace: "nowrap",
           }}
         >
-          {job.category}
+          {d.categories[CATEGORY_KEY[job.category] as keyof typeof d.categories] ?? job.category}
         </span>
       </div>
 
@@ -113,59 +135,110 @@ export const JobCard = ({ job }: JobCardProps) => {
         {job.description}
       </p>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 8,
-        }}
-      >
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
-            fontSize: "0.8rem",
-            color: "var(--text-secondary)",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 8,
           }}
         >
-          <Users size={14} />
-          <span>
-            {job.proposalCount} {d.jobCard.proposals}
-          </span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: "0.8rem",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <Users size={14} />
+            <span>
+              {job.proposalCount} {d.jobCard.proposals}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setIsDetailsOpen(true)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "6px 10px",
+                borderRadius: 8,
+                fontFamily: "inherit",
+                transition: "background 0.2s, color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(46,188,204,0.10)";
+                e.currentTarget.style.color = "#2EBCCC";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "none";
+                e.currentTarget.style.color = "var(--text-secondary)";
+              }}
+            >
+              <Eye size={14} />
+              {d.jobCard.viewDetails}
+            </button>
+            <button
+              onClick={() => setIsApplyOpen(true)}
+              style={{
+                background: "#2EBCCC",
+                border: "none",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "0.84rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontFamily: "inherit",
+                transition: "background 0.2s, box-shadow 0.2s",
+                boxShadow: hovered
+                  ? "0 4px 14px rgba(46,188,204,0.45)"
+                  : "none",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#239aaa")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "#2EBCCC")
+              }
+            >
+              {d.jobCard.apply}
+              <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
-        <button
-          style={{
-            background: "#2EBCCC",
-            border: "none",
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: "0.84rem",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "8px 16px",
-            borderRadius: 10,
-            fontFamily: "inherit",
-            transition: "background 0.2s, box-shadow 0.2s",
-            boxShadow: hovered
-              ? "0 4px 14px rgba(46,188,204,0.45)"
-              : "none",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "#239aaa")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "#2EBCCC")
-          }
-        >
-          {d.jobCard.apply}
-          <ArrowRight size={14} />
-        </button>
       </div>
-    </div>
+
+      <ApplyJobModal
+        isOpen={isApplyOpen}
+        onClose={() => setIsApplyOpen(false)}
+        jobTitle={job.title}
+        clientPrice={job.price}
+        onSubmit={handleApplySubmit}
+      />
+
+      <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={jobDetails}
+        onApply={() => {
+          setIsDetailsOpen(false);
+          setIsApplyOpen(true);
+        }}
+      />
+    </>
   );
 };

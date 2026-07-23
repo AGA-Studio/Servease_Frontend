@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Briefcase, CheckCircle, DollarSign, Star, TrendingUp, TrendingDown } from "lucide-react";
 import type { KpiData } from "../../../../types/dashboard";
+import { useI18n } from "../../../../i18n";
 
 const ICONS = {
   briefcase: Briefcase,
@@ -17,6 +18,8 @@ interface KpiCardProps {
 export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
   const [hovered, setHovered] = useState(false);
   const Icon = ICONS[data.iconName];
+  const { t } = useI18n();
+  const d = t("dashboardscreen");
 
   return (
     <div
@@ -60,7 +63,7 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
             marginBottom: 4,
           }}
         >
-          {data.label}
+          {d.kpis[data.key as keyof typeof d.kpis] ?? data.label}
         </div>
         <div
           style={{

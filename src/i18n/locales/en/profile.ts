@@ -58,5 +58,11 @@ export const profile = {
       viewAll: "View all",
       empty: "No reviews yet.",
     },
+    services: {
+      plumbing: "Plumbing",
+      electrical: "Electrical",
+      painting: "Painting",
+      carpentry: "Carpentry",
+    },
   },
 };

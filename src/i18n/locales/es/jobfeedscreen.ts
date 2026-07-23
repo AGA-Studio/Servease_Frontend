@@ -32,4 +32,15 @@ export const jobfeedscreen = {
     declined: "Rechazado",
     closed: "Cerrado",
   },
+  categories: {
+    locksmith: "Cerrajería",
+    plumbing: "Plomería",
+    electrical: "Electricidad",
+    gardening: "Jardinería",
+    hvac: "Aire Acondicionado",
+  },
+  urgency: {
+    asap: "Urgente",
+    flexible: "Flexible",
+  },
 };
