@@ -1,6 +1,6 @@
 // Provider job feed: filter bar, job cards, earnings summary and applied jobs sidebar.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   MapPin,
@@ -8,8 +8,10 @@ import {
   ArrowRight,
   Navigation,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
+import { ROUTES } from "../../router/routes";
 import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import ApplyJobModal, {
@@ -23,6 +25,23 @@ interface AppliedJob {
   sentAgo: string;
   price: string;
 }
+
+interface JobFilters {
+  specialization: string;
+  category: string;
+  distance: string;
+  priceRange: string;
+}
+
+const CATEGORIES = ["Locksmith", "Plumbing", "Electrical", "Gardening", "HVAC"];
+
+const PRICE_RANGES = ["", "0-100", "100-300", "300-500", "500+"] as const;
+
+const formatPriceRange = (range: string): string => {
+  if (range === "500+") return "$500+";
+  const [min, max] = range.split("-");
+  return `$${min} - $${max}`;
+};
 
 const JOBS: JobDetails[] = [
   {
@@ -110,48 +129,153 @@ const APPLIED_JOBS: AppliedJob[] = [
   },
 ];
 
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
 const FilterSelect = ({
   label,
   value,
+  options,
+  placeholder,
+  onChange,
 }: {
   label: string;
   value: string;
-}) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-    <span
-      style={{
-        fontSize: "0.7rem",
-        fontWeight: 700,
-        color: "var(--text-secondary)",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-      }}
-    >
-      {label}
-    </span>
-    <button
+  options: FilterOption[];
+  placeholder: string;
+  onChange: (value: string) => void;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { isDark } = useThemeMode();
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? placeholder;
+
+  return (
+    <div
+      ref={containerRef}
       style={{
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 24,
-        padding: "10px 14px",
-        borderRadius: 10,
-        border: "1px solid var(--divider)",
-        background: "var(--card-bg)",
-        color: "var(--text)",
-        fontSize: "0.85rem",
-        fontWeight: 500,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        minWidth: 140,
+        flexDirection: "column",
+        gap: 6,
+        position: "relative",
       }}
     >
-      {value}
-      <ChevronDown size={14} color="var(--text-secondary)" />
-    </button>
-  </div>
-);
+      <span
+        style={{
+          fontSize: "0.7rem",
+          fontWeight: 700,
+          color: "var(--text-secondary)",
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        }}
+      >
+        {label}
+      </span>
+      <button
+        onClick={() => setIsOpen((prev) => !prev)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 24,
+          padding: "10px 14px",
+          borderRadius: 10,
+          border: "1px solid var(--divider)",
+          background: "var(--card-bg)",
+          color: "var(--text)",
+          fontSize: "0.85rem",
+          fontWeight: 500,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          minWidth: 140,
+        }}
+      >
+        {selectedLabel}
+        <ChevronDown
+          size={14}
+          color="var(--text-secondary)"
+          style={{
+            transform: isOpen ? "rotate(180deg)" : undefined,
+            transition: "transform 0.2s",
+          }}
+        />
+      </button>
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            background: "var(--card-bg)",
+            border: "1px solid var(--divider)",
+            borderRadius: 10,
+            boxShadow: isDark
+              ? "0 8px 24px rgba(0,0,0,0.4)"
+              : "0 8px 24px rgba(0,0,0,0.1)",
+            maxHeight: 240,
+            overflowY: "auto",
+          }}
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "10px 14px",
+                border: "none",
+                background: option.value === value ? "rgba(46,188,204,0.12)" : "transparent",
+                color: option.value === value ? "#2EBCCC" : "var(--text)",
+                fontSize: "0.85rem",
+                fontWeight: option.value === value ? 700 : 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background =
+                  option.value === value
+                    ? "rgba(46,188,204,0.16)"
+                    : "rgba(46,188,204,0.08)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background =
+                  option.value === value
+                    ? "rgba(46,188,204,0.12)"
+                    : "transparent")
+              }
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const JobCard = ({ job }: { job: JobDetails }) => {
   const [hovered, setHovered] = useState(false);
@@ -496,6 +620,57 @@ const JobFeedScreen: React.FC = () => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
   const d = t("jobfeedscreen");
+  const navigate = useNavigate();
+
+  const [filters, setFilters] = useState<JobFilters>({
+    specialization: "",
+    category: "",
+    distance: "10",
+    priceRange: "",
+  });
+
+  const specializationOptions: FilterOption[] = [
+    { value: "", label: d.filters.allSpecializations },
+    ...CATEGORIES.map((category) => ({
+      value: category,
+      label: d.categories[category.toLowerCase() as keyof typeof d.categories] ?? category,
+    })),
+  ];
+
+  const categoryOptions: FilterOption[] = [
+    { value: "", label: d.filters.allCategories },
+    ...CATEGORIES.map((category) => ({
+      value: category,
+      label: d.categories[category.toLowerCase() as keyof typeof d.categories] ?? category,
+    })),
+  ];
+
+  const distanceOptions: FilterOption[] = [
+    { value: "5", label: `5 ${d.filters.km ?? "km"}` },
+    { value: "10", label: `10 ${d.filters.km ?? "km"}` },
+    { value: "25", label: `25 ${d.filters.km ?? "km"}` },
+    { value: "50", label: `50 ${d.filters.km ?? "km"}` },
+  ];
+
+  const priceRangeOptions: FilterOption[] = PRICE_RANGES.map((range) => ({
+    value: range,
+    label: range === "" ? d.filters.anyPrice : formatPriceRange(range),
+  }));
+
+  // TODO: replace with real API call using filters as query params
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.specialization) params.set("specialization", filters.specialization);
+    if (filters.category) params.set("category", filters.category);
+    if (filters.distance) params.set("distance", filters.distance);
+    if (filters.priceRange) params.set("priceRange", filters.priceRange);
+
+    console.log("Fetch available jobs:", params.toString());
+  }, [filters]);
+
+  const handleFilterChange = (key: keyof JobFilters) => (value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   return (
     <>
@@ -641,19 +816,31 @@ const JobFeedScreen: React.FC = () => {
             >
               <FilterSelect
                 label={d.filters.specialization}
-                value="Locksmith"
+                value={filters.specialization}
+                options={specializationOptions}
+                placeholder={d.filters.allSpecializations}
+                onChange={handleFilterChange("specialization")}
               />
               <FilterSelect
                 label={d.filters.category}
-                value={d.filters.allCategories}
+                value={filters.category}
+                options={categoryOptions}
+                placeholder={d.filters.allCategories}
+                onChange={handleFilterChange("category")}
               />
               <FilterSelect
                 label={d.filters.distance}
-                value={d.filters.within10km}
+                value={filters.distance}
+                options={distanceOptions}
+                placeholder={`10 ${d.filters.km ?? "km"}`}
+                onChange={handleFilterChange("distance")}
               />
               <FilterSelect
                 label={d.filters.priceRange}
-                value={d.filters.anyPrice}
+                value={filters.priceRange}
+                options={priceRangeOptions}
+                placeholder={d.filters.anyPrice}
+                onChange={handleFilterChange("priceRange")}
               />
             </div>
           </div>
@@ -783,6 +970,7 @@ const JobFeedScreen: React.FC = () => {
                     {d.myAppliedJobs}
                   </h3>
                   <button
+                    onClick={() => navigate(ROUTES.APP.MY_JOBS)}
                     style={{
                       background: "none",
                       border: "none",

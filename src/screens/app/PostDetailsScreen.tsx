@@ -11,7 +11,9 @@ import {
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { ROUTES } from "../../router/routes";
+import { useAuth } from "../../context/AuthContext";
 import { MOCK_POSTS } from "../../data/mockPosts";
+import { MOCK_JOBS, type ProposalStatus } from "../../data/mockJobs";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import ApplyJobModal, {
   type ApplyJobData,
@@ -135,13 +137,29 @@ const PostDetailsScreen: React.FC = () => {
   const post = MOCK_POSTS.find((p) => p.id === postId);
   const title = post?.title ?? JOB.title;
 
+  const { user } = useAuth();
+  const isProvider = user?.role === "provider";
+  const myApplication = isProvider
+    ? MOCK_JOBS.find((j) => j.id === postId)
+    : undefined;
+  const hasApplied = !!myApplication;
+  const applicationStatus: ProposalStatus | undefined =
+    myApplication?.proposalStatus;
+
   const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedThumb, setSelectedThumb] = useState(0);
 
   const handleApplySubmit = async (data: ApplyJobData) => {
-    // TODO: replace with API call to submit proposal
-    console.log("Submit proposal:", { jobId: JOB.title, ...data });
-    setIsApplyOpen(false);
+    setIsSubmitting(true);
+    try {
+      // TODO: replace with API call to submit proposal
+      console.log("Submit proposal:", { jobId: JOB.title, ...data });
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    } finally {
+      setIsSubmitting(false);
+      setIsApplyOpen(false);
+    }
   };
 
   return (
@@ -538,30 +556,91 @@ const PostDetailsScreen: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                onClick={() => setIsApplyOpen(true)}
-                style={{
-                  width: "100%",
-                  padding: "14px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: "#2EBCCC",
-                  color: "#fff",
-                  fontSize: "0.95rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.2s, box-shadow 0.2s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#239aaa")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "#2EBCCC")
-                }
-              >
-                {d.apply}
-              </button>
+              {isProvider && !hasApplied && (
+                <button
+                  onClick={() => setIsApplyOpen(true)}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: 12,
+                    border: "none",
+                    background: "#2EBCCC",
+                    color: "#fff",
+                    fontSize: "0.95rem",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    transition: "background 0.2s, box-shadow 0.2s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#239aaa")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "#2EBCCC")
+                  }
+                >
+                  {d.apply}
+                </button>
+              )}
+
+              {hasApplied && applicationStatus && (
+                <div
+                  style={{
+                    background: "var(--card-bg)",
+                    borderRadius: 16,
+                    border: "1px solid var(--divider)",
+                    padding: 20,
+                    textAlign: "center",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: "0 0 10px",
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      color: "var(--text-secondary)",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    {d.applicationStatus}
+                  </p>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 16px",
+                      borderRadius: 20,
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      background:
+                        applicationStatus === "accepted"
+                          ? "rgba(34,197,94,0.12)"
+                          : "rgba(245,158,11,0.12)",
+                      color:
+                        applicationStatus === "accepted"
+                          ? "#16a34a"
+                          : "#d97706",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background:
+                          applicationStatus === "accepted"
+                            ? "#16a34a"
+                            : "#d97706",
+                      }}
+                    />
+                    {applicationStatus === "accepted"
+                      ? d.applicationAccepted
+                      : d.applicationPending}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -573,6 +652,7 @@ const PostDetailsScreen: React.FC = () => {
         jobTitle={JOB.title}
         clientPrice={JOB.price}
         onSubmit={handleApplySubmit}
+        isSubmitting={isSubmitting}
       />
     </>
   );

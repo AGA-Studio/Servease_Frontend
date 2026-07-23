@@ -6,11 +6,12 @@ export const jobfeedscreen = {
   filters: {
     specialization: "My Specialization",
     category: "Category",
+    allSpecializations: "All Specializations",
     allCategories: "All Categories",
     distance: "Distance",
-    within10km: "Within 10 km",
     priceRange: "Price Range",
     anyPrice: "Any Price",
+    km: "km",
   },
   earningsSummary: "Earnings Summary",
   thisWeek: "This Week",

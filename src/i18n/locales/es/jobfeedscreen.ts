@@ -6,11 +6,12 @@ export const jobfeedscreen = {
   filters: {
     specialization: "Mi Especialización",
     category: "Categoría",
+    allSpecializations: "Todas las Especializaciones",
     allCategories: "Todas las Categorías",
     distance: "Distancia",
-    within10km: "A 10 km",
     priceRange: "Rango de Precio",
     anyPrice: "Cualquier Precio",
+    km: "km",
   },
   earningsSummary: "Resumen de Ganancias",
   thisWeek: "Esta Semana",
