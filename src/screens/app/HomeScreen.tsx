@@ -147,6 +147,7 @@ const PostIcon = ({
   const size = 42;
   return (
     <div
+      className="hs-post-icon"
       style={{
         width: size,
         height: size,
@@ -260,6 +261,7 @@ const PostCard = ({ post }: { post: Post }) => {
   const h = t("homescreen");
   return (
     <div
+      className="hs-post-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -268,11 +270,12 @@ const PostCard = ({ post }: { post: Post }) => {
         border: `1px solid var(--divider)`,
         borderLeft: `4px solid ${post.accentColor}`,
         padding: "16px 20px",
-        transition: "box-shadow 0.2s, transform 0.2s",
+        transition:
+          "box-shadow 220ms cubic-bezier(0.23,1,0.32,1), transform 220ms cubic-bezier(0.23,1,0.32,1)",
         boxShadow: hovered
           ? "0 6px 24px rgba(0,0,0,0.12)"
           : "0 1px 4px rgba(0,0,0,0.04)",
-        transform: hovered ? "translateY(-1px)" : "none",
+        transform: hovered ? "translateY(-2px)" : "none",
         cursor: "default",
       }}
     >
@@ -319,6 +322,7 @@ const PostCard = ({ post }: { post: Post }) => {
       </div>
 
       <p
+        className="hs-post-desc"
         style={{
           fontSize: "0.84rem",
           color: "var(--text-secondary)",
@@ -344,6 +348,7 @@ const PostCard = ({ post }: { post: Post }) => {
           )}
         </div>
         <button
+          className="hs-post-link"
           style={{
             background: "none",
             border: "none",
@@ -357,7 +362,6 @@ const PostCard = ({ post }: { post: Post }) => {
             padding: "5px 10px",
             borderRadius: 8,
             fontFamily: "inherit",
-            transition: "background 0.2s",
           }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
@@ -386,6 +390,7 @@ const KpiCard = ({
   iconBg: string;
 }) => (
   <div
+    className="hs-kpi-card"
     style={{
       background: "var(--card-bg)",
       borderRadius: 16,
@@ -398,6 +403,7 @@ const KpiCard = ({
     }}
   >
     <div
+      className="hs-kpi-icon"
       style={{
         width: 52,
         height: 52,
@@ -411,7 +417,7 @@ const KpiCard = ({
     >
       {icon}
     </div>
-    <div>
+    <div className="hs-kpi-text">
       <div
         style={{
           fontSize: "0.78rem",
@@ -422,6 +428,7 @@ const KpiCard = ({
         {label}
       </div>
       <div
+        className="hs-kpi-value"
         style={{
           fontSize: "1.7rem",
           fontWeight: 800,
@@ -498,6 +505,33 @@ const HomeScreen: React.FC = () => {
     gap: 16px;
     flex-wrap: wrap;
   }
+  .hs-kpi-card {
+    opacity: 0;
+    animation: hs-fade-up 380ms cubic-bezier(0.23,1,0.32,1) forwards;
+    transition: transform 200ms cubic-bezier(0.23,1,0.32,1), box-shadow 200ms cubic-bezier(0.23,1,0.32,1);
+  }
+  .hs-kpi-card:nth-child(1) { animation-delay: 0ms; }
+  .hs-kpi-card:nth-child(2) { animation-delay: 60ms; }
+  .hs-kpi-card:nth-child(3) { animation-delay: 120ms; }
+  @media (hover: hover) and (pointer: fine) {
+    .hs-kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+  }
+  .hs-post-card {
+    opacity: 0;
+    animation: hs-fade-up 380ms cubic-bezier(0.23,1,0.32,1) forwards;
+  }
+  .hs-posts-grid .hs-post-card:nth-child(1) { animation-delay: 0ms; }
+  .hs-posts-grid .hs-post-card:nth-child(2) { animation-delay: 50ms; }
+  .hs-posts-grid .hs-post-card:nth-child(3) { animation-delay: 100ms; }
+  .hs-posts-grid .hs-post-card:nth-child(4) { animation-delay: 150ms; }
+  .hs-posts-grid .hs-post-card:nth-child(5) { animation-delay: 200ms; }
+  @keyframes hs-fade-up {
+    from { opacity: 0; translate: 0 10px; }
+    to { opacity: 1; translate: 0 0; }
+  }
   .hs-left-col {
     display: flex;
     flex-direction: column;
@@ -556,15 +590,108 @@ const HomeScreen: React.FC = () => {
     }
   }
   @media (max-width: 600px) {
+    .hs-root,
+    .hs-content,
+    .hs-main-grid,
+    .hs-left-col {
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
     .hs-topbar {
       padding: 14px 16px !important;
     }
     .hs-content {
       padding: 16px !important;
       overflow-y: auto !important;
+      box-sizing: border-box;
     }
+
+    /* KPI cards: horizontal row, evenly spaced, centered content */
     .hs-kpi-row {
       gap: 10px;
+      flex-wrap: nowrap;
+    }
+    .hs-kpi-card {
+      flex: 1 1 0 !important;
+      min-width: 0;
+      padding: 14px 10px !important;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px !important;
+      text-align: center;
+    }
+    .hs-kpi-icon {
+      width: 38px !important;
+      height: 38px !important;
+      border-radius: 10px !important;
+    }
+    .hs-kpi-icon svg {
+      width: 17px;
+      height: 17px;
+    }
+    .hs-kpi-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .hs-kpi-value {
+      font-size: 1.25rem !important;
+    }
+
+    /* Posts: horizontal swipeable carousel instead of a stacked list */
+    .hs-posts-scroll {
+      overflow-x: auto;
+      overflow-y: visible;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -16px;
+      padding: 4px 16px 10px;
+    }
+    .hs-posts-grid {
+      flex-direction: row;
+      gap: 12px;
+    }
+    .hs-post-card {
+      scroll-snap-align: start;
+      flex: 0 0 88%;
+      min-width: 88%;
+      box-sizing: border-box;
+      padding: 12px 14px !important;
+    }
+    .hs-post-card .hs-post-icon {
+      width: 34px !important;
+      height: 34px !important;
+    }
+    .hs-post-desc {
+      margin: 8px 0 !important;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Recent activity: compact panel, must fit viewport width exactly */
+    .hs-recent-activity-card {
+      padding: 14px !important;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .hs-recent-activity-card .hs-activity-row {
+      padding-bottom: 12px !important;
+      gap: 10px !important;
+    }
+    .hs-recent-activity-card .hs-activity-time {
+      font-size: 0.68rem !important;
+    }
+    .hs-recent-activity-card .hs-activity-content {
+      font-size: 0.78rem !important;
+    }
+    .hs-recent-activity-card .load-btn {
+      margin-top: 12px !important;
+      padding: 8px !important;
+      font-size: 0.76rem !important;
     }
   }
   @media (max-width: 767px) {
@@ -575,6 +702,23 @@ const HomeScreen: React.FC = () => {
   .load-btn:hover {
     background: rgba(46,188,204,0.08) !important;
     color: #2EBCCC !important;
+  }
+  .load-btn,
+  .hs-post-link {
+    transition: transform 140ms cubic-bezier(0.23,1,0.32,1), background 200ms ease, color 200ms ease;
+  }
+  .load-btn:active,
+  .hs-post-link:active,
+  .post-btn:active {
+    transform: scale(0.97);
+  }
+  @media (max-width: 600px) {
+    .hs-posts-scroll {
+      scrollbar-width: none;
+    }
+    .hs-posts-scroll::-webkit-scrollbar {
+      display: none;
+    }
   }
 `}</style>
 
@@ -647,7 +791,8 @@ const HomeScreen: React.FC = () => {
                 fontSize: "0.875rem",
                 fontWeight: 700,
                 cursor: "pointer",
-                transition: "background 0.2s, box-shadow 0.2s",
+                transition:
+                  "background 0.2s, box-shadow 0.2s, transform 140ms cubic-bezier(0.23,1,0.32,1)",
                 fontFamily: "inherit",
                 flexShrink: 0,
                 whiteSpace: "nowrap",
@@ -799,6 +944,7 @@ const HomeScreen: React.FC = () => {
               </div>
 
               <div
+                className="hs-recent-activity-card"
                 style={{
                   background: "var(--card-bg)",
                   borderRadius: 16,
@@ -812,6 +958,7 @@ const HomeScreen: React.FC = () => {
                   {ACTIVITIES.map((act, i) => (
                     <div
                       key={act.id}
+                      className="hs-activity-row"
                       style={{
                         display: "flex",
                         gap: 14,
@@ -839,6 +986,7 @@ const HomeScreen: React.FC = () => {
                       </div>
                       <div style={{ paddingBottom: 4 }}>
                         <div
+                          className="hs-activity-time"
                           style={{
                             fontSize: "0.75rem",
                             color: "var(--text-secondary)",
@@ -848,6 +996,7 @@ const HomeScreen: React.FC = () => {
                           {act.timeAgo}
                         </div>
                         <div
+                          className="hs-activity-content"
                           style={{
                             fontSize: "0.84rem",
                             color: "var(--text)",

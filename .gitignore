@@ -31,3 +31,4 @@ opencode.json
 # agents / claude
 .agents/
 .claude/
+CLAUDE.md

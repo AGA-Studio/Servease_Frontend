@@ -2,6 +2,7 @@
 
 export const ROUTES = {
   AUTH: "/auth",
+  CONFIRM_EMAIL: "/confirm-email",
   TERMS: "/terms",
   PRIVACY: "/privacy",
   APP: {
