@@ -131,6 +131,43 @@ const useTheme = () => {
   return { theme, toggleTheme };
 };
 
+const ConfirmEmailModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
+  onClose,
+  theme,
+}) => {
+  const { t } = useI18n();
+  const cm = t("auth").confirmEmailModal;
+  const isDark = theme === "dark";
+
+  return (
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[10000] flex items-center justify-center p-6 animate-fade-in">
+      <div
+        className={`${isDark ? "bg-[#1B244C] border-[#273570]" : "bg-white border-gray-200"} border rounded-3xl p-10 max-w-[420px] w-full text-center shadow-[0_32px_80px_rgba(0,0,0,0.3)] animate-scale-in`}
+      >
+        <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6">
+          <Mail size={32} className="text-[#2EBCCC]" />
+        </div>
+        <h2
+          className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+        >
+          {cm.title}
+        </h2>
+        <p
+          className={`text-[0.9375rem] leading-7 mb-8 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+        >
+          {cm.body}
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] active:scale-[0.97] text-white font-extrabold text-[0.9375rem] py-4 rounded-2xl border-none cursor-pointer shadow-[0_8px_24px_#2EBCCC44] transition-[transform,background-color] duration-150 ease-out"
+        >
+          {cm.confirm}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const DevModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
   onClose,
   theme,
@@ -282,6 +319,7 @@ const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDevModal, setShowDevModal] = useState(false);
+  const [showConfirmEmailModal, setShowConfirmEmailModal] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [signupStep, setSignupStep] = useState(0);
   const [stepDirection, setStepDirection] = useState<"forward" | "back">(
@@ -432,8 +470,7 @@ const AuthScreen: React.FC = () => {
       if (error) {
         addToast("error", error);
       } else {
-        addToast("success", auth.toast.signupSuccess);
-        setTimeout(() => navigate("/", { replace: true }), 1200);
+        setShowConfirmEmailModal(true);
       }
     }
   };
@@ -480,6 +517,15 @@ const AuthScreen: React.FC = () => {
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={theme} />
       {showDevModal && (
         <DevModal onClose={() => setShowDevModal(false)} theme={theme} />
+      )}
+      {showConfirmEmailModal && (
+        <ConfirmEmailModal
+          onClose={() => {
+            setShowConfirmEmailModal(false);
+            switchMode("login");
+          }}
+          theme={theme}
+        />
       )}
 
       <div
