@@ -13,6 +13,7 @@ import { myjobsscreen } from "./myjobsscreen";
 import { postdetailsscreen } from "./postdetailsscreen";
 import { applyjobmodal } from "./applyjobmodal";
 import { admin } from "./admin";
+import { confirmemailscreen } from "./confirmemailscreen";
 export const es = {
   auth,
   common,
@@ -29,4 +30,5 @@ export const es = {
   postdetailsscreen,
   applyjobmodal,
   admin,
+  confirmemailscreen,
 };

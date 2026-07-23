@@ -347,7 +347,7 @@ const AuthScreen: React.FC = () => {
   );
   const [signupAcceptedTerms, setSignupAcceptedTerms] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
-  const [, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -464,6 +464,7 @@ const AuthScreen: React.FC = () => {
         secondName: signupData.secondName,
         lastNameP: signupData.lastNameP,
         lastNameM: signupData.lastNameM,
+        photo: profilePhoto,
       });
       setIsLoading(false);
       if (error) {
