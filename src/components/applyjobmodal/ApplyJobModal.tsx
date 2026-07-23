@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, ArrowRight, CheckCircle2, Circle, Info } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { useThemeMode } from "../../theme/useThemeMode";
 
 export interface ApplyJobData {
   option: "accept" | "counter";
@@ -29,6 +30,7 @@ const ApplyJobModal: React.FC<Props> = ({
 }) => {
   const { t } = useI18n();
   const d = t("applyjobmodal");
+  const { isDark } = useThemeMode();
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
   const [counterOffer, setCounterOffer] = useState<string>(
@@ -40,6 +42,12 @@ const ApplyJobModal: React.FC<Props> = ({
 
   const formattedPrice = clientPrice.toFixed(2);
 
+  const cardBg = isDark ? "#1e2d5e" : "#ffffff";
+  const inputBg = isDark ? "#273570" : "#F8FAFC";
+  const border = isDark ? "#273570" : "#e5e7eb";
+  const text = isDark ? "#ffffff" : "#1B244C";
+  const textSecondary = "#989898";
+
   return (
     <div
       style={{
@@ -50,7 +58,8 @@ const ApplyJobModal: React.FC<Props> = ({
         alignItems: "center",
         justifyContent: "center",
         padding: 16,
-        background: "rgba(27,36,76,0.95)",
+        background: "rgba(27,36,76,0.85)",
+        backdropFilter: "blur(6px)",
       }}
       onClick={onClose}
     >
@@ -60,7 +69,7 @@ const ApplyJobModal: React.FC<Props> = ({
           maxWidth: 520,
           maxHeight: "90vh",
           overflowY: "auto",
-          background: "#ffffff",
+          background: cardBg,
           borderRadius: 16,
           display: "flex",
           flexDirection: "column",
@@ -126,7 +135,7 @@ const ApplyJobModal: React.FC<Props> = ({
                 margin: "0 0 14px",
                 fontSize: "0.78rem",
                 fontWeight: 800,
-                color: "#989898",
+                color: textSecondary,
                 textTransform: "uppercase",
                 letterSpacing: 0.5,
               }}
@@ -153,11 +162,11 @@ const ApplyJobModal: React.FC<Props> = ({
                   border:
                     option === "accept"
                       ? "2px solid #2EBCCC"
-                      : "1px solid #e5e7eb",
+                      : `1px solid ${border}`,
                   background:
                     option === "accept"
                       ? "rgba(46,188,204,0.08)"
-                      : "#ffffff",
+                      : cardBg,
                   cursor: "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
@@ -166,7 +175,7 @@ const ApplyJobModal: React.FC<Props> = ({
                 {option === "accept" ? (
                   <CheckCircle2 size={18} color="#2EBCCC" />
                 ) : (
-                  <Circle size={18} color="#989898" />
+                  <Circle size={18} color={textSecondary} />
                 )}
                 <div>
                   <p
@@ -174,7 +183,7 @@ const ApplyJobModal: React.FC<Props> = ({
                       margin: 0,
                       fontSize: "0.85rem",
                       fontWeight: 700,
-                      color: "#1B244C",
+                      color: text,
                     }}
                   >
                     {d.options.acceptClientPrice}
@@ -183,7 +192,7 @@ const ApplyJobModal: React.FC<Props> = ({
                     style={{
                       margin: "4px 0 0",
                       fontSize: "0.75rem",
-                      color: "#989898",
+                      color: textSecondary,
                     }}
                   >
                     {d.options.submitAt} ${formattedPrice}
@@ -202,11 +211,11 @@ const ApplyJobModal: React.FC<Props> = ({
                   border:
                     option === "counter"
                       ? "2px solid #2EBCCC"
-                      : "1px solid #e5e7eb",
+                      : `1px solid ${border}`,
                   background:
                     option === "counter"
                       ? "rgba(46,188,204,0.08)"
-                      : "#ffffff",
+                      : cardBg,
                   cursor: "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
@@ -215,7 +224,7 @@ const ApplyJobModal: React.FC<Props> = ({
                 {option === "counter" ? (
                   <CheckCircle2 size={18} color="#2EBCCC" />
                 ) : (
-                  <Circle size={18} color="#989898" />
+                  <Circle size={18} color={textSecondary} />
                 )}
                 <div>
                   <p
@@ -243,7 +252,7 @@ const ApplyJobModal: React.FC<Props> = ({
 
             <div
               style={{
-                background: "#F8FAFC",
+                background: inputBg,
                 borderRadius: 12,
                 padding: 16,
               }}
@@ -253,7 +262,7 @@ const ApplyJobModal: React.FC<Props> = ({
                   margin: "0 0 10px",
                   fontSize: "0.85rem",
                   fontWeight: 600,
-                  color: "#1B244C",
+                  color: text,
                 }}
               >
                 {d.counterOffer.label}
@@ -265,15 +274,15 @@ const ApplyJobModal: React.FC<Props> = ({
                   gap: 8,
                   padding: "10px 14px",
                   borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#ffffff",
+                  border: `1px solid ${border}`,
+                  background: cardBg,
                 }}
               >
                 <span
                   style={{
                     fontSize: "1rem",
                     fontWeight: 700,
-                    color: "#989898",
+                    color: textSecondary,
                   }}
                 >
                   $
@@ -289,7 +298,7 @@ const ApplyJobModal: React.FC<Props> = ({
                     outline: "none",
                     fontSize: "1rem",
                     fontWeight: 700,
-                    color: "#1B244C",
+                    color: text,
                     fontFamily: "inherit",
                     background: "transparent",
                   }}
@@ -297,7 +306,7 @@ const ApplyJobModal: React.FC<Props> = ({
                 <span
                   style={{
                     fontSize: "0.8rem",
-                    color: "#989898",
+                    color: textSecondary,
                     fontWeight: 600,
                   }}
                 >
@@ -311,7 +320,7 @@ const ApplyJobModal: React.FC<Props> = ({
                   alignItems: "center",
                   gap: 6,
                   fontSize: "0.72rem",
-                  color: "#989898",
+                  color: textSecondary,
                 }}
               >
                 <Info size={12} />
@@ -334,7 +343,7 @@ const ApplyJobModal: React.FC<Props> = ({
                   margin: 0,
                   fontSize: "0.78rem",
                   fontWeight: 800,
-                  color: "#989898",
+                  color: textSecondary,
                   textTransform: "uppercase",
                   letterSpacing: 0.5,
                 }}
@@ -344,7 +353,7 @@ const ApplyJobModal: React.FC<Props> = ({
               <span
                 style={{
                   fontSize: "0.72rem",
-                  color: "#989898",
+                  color: textSecondary,
                 }}
               >
                 {d.coverLetter.hint}
@@ -359,9 +368,9 @@ const ApplyJobModal: React.FC<Props> = ({
                 width: "100%",
                 padding: 14,
                 borderRadius: 12,
-                border: "1px solid #e5e7eb",
-                background: "#ffffff",
-                color: "#1B244C",
+                border: `1px solid ${border}`,
+                background: cardBg,
+                color: text,
                 fontSize: "0.85rem",
                 fontFamily: "inherit",
                 resize: "none",
@@ -387,7 +396,7 @@ const ApplyJobModal: React.FC<Props> = ({
               borderRadius: 10,
               border: "none",
               background: "transparent",
-              color: "#989898",
+              color: textSecondary,
               fontSize: "0.85rem",
               fontWeight: 700,
               cursor: "pointer",

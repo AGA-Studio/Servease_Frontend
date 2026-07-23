@@ -410,10 +410,10 @@ const ProviderProfileScreen: React.FC = () => {
     )}&background=2EBCCC&color=fff&size=200&bold=true`;
 
   const services = [
-    { icon: <Wrench size={14} />, label: "Plumbing" },
-    { icon: <Zap size={14} />, label: "Electrical" },
-    { icon: <Paintbrush size={14} />, label: "Painting" },
-    { icon: <Hammer size={14} />, label: "Carpentry" },
+    { icon: <Wrench size={14} />, label: p.services.plumbing },
+    { icon: <Zap size={14} />, label: p.services.electrical },
+    { icon: <Paintbrush size={14} />, label: p.services.painting },
+    { icon: <Hammer size={14} />, label: p.services.carpentry },
   ];
 
   return (

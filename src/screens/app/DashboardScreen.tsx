@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { ThemeMode } from "../../theme/theme";
+import { useI18n } from "../../i18n";
 import { useDashboardData } from "./dashboard/hooks/useDashboardData";
 import { DashboardTopBar } from "./dashboard/components/DashboardTopBar";
 import { KpiRow } from "./dashboard/components/KpiRow";
@@ -212,7 +213,11 @@ const ErrorState = ({
 }: {
   message: string;
   onRetry: () => void;
-}) => (
+}) => {
+  const { t } = useI18n();
+  const d = t("dashboardscreen");
+
+  return (
   <div
     style={{
       display: "flex",
@@ -233,7 +238,7 @@ const ErrorState = ({
         marginBottom: 8,
       }}
     >
-      Something went wrong
+      {d.error.title}
     </div>
     <div
       style={{
@@ -261,9 +266,10 @@ const ErrorState = ({
       onMouseEnter={(e) => (e.currentTarget.style.background = "#239aaa")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "#2EBCCC")}
     >
-      Retry
+      {d.error.retry}
     </button>
   </div>
-);
+  );
+};
 
 export default DashboardScreen;

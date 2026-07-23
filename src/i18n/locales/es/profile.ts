@@ -58,5 +58,11 @@ export const profile = {
       viewAll: "Ver todas",
       empty: "Aún no hay reseñas.",
     },
+    services: {
+      plumbing: "Plomería",
+      electrical: "Electricidad",
+      painting: "Pintura",
+      carpentry: "Carpintería",
+    },
   },
 };

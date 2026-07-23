@@ -16,4 +16,26 @@ export const postdetailsscreen = {
   approximateLocation: "Approximate location shown for privacy",
   apply: "Apply to this Job",
   jobDescription: "Job Description",
+  reviews: "reviews",
+  categories: {
+    locksmith: "Locksmith",
+    plumbing: "Plumbing",
+    electrical: "Electrical",
+    gardening: "Gardening",
+    hvac: "HVAC",
+    cleaning: "Cleaning",
+    painting: "Painting",
+    carpentry: "Carpentry",
+    moving: "Moving",
+    other: "Other",
+  },
+  urgency: {
+    asap: "ASAP",
+    flexible: "Flexible",
+  },
+  when: {
+    today: "Today",
+    tomorrow: "Tomorrow",
+    thisWeek: "This week",
+  },
 };

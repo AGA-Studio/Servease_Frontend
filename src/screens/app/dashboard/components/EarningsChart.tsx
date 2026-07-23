@@ -71,6 +71,10 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
               axisLine={false}
               tickLine={false}
               tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
+              tickFormatter={(month) => {
+                const key = month.toLowerCase() as keyof typeof d.months;
+                return d.months?.[key] ?? month;
+              }}
               dy={10}
             />
             <YAxis

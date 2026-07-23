@@ -16,4 +16,26 @@ export const postdetailsscreen = {
   approximateLocation: "Ubicación aproximada mostrada por privacidad",
   apply: "Aplicar a este Trabajo",
   jobDescription: "Descripción del Trabajo",
+  reviews: "opiniones",
+  categories: {
+    locksmith: "Cerrajería",
+    plumbing: "Plomería",
+    electrical: "Electricidad",
+    gardening: "Jardinería",
+    hvac: "Aire Acondicionado",
+    cleaning: "Limpieza",
+    painting: "Pintura",
+    carpentry: "Carpintería",
+    moving: "Mudanza",
+    other: "Otro",
+  },
+  urgency: {
+    asap: "Urgente",
+    flexible: "Flexible",
+  },
+  when: {
+    today: "Hoy",
+    tomorrow: "Mañana",
+    thisWeek: "Esta semana",
+  },
 };

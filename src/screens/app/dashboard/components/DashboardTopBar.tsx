@@ -44,7 +44,7 @@ export const DashboardTopBar = ({ isDark, onRefresh }: DashboardTopBarProps) => 
             marginBottom: 2,
           }}
         >
-          {d.title}, {user?.firstName || "provider"}!
+          {d.title}, {user?.firstName || d.guestFallback}!
         </div>
         <div
           style={{
@@ -70,12 +70,12 @@ export const DashboardTopBar = ({ isDark, onRefresh }: DashboardTopBarProps) => 
           <SearchBar
             isDark={isDark}
             placeholder={d.searchPlaceholder}
-            hintText="Press Escape to close"
+            hintText={d.searchHint}
             suggestions={[
-              { id: "1", label: "Plumbing", description: "Home services", tag: "Service" },
-              { id: "2", label: "Electrician", description: "Home services", tag: "Service" },
-              { id: "3", label: "Cleaning", description: "Home services", tag: "Service" },
-              { id: "4", label: "Locksmith", description: "Urgent jobs", tag: "Job" },
+              { id: "1", label: d.categories.plumbing, description: d.searchCategories.homeServices, tag: d.searchTags.service },
+              { id: "2", label: d.categories.electrical, description: d.searchCategories.homeServices, tag: d.searchTags.service },
+              { id: "3", label: d.categories.gardening, description: d.searchCategories.homeServices, tag: d.searchTags.service },
+              { id: "4", label: d.categories.hvac, description: d.searchCategories.urgentJobs, tag: d.searchTags.job },
             ]}
             onSearch={(q) => console.log("dashboard search:", q)}
             onSelect={(s) => console.log("dashboard selected:", s)}

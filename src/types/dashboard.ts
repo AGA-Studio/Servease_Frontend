@@ -16,6 +16,8 @@ export interface DashboardActivity {
   dotColor: string;
 }
 
+import type { JobClient } from "./job";
+
 export interface DashboardJob {
   id: string;
   title: string;
@@ -23,8 +25,15 @@ export interface DashboardJob {
   postedAgo: string;
   description: string;
   budget: string;
+  priceRange: string;
+  price: number;
   proposalCount: number;
   category: string;
+  when: string;
+  urgency: string;
+  mainImage: string;
+  thumbnails: string[];
+  client: JobClient;
 }
 
 export interface KpiData {

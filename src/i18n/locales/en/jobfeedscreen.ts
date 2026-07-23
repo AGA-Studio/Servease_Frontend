@@ -32,4 +32,15 @@ export const jobfeedscreen = {
     declined: "Declined",
     closed: "Closed",
   },
+  categories: {
+    locksmith: "Locksmith",
+    plumbing: "Plumbing",
+    electrical: "Electrical",
+    gardening: "Gardening",
+    hvac: "HVAC",
+  },
+  urgency: {
+    asap: "ASAP",
+    flexible: "Flexible",
+  },
 };
