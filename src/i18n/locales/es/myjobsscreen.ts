@@ -18,6 +18,7 @@ export const myjobsscreen = {
   },
   actions: {
     viewDetails: "Ver Detalles",
+    cancelSuccess: "Postulación cancelada correctamente.",
   },
   pagination: {
     page: "Página",

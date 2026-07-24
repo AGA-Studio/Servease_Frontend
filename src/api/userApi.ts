@@ -34,24 +34,28 @@ interface UsuarioResponse {
   id_empresa: number | null;
 }
 
+export async function fetchUserProfileOrThrow(): Promise<UserProfile> {
+  const data = await apiGet<UsuarioResponse>("/api/usuarios/auth/");
+  return {
+    id: data.id_usuario,
+    nombre: data.nombre,
+    apellido_paterno: data.apellido_pa,
+    apellido_materno: data.apellido_ma,
+    url_foto_perfil: data.url_foto_perfil,
+    fecha_registro: data.fecha_registro,
+    rol: data.rol,
+    correo: data.correo,
+    celular: data.celular,
+    estado: data.estado,
+    segundo_nombre: data.segundo_nombre,
+    id_categoria: data.id_categoria,
+    id_empresa: data.id_empresa,
+  };
+}
+
 export async function fetchUserProfile(): Promise<UserProfile | null> {
   try {
-    const data = await apiGet<UsuarioResponse>("/api/usuarios/auth/");
-    return {
-      id: data.id_usuario,
-      nombre: data.nombre,
-      apellido_paterno: data.apellido_pa,
-      apellido_materno: data.apellido_ma,
-      url_foto_perfil: data.url_foto_perfil,
-      fecha_registro: data.fecha_registro,
-      rol: data.rol,
-      correo: data.correo,
-      celular: data.celular,
-      estado: data.estado,
-      segundo_nombre: data.segundo_nombre,
-      id_categoria: data.id_categoria,
-      id_empresa: data.id_empresa,
-    };
+    return await fetchUserProfileOrThrow();
   } catch (error) {
     console.error("fetchUserProfile failed:", error);
     return null;

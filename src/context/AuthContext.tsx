@@ -7,12 +7,8 @@ import React, {
 } from "react";
 import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
-import {
-  fetchUserProfile,
-  uploadProfilePhoto,
-  type UserProfile,
-} from "../api/userApi";
-import { apiPostPublic, ApiError } from "../api/apiClient";
+import { fetchUserProfile, fetchUserProfileOrThrow, type UserProfile } from "../api/userApi";
+import { apiPostFormPublic, ApiError } from "../api/apiClient";
 
 export type UserRole = "client" | "provider" | "admin";
 
@@ -113,13 +109,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         password,
       });
 
-      if (data?.session) {
-        await loadProfile(data.session);
-      }
+      if (error) return error.message;
+      if (!data.session) return null;
 
-      return error ? error.message : null;
+      try {
+        const userProfile = await fetchUserProfileOrThrow();
+        setProfile(userProfile);
+        setUser({
+          id: data.session.user.id,
+          email: data.session.user.email ?? "",
+          firstName: userProfile.nombre,
+          lastnameP: userProfile.apellido_paterno,
+          lastnameM: userProfile.apellido_materno ?? undefined,
+          role: userProfile.rol,
+        });
+        return null;
+      } catch (err) {
+        // Backend rejected the session (e.g. unconfirmed account): don't
+        // leave a half-authenticated Supabase session lying around.
+        await supabase.auth.signOut();
+        return err instanceof ApiError
+          ? err.message
+          : "No pudimos iniciar sesión. Intenta de nuevo.";
+      }
     },
-    [loadProfile],
+    [],
   );
 
   const loginWithGoogle = useCallback(async () => {
@@ -147,43 +161,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       lastNameM?: string;
       photo?: File | null;
     }): Promise<string | null> => {
+      // La cuenta queda sin confirmar (estado=false) hasta que el usuario da
+      // clic en el link del correo, así que no hay sesión que iniciar aquí.
+      // La foto se manda al backend, que la sube al bucket con su propio
+      // acceso admin (no depende de que el usuario tenga sesión).
+      const formData = new FormData();
+      formData.append("email", email);
+      formData.append("password", password);
+      formData.append("nombre", firstName);
+      formData.append("segundo_nombre", secondName ?? "");
+      formData.append("apellido_pa", lastNameP);
+      formData.append("apellido_ma", lastNameM ?? "");
+      if (photo) formData.append("photo", photo);
+
       try {
-        await apiPostPublic("/api/usuarios/signup/", {
-          email,
-          password,
-          nombre: firstName,
-          segundo_nombre: secondName ?? "",
-          apellido_pa: lastNameP,
-          apellido_ma: lastNameM ?? "",
-        });
+        await apiPostFormPublic("/api/usuarios/signup/", formData);
+        return null;
       } catch (err) {
         return err instanceof ApiError
           ? err.message
           : "No pudimos crear tu cuenta. Intenta de nuevo.";
       }
-
-      // La cuenta ya queda confirmada en el backend, así que iniciamos
-      // sesión de una vez (no hay paso de confirmación por correo por ahora).
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error || !data.session) {
-        return error?.message ?? null;
-      }
-
-      if (photo) {
-        try {
-          await uploadProfilePhoto(data.session.user.id, photo);
-        } catch (err) {
-          console.error("uploadProfilePhoto failed:", err);
-        }
-      }
-
-      await loadProfile(data.session);
-      return null;
     },
-    [loadProfile],
+    [],
   );
 
   const logout = useCallback(async () => {
