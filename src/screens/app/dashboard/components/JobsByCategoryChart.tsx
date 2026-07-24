@@ -1,6 +1,8 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { PieChart as PieChartIcon } from "lucide-react";
 import type { CategoryBreakdown } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
+import EmptyState from "../../../../components/emptystate/EmptyState";
 
 const CATEGORY_KEY_MAP: Record<string, string> = {
   Plumbing: "plumbing",
@@ -55,50 +57,62 @@ export const JobsByCategoryChart = ({ data, isDark }: JobsByCategoryChartProps) 
           {d.charts.categories.title}
         </span>
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-          <PieChart>
-            <Pie
-              data={translatedData}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={85}
-              paddingAngle={3}
-              dataKey="value"
-              stroke="none"
-            >
-              {translatedData?.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                background: isDark ? "#1e2d5e" : "#ffffff",
-                border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-                borderRadius: 10,
-                boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
-              }}
-              itemStyle={{ color: "var(--text)", fontWeight: 600 }}
-              formatter={(value, name) => {
-                const num = typeof value === "number" ? value : Number(value);
-                return [`${Number.isNaN(num) ? 0 : num}%`, name];
-              }}
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        {!translatedData?.length ? (
+          <div style={{ margin: "auto" }}>
+            <EmptyState
+              icon={<PieChartIcon size={22} color="#2EBCCC" />}
+              isDark={isDark}
+              title={d.empty.categories.title}
+              subtitle={d.empty.categories.description}
+              size="compact"
             />
-            <Legend
-              verticalAlign="bottom"
-              align="center"
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{
-                color: textColor,
-                fontSize: "0.78rem",
-                fontWeight: 500,
-                paddingTop: 8,
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+            <PieChart>
+              <Pie
+                data={translatedData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={85}
+                paddingAngle={3}
+                dataKey="value"
+                stroke="none"
+              >
+                {translatedData?.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  background: isDark ? "#1e2d5e" : "#ffffff",
+                  border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
+                  borderRadius: 10,
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+                }}
+                itemStyle={{ color: "var(--text)", fontWeight: 600 }}
+                formatter={(value, name) => {
+                  const num = typeof value === "number" ? value : Number(value);
+                  return [`${Number.isNaN(num) ? 0 : num}%`, name];
+                }}
+              />
+              <Legend
+                verticalAlign="bottom"
+                align="center"
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{
+                  color: textColor,
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  paddingTop: 8,
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

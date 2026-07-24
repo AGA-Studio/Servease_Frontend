@@ -62,6 +62,45 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
   }
 }
 
+export interface PerfilCliente {
+  id_usuario: string;
+  nombre: string;
+  url_foto_perfil: string | null;
+  fecha_registro: string;
+  num_publicaciones: number;
+  rating: number;
+  num_reviews: number;
+}
+
+export async function fetchPerfilCliente(
+  userId: string,
+): Promise<PerfilCliente> {
+  return apiGet<PerfilCliente>(`/api/usuarios/${userId}/perfil-cliente/`);
+}
+
+export interface ServicioCliente {
+  id_servicio: number;
+  titulo: string;
+  descripcion: string;
+  precio_inicial: string;
+  latitud: string | null;
+  longitud: string | null;
+  fecha: string;
+  estado: string;
+  imagenes: string[];
+  fecha_final: string | null;
+  id_cliente: string;
+  id_categoria: number;
+}
+
+export async function fetchUltimasPublicacionesCliente(
+  userId: string,
+): Promise<ServicioCliente[]> {
+  return apiGet<ServicioCliente[]>(
+    `/api/usuarios/${userId}/ultimas-publicaciones/`,
+  );
+}
+
 // Sube la foto al bucket "profile_photos" (path: `user_${userId}/avatar.<ext>`,
 // misma convención que ya existe en el bucket) y guarda la URL pública en el
 // registro del usuario vía el backend.

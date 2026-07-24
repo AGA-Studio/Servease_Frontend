@@ -30,6 +30,12 @@ export const newservice = {
     budgetPlaceholder: "0.00",
     currency: "MXN",
     changeLocation: "Cambiar Ubicación",
+    useCurrentLocation: "Mi ubicación actual",
+    locatingCurrentLocation: "Obteniendo tu ubicación...",
+    resolvingLocation: "Buscando ubicación...",
+    mapPlaceholder: "Escribe una colonia y presiona Enter",
+    locationApproxNote:
+      "Solo se guarda la colonia y ciudad aproximada, nunca tu dirección exacta.",
   },
   photos: {
     sectionTitle: "Fotos",
@@ -66,8 +72,26 @@ export const newservice = {
   ],
   validation: {
     titleRequired: "Por favor ingresa un título para tu solicitud.",
+    titleUnsafe: "El título contiene caracteres no permitidos (< o >).",
     categoryRequired: "Por favor selecciona una categoría.",
+    categoriesUnavailable:
+      "No se pudieron cargar las categorías. Intenta de nuevo más tarde.",
     descriptionRequired: "Por favor agrega una descripción.",
+    descriptionUnsafe:
+      "La descripción contiene caracteres no permitidos (< o >).",
     locationRequired: "Por favor ingresa una ubicación.",
+    locationNotResolved:
+      "Presiona Enter para ubicar tu colonia, o usa tu ubicación actual.",
+    budgetInvalid: "Ingresa un presupuesto válido (mayor a 0, máx. 2 decimales).",
+  },
+  errors: {
+    locationNotFound: "No se encontró esa ubicación. Intenta ser más específico.",
+    geolocationDenied: "No pudimos acceder a tu ubicación. Revisa los permisos.",
+    geolocationUnsupported: "Tu navegador no soporta geolocalización.",
+    photoTooLarge: "supera 5MB y no se agregó.",
+    submitFailed: "No se pudo publicar el servicio. Intenta de nuevo.",
+  },
+  success: {
+    posted: "¡Servicio publicado con éxito!",
   },
 };

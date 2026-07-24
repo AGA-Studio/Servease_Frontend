@@ -46,6 +46,17 @@ export const dashboardscreen = {
       title: "No hay trabajos disponibles",
       description: "Vuelve más tarde para encontrar nuevas oportunidades cerca de ti.",
     },
+    activity: {
+      title: "Sin actividad reciente",
+      description: "Aquí verás las novedades de tus trabajos.",
+    },
+    categories: {
+      title: "Sin datos todavía",
+      description: "Completa trabajos para ver tu desglose por categoría.",
+    },
+    kpis: {
+      title: "Sin estadísticas todavía",
+    },
   },
   trends: {
     vsLastMonth: "vs mes anterior",

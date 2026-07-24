@@ -19,6 +19,41 @@ export const myposts = {
     applicants: "Applicants",
     viewApplicants: "View Applicants",
     viewDetails: "View Details",
+    edit: "Edit",
+    delete: "Delete",
+  },
+  deleteConfirm: {
+    title: "Delete this post?",
+    message:
+      "This will permanently cancel the post. Providers will no longer be able to see it or apply.",
+    confirm: "Yes, delete",
+    cancel: "Cancel",
+  },
+  editModal: {
+    title: "Edit Post",
+    titleLabel: "Title",
+    descriptionLabel: "Description",
+    priceLabel: "Budget",
+    categoryLabel: "Category",
+    categoryUnavailable: "Couldn't load categories.",
+    save: "Save Changes",
+    cancel: "Cancel",
+    confirmTitle: "Save changes?",
+    confirmMessage: "This post's information will be updated.",
+    confirmSave: "Yes, save",
+    confirmCancel: "Keep editing",
+    validation: {
+      titleRequired: "Title can't be empty.",
+      titleUnsafe: "The title contains characters that aren't allowed (< or >).",
+      descriptionRequired: "Description can't be empty.",
+      descriptionUnsafe: "The description contains characters that aren't allowed (< or >).",
+      priceInvalid: "Enter a valid budget (greater than 0, max 2 decimals).",
+      categoryRequired: "Select a category.",
+    },
+  },
+  success: {
+    deleted: "Post deleted successfully.",
+    edited: "Post updated successfully.",
   },
   pagination: {
     loadMore: "Load more posts",
@@ -43,6 +78,7 @@ export const myposts = {
   errors: {
     fetchFailed: "Failed to load posts. Please try again.",
     deleteFailed: "Could not delete the post. Please try again.",
+    editFailed: "Could not update the post. Please try again.",
     generic: "Something went wrong. Please refresh the page.",
   },
   categories: {

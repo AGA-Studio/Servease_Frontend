@@ -19,6 +19,7 @@ import type { ThemeMode } from "../../theme/theme";
 import { MOCK_JOBS, type MyJob, type ProposalStatus } from "../../data/mockJobs";
 import type { JobDetails, JobClient } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import EmptyState from "../../components/emptystate/EmptyState";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -602,91 +603,6 @@ const Pagination = ({
   );
 };
 
-const EmptyState = ({
-  hasFilters,
-  isDark,
-  onClear,
-}: {
-  hasFilters: boolean;
-  isDark: boolean;
-  onClear: () => void;
-}) => {
-  const { t } = useI18n();
-  const d = t("myjobsscreen");
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "64px 24px",
-        textAlign: "center",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: "50%",
-          background: isDark
-            ? "rgba(46,188,204,0.12)"
-            : "rgba(46,188,204,0.08)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 4,
-        }}
-      >
-        <Briefcase size={32} color="#2EBCCC" />
-      </div>
-      <p
-        style={{
-          fontWeight: 700,
-          fontSize: "1.05rem",
-          color: "var(--text)",
-          margin: 0,
-        }}
-      >
-        {hasFilters ? d.empty.noResults : d.empty.title}
-      </p>
-      <p
-        style={{
-          color: "var(--text-secondary)",
-          fontSize: "0.875rem",
-          margin: 0,
-          maxWidth: 320,
-        }}
-      >
-        {hasFilters ? "" : d.empty.subtitle}
-      </p>
-      {hasFilters && (
-        <button
-          onClick={onClear}
-          style={{
-            marginTop: 8,
-            padding: "9px 22px",
-            borderRadius: 10,
-            border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-            background: "transparent",
-            color: "var(--text)",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          {d.empty.clearFilters}
-        </button>
-      )}
-    </motion.div>
-  );
-};
-
 const MyJobsScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const { t } = useI18n();
@@ -1091,9 +1007,15 @@ const MyJobsScreen: React.FC = () => {
             </div>
           ) : paginated.length === 0 ? (
             <EmptyState
-              hasFilters={hasActiveFilters}
+              icon={<Briefcase size={32} color="#2EBCCC" />}
               isDark={isDark}
-              onClear={clearFilters}
+              title={hasActiveFilters ? d.empty.noResults : d.empty.title}
+              subtitle={hasActiveFilters ? undefined : d.empty.subtitle}
+              action={
+                hasActiveFilters
+                  ? { label: d.empty.clearFilters, onClick: clearFilters, variant: "ghost" }
+                  : undefined
+              }
             />
           ) : (
             <AnimatePresence mode="wait">
