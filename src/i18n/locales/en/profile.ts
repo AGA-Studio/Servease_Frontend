@@ -27,4 +27,42 @@ export const profile = {
       receiving: "Receiving Proposals",
     },
   },
+  provider: {
+    editProfile: "Edit Profile",
+    verifiedProvider: "Verified Provider",
+    availability: "Availability",
+    availableForWork: "Available for work",
+    currentlyUnavailable: "Currently unavailable",
+    stats: {
+      completedJobs: "Completed Jobs",
+      totalEarnings: "Total Earnings",
+      responseRate: "Response Rate",
+      overallRating: "Overall Rating",
+      seeAll: "See all",
+    },
+    about: {
+      title: "About",
+      yearsExperience: "Years of experience",
+      languages: "Languages",
+      services: "Services",
+      hourlyRate: "Hourly rate",
+      memberSince: "Member Since",
+    },
+    portfolio: {
+      title: "Portfolio",
+      viewAll: "View all",
+      empty: "No portfolio items yet.",
+    },
+    reviews: {
+      title: "Reviews",
+      viewAll: "View all",
+      empty: "No reviews yet.",
+    },
+    services: {
+      plumbing: "Plumbing",
+      electrical: "Electrical",
+      painting: "Painting",
+      carpentry: "Carpentry",
+    },
+  },
 };

@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.development
 .env.production
 
 # opencode
@@ -31,3 +32,4 @@ opencode.json
 # agents / claude
 .agents/
 .claude/
+CLAUDE.md
