@@ -78,6 +78,17 @@ export const dashboardscreen = {
       title: "No jobs available",
       description: "Check back later for new opportunities near you.",
     },
+    activity: {
+      title: "No recent activity",
+      description: "Updates on your jobs will show up here.",
+    },
+    categories: {
+      title: "No data yet",
+      description: "Complete jobs to see your category breakdown.",
+    },
+    kpis: {
+      title: "No stats yet",
+    },
   },
   error: {
     title: "Something went wrong",

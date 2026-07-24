@@ -1,6 +1,6 @@
 // Client home screen: greeting, KPI stats, active posts list, and recent activity feed.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus,
   MapPin,
@@ -14,14 +14,30 @@ import {
   Lock,
   Zap,
   Sparkles,
+  Inbox,
 } from "lucide-react";
+import EmptyState from "../../components/emptystate/EmptyState";
 import SearchBar from "../../components/searchbar/SearchBar";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
 import NotificationsPopover from "../../components/popover/notificationspopover/NotificationsPopover";
 import { useNavigate } from "react-router-dom";
-import { ROUTES } from "../../router/routes";
+import { ROUTES, buildPostOffersPath } from "../../router/routes";
+import {
+  fetchPerfilCliente,
+  fetchUltimasPublicacionesCliente,
+  type PerfilCliente,
+  type ServicioCliente,
+} from "../../api/userApi";
+import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import type { JobDetails } from "../../types/job";
+import { getApproxLocation } from "../../utils/location";
+import { timeAgo, mapEstadoToStatus } from "../../utils/servicio";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
+import { motion, AnimatePresence } from "motion/react";
+import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
 
 interface Post {
   id: string;
@@ -34,6 +50,7 @@ interface Post {
   avatarCount?: number;
   icon: "plumbing" | "lock" | "party";
   accentColor: string;
+  raw: ServicioCliente;
 }
 
 interface Activity {
@@ -45,65 +62,74 @@ interface Activity {
   dotColor: string;
 }
 
-const POSTS: Post[] = [
-  {
-    id: "1",
-    title: "Emergency Plumber Needed",
-    location: "El Refugio, Tijuana",
-    postedAgo: "2h ago",
-    description:
-      "Looking for a licensed plumber to fix a burst pipe in the kitchen. Needs to be done immediately. Water has been shut off but need to repair.",
-    status: "receiving",
-    proposalCount: 5,
-    avatarCount: 3,
-    icon: "plumbing",
-    accentColor: "#FF4444",
+const ENTRANCE_EASE = [0.23, 1, 0.32, 1] as const;
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+
+const itemEnter = {
+  hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.35, ease: ENTRANCE_EASE },
   },
-  {
-    id: "2",
-    title: "Urgent Locksmith",
-    location: "El Refugio, Tijuana",
-    postedAgo: "2d ago",
-    description:
-      "I am looking for a locksmith in the area to help me with a door to my house.",
-    status: "completed",
-    icon: "lock",
-    accentColor: "#2EBCCC",
-  },
-  {
-    id: "3",
-    title: "Children's Party",
-    location: "El Refugio, Tijuana",
-    postedAgo: "5d ago",
-    description:
-      "Need an entertainer for a children's birthday party. Decorations and games included.",
-    status: "completed",
-    icon: "party",
-    accentColor: "#FFB200",
-  },
-  {
-    id: "4",
-    title: "Children's Party",
-    location: "El Refugio, Tijuana",
-    postedAgo: "5d ago",
-    description:
-      "Need an entertainer for a children's birthday party. Decorations and games included.",
-    status: "completed",
-    icon: "party",
-    accentColor: "#FFB200",
-  },
-  {
-    id: "5",
-    title: "Children's Party",
-    location: "El Refugio, Tijuana",
-    postedAgo: "5d ago",
-    description:
-      "Need an entertainer for a children's birthday party. Decorations and games included.",
-    status: "completed",
-    icon: "party",
-    accentColor: "#FFB200",
-  },
-];
+};
+
+const POST_ACCENTS = ["#FF4444", "#2EBCCC", "#FFB200"];
+const POST_ICONS: Post["icon"][] = ["plumbing", "lock", "party"];
+
+function servicioToPost(servicio: ServicioCliente, index: number): Post {
+  return {
+    id: String(servicio.id_servicio),
+    title: servicio.titulo,
+    location: "",
+    postedAgo: timeAgo(servicio.fecha),
+    description: servicio.descripcion,
+    status: mapEstadoToStatus(servicio.estado),
+    icon: POST_ICONS[index % POST_ICONS.length],
+    accentColor: POST_ACCENTS[index % POST_ACCENTS.length],
+    raw: servicio,
+  };
+}
+
+function servicioToJobDetails(
+  servicio: ServicioCliente,
+  perfil: PerfilCliente | null,
+  location: string,
+): JobDetails {
+  const price = Number(servicio.precio_inicial);
+  return {
+    id: String(servicio.id_servicio),
+    title: servicio.titulo,
+    category: String(servicio.id_categoria),
+    location,
+    when: "",
+    urgency: "",
+    postedAgo: timeAgo(servicio.fecha),
+    price,
+    priceRange: `$${price.toLocaleString()}`,
+    description: servicio.descripcion,
+    mainImage: servicio.imagenes[0] ?? "",
+    thumbnails: servicio.imagenes,
+    client: {
+      name: perfil?.nombre ?? "",
+      avatar: perfil?.url_foto_perfil ?? "",
+      rating: perfil?.rating ?? 0,
+      reviewCount: perfil?.num_reviews ?? 0,
+      memberSince: perfil?.fecha_registro
+        ? new Date(perfil.fecha_registro).toLocaleDateString("es-MX", {
+            month: "short",
+            year: "numeric",
+          })
+        : "",
+      jobsPosted: perfil?.num_publicaciones ?? 0,
+    },
+  };
+}
 
 const ACTIVITIES: Activity[] = [
   {
@@ -255,7 +281,13 @@ const AvatarStack = ({ count }: { count: number }) => {
   );
 };
 
-const PostCard = ({ post }: { post: Post }) => {
+const PostCard = ({
+  post,
+  onViewDetails,
+}: {
+  post: Post;
+  onViewDetails: (post: Post) => void;
+}) => {
   const [hovered, setHovered] = useState(false);
   const { t } = useI18n();
   const h = t("homescreen");
@@ -310,9 +342,13 @@ const PostCard = ({ post }: { post: Post }) => {
                 color: "var(--text-secondary)",
               }}
             >
-              <MapPin size={11} />
-              {post.location}
-              <span style={{ opacity: 0.4 }}>•</span>
+              {post.location && (
+                <>
+                  <MapPin size={11} />
+                  {post.location}
+                  <span style={{ opacity: 0.4 }}>•</span>
+                </>
+              )}
               <Clock size={11} />
               Posted {post.postedAgo}
             </div>
@@ -349,6 +385,7 @@ const PostCard = ({ post }: { post: Post }) => {
         </div>
         <button
           className="hs-post-link"
+          onClick={() => onViewDetails(post)}
           style={{
             background: "none",
             border: "none",
@@ -478,6 +515,65 @@ const HomeScreen: React.FC = () => {
   const h = t("homescreen");
 
   const { user } = useAuth();
+  const { toasts, addToast, removeToast } = useToast();
+
+  const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  const handleViewDetails = (post: Post) => {
+    setSelectedPost(post);
+    setIsDetailsOpen(true);
+  };
+
+  const [isLoadingKpis, setIsLoadingKpis] = useState(true);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    fetchPerfilCliente(user.id)
+      .then((data) => {
+        if (!cancelled) setPerfil(data);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchPerfilCliente failed:", error);
+        addToast("error", h.errors.kpisFailed);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingKpis(false);
+      });
+
+    fetchUltimasPublicacionesCliente(user.id)
+      .then(async (servicios) => {
+        const posts = servicios.map(servicioToPost);
+        const locations = await Promise.all(
+          servicios.map((servicio) =>
+            getApproxLocation(servicio.latitud ?? "", servicio.longitud ?? ""),
+          ),
+        );
+        if (cancelled) return;
+        setPosts(
+          posts.map((post, i) => ({ ...post, location: locations[i] })),
+        );
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchUltimasPublicacionesCliente failed:", error);
+        addToast("error", h.errors.postsFailed);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingPosts(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <>
@@ -845,26 +941,59 @@ const HomeScreen: React.FC = () => {
             </p>
           </div>
 
-          <div className="hs-kpi-row" style={{ marginBottom: 28 }}>
-            <KpiCard
-              icon={<FileText size={22} color="#2EBCCC" />}
-              label={h.kpis.activeRequest}
-              value={3}
-              iconBg="rgba(46,188,204,0.15)"
-            />
-            <KpiCard
-              icon={<Users size={22} color="#4AA825" />}
-              label={h.kpis.totalHired}
-              value={12}
-              iconBg="rgba(74,168,37,0.15)"
-            />
-            <KpiCard
-              icon={<Star size={22} color="#FFB200" fill="#FFB200" />}
-              label={h.kpis.averageRating}
-              value="4.8"
-              iconBg="rgba(255,178,0,0.15)"
-            />
-          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            {isLoadingKpis ? (
+              <motion.div
+                key="kpi-skeleton"
+                className="hs-kpi-row"
+                style={{ marginBottom: 28 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, filter: "blur(2px)" }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              >
+                {[0, 1, 2].map((i) => (
+                  <div key={i} style={{ flex: "1 1 180px" }}>
+                    <SkeletonLoader isDark={isDark} variant="kpi" />
+                  </div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="kpi-content"
+                className="hs-kpi-row"
+                style={{ marginBottom: 28 }}
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
+                <motion.div variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                  <KpiCard
+                    icon={<FileText size={22} color="#2EBCCC" />}
+                    label={h.kpis.activeRequest}
+                    value={perfil?.num_publicaciones ?? 0}
+                    iconBg="rgba(46,188,204,0.15)"
+                  />
+                </motion.div>
+                <motion.div variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                  <KpiCard
+                    icon={<Users size={22} color="#4AA825" />}
+                    label={h.kpis.totalHired}
+                    value={perfil?.num_reviews ?? 0}
+                    iconBg="rgba(74,168,37,0.15)"
+                  />
+                </motion.div>
+                <motion.div variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                  <KpiCard
+                    icon={<Star size={22} color="#FFB200" fill="#FFB200" />}
+                    label={h.kpis.averageRating}
+                    value={perfil ? perfil.rating.toFixed(1) : "0.0"}
+                    iconBg="rgba(255,178,0,0.15)"
+                  />
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="hs-main-grid">
             <div className="hs-left-col">
@@ -914,11 +1043,53 @@ const HomeScreen: React.FC = () => {
               </div>
 
               <div className="hs-posts-scroll">
-                <div className="hs-posts-grid">
-                  {POSTS.map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
-                </div>
+                <AnimatePresence mode="wait" initial={false}>
+                  {isLoadingPosts ? (
+                    <motion.div
+                      key="posts-skeleton"
+                      className="hs-posts-grid"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, filter: "blur(2px)" }}
+                      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    >
+                      {[0, 1, 2].map((i) => (
+                        <SkeletonLoader
+                          key={i}
+                          isDark={isDark}
+                          variant="job-card"
+                        />
+                      ))}
+                    </motion.div>
+                  ) : posts.length === 0 ? (
+                    <EmptyState
+                      key="posts-empty"
+                      icon={<FileText size={32} color="#2EBCCC" />}
+                      isDark={isDark}
+                      title={h.empty.postsTitle}
+                      subtitle={h.empty.postsSubtitle}
+                      action={{
+                        label: h.empty.postsCta,
+                        onClick: () => navigate(ROUTES.APP.NEW_SERVICE),
+                        icon: <Plus size={16} strokeWidth={2.5} />,
+                      }}
+                    />
+                  ) : (
+                    <motion.div
+                      key="posts-content"
+                      className="hs-posts-grid"
+                      variants={staggerContainer}
+                      initial="hidden"
+                      animate="visible"
+                    >
+                      {posts.map((post) => (
+                        <motion.div key={post.id} variants={itemEnter}>
+                          <PostCard post={post} onViewDetails={handleViewDetails} />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -952,6 +1123,16 @@ const HomeScreen: React.FC = () => {
                   padding: "20px",
                 }}
               >
+                {ACTIVITIES.length === 0 ? (
+                  <EmptyState
+                    icon={<Inbox size={22} color="#2EBCCC" />}
+                    isDark={isDark}
+                    title={h.empty.activityTitle}
+                    subtitle={h.empty.activitySubtitle}
+                    size="compact"
+                  />
+                ) : (
+                <>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 0 }}
                 >
@@ -1051,11 +1232,35 @@ const HomeScreen: React.FC = () => {
                 >
                   Load older activity
                 </button>
+                </>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={
+          selectedPost
+            ? servicioToJobDetails(selectedPost.raw, perfil, selectedPost.location)
+            : null
+        }
+        postStatus={selectedPost?.status}
+        onViewApplicants={
+          selectedPost
+            ? () => navigate(buildPostOffersPath(selectedPost.id))
+            : undefined
+        }
+      />
+
+      <ToastContainer
+        toasts={toasts}
+        onRemove={removeToast}
+        theme={isDark ? "dark" : "light"}
+      />
     </>
   );
 };

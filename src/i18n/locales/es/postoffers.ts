@@ -31,9 +31,17 @@ export const postoffers = {
   declinedMessage: "Rechazaste a este aplicante.",
   undo: "Deshacer",
   empty: "No hay aplicantes en esta categoría.",
+  emptySubtitle: "Cuando un proveedor postule a este servicio, aparecerá aquí.",
   notFound: {
     title: "Publicación no encontrada",
     subtitle: "Esta publicación pudo haber sido eliminada o el enlace es incorrecto.",
     back: "Volver a Mis Publicaciones",
+  },
+  actionUnavailable:
+    "Aceptar, rechazar o contraofertar propuestas todavía no está disponible.",
+  errors: {
+    postFailed: "No se pudo cargar la publicación. Intenta de nuevo más tarde.",
+    applicantsFailed:
+      "No se pudieron cargar los aplicantes. Intenta de nuevo más tarde.",
   },
 };

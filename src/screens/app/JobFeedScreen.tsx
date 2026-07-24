@@ -1,15 +1,20 @@
 // Provider job feed: filter bar, job cards, earnings summary and applied jobs sidebar.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MapPin,
-  Clock,
   ArrowRight,
   Navigation,
+  Briefcase,
+  Send,
 } from "lucide-react";
+import EmptyState from "../../components/emptystate/EmptyState";
+import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
 import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
@@ -19,6 +24,21 @@ import ApplyJobModal, {
 import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
+import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
+import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import {
+  fetchPostDetails,
+  fetchServiciosCatalog,
+  type ServicioListItem,
+} from "../../api/servicioApi";
+import { ApiError } from "../../api/apiClient";
+import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
+import {
+  distanceKm,
+  getApproxLocation,
+  roundCoord,
+  type ApproxCoords,
+} from "../../utils/location";
 
 interface AppliedJob {
   id: string;
@@ -29,13 +49,10 @@ interface AppliedJob {
 }
 
 interface JobFilters {
-  specialization: string;
   category: string;
   distance: string;
   priceRange: string;
 }
-
-const CATEGORIES = ["Locksmith", "Plumbing", "Electrical", "Gardening", "HVAC"];
 
 const PRICE_RANGES = ["", "0-100", "100-300", "300-500", "500+"] as const;
 
@@ -45,67 +62,34 @@ const formatPriceRange = (range: string): string => {
   return `$${min} - $${max}`;
 };
 
-const JOBS: JobDetails[] = [
-  {
-    id: "1",
-    title: "Emergency Residential Lockout",
-    category: "Locksmith",
-    postedAgo: "10m ago",
-    description:
-      "Customer is locked out of their apartment on the 3rd floor. Key broke inside the lock cylinder. Requires extraction and potentially replacement.",
-    priceRange: "$120 - $150",
-    price: 135,
-    location: "El Refugio, Tijuana",
-    when: "Today",
-    urgency: "ASAP",
-    mainImage:
-      "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=800&q=80",
-    thumbnails: [
-      "https://images.unsplash.com/photo-1558002038-1055907df827?auto=format&fit=crop&w=200&q=80",
-      "https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?auto=format&fit=crop&w=200&q=80",
-    ],
-    client: {
-      name: "Maria Cazares",
-      avatar:
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
-      rating: 4.9,
-      reviewCount: 12,
-      memberSince: "Sep. 2025",
-      jobsPosted: 8,
-    },
-    distance: "2.5km",
-    proposalCount: 5,
-  },
-  {
-    id: "2",
-    title: "High-Security Lock Install",
-    category: "Locksmith",
-    postedAgo: "1h ago",
-    description:
-      "Need to install a high-security deadbolt on the front door of a commercial office. The lock must be ANSI Grade 1 and include key control.",
-    priceRange: "$350 - $500",
-    price: 425,
-    location: "Centro, Tijuana",
-    when: "Tomorrow",
-    urgency: "Flexible",
-    mainImage:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=800&q=80",
-    thumbnails: [
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80",
-    ],
-    client: {
-      name: "Carlos Mendoza",
-      avatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80",
-      rating: 4.7,
-      reviewCount: 8,
-      memberSince: "Jan. 2025",
-      jobsPosted: 4,
-    },
-    distance: "4.2km",
-    proposalCount: 3,
-  },
-];
+// Catálogo real (ServicioListItem) enriquecido con ubicación aproximada
+// resuelta en cliente y, si el proveedor compartió su ubicación, distancia
+// real en línea recta (nunca coordenadas exactas mostradas al usuario).
+interface FeedJob {
+  id: string;
+  titulo: string;
+  categoria_nombre: string;
+  precio_inicial: number;
+  postedAgo: string;
+  location: string;
+  mainImage: string;
+  distanceKm: number | null;
+  raw: ServicioListItem;
+}
+
+function servicioToFeedJob(item: ServicioListItem): FeedJob {
+  return {
+    id: String(item.id_servicio),
+    titulo: item.titulo,
+    categoria_nombre: item.categoria_nombre,
+    precio_inicial: Number(item.precio_inicial),
+    postedAgo: timeAgo(item.fecha),
+    location: "",
+    mainImage: item.imagenes[0] ?? "",
+    distanceKm: null,
+    raw: item,
+  };
+}
 
 const APPLIED_JOBS: AppliedJob[] = [
   {
@@ -131,30 +115,51 @@ const APPLIED_JOBS: AppliedJob[] = [
   },
 ];
 
-const JobCard = ({ job }: { job: JobDetails }) => {
+const JobCard = ({
+  job,
+  addToast,
+}: {
+  job: FeedJob;
+  addToast: (type: "success" | "error" | "info", message: string) => void;
+}) => {
   const [hovered, setHovered] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [jobDetails, setJobDetails] = useState<JobDetails | null>(null);
   const { t } = useI18n();
   const d = t("jobfeedscreen");
 
-  const CATEGORY_KEY: Record<string, string> = {
-    Locksmith: "locksmith",
-    Plumbing: "plumbing",
-    Electrical: "electrical",
-    Gardening: "gardening",
-    HVAC: "hvac",
+  const handleViewDetails = async () => {
+    setIsLoadingDetails(true);
+    try {
+      const details = await fetchPostDetails(job.id);
+      const location = await getApproxLocation(details.latitud, details.longitud);
+      setJobDetails(mapPostDetailsToJobDetails(details, location));
+      setIsDetailsOpen(true);
+    } catch (error) {
+      console.error("fetchPostDetails failed:", error);
+      addToast(
+        "error",
+        error instanceof ApiError ? error.message : d.errors.detailsFailed,
+      );
+    } finally {
+      setIsLoadingDetails(false);
+    }
   };
 
-  const handleApplySubmit = (data: ApplyJobData) => {
-    // TODO: replace with API call to submit proposal
-    console.log("Submit proposal:", { jobId: job.id, ...data });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleApplySubmit = (_data: ApplyJobData) => {
     setIsApplyOpen(false);
+    addToast("info", d.actionUnavailable);
   };
 
   return (
     <>
-      <div
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -172,35 +177,53 @@ const JobCard = ({ job }: { job: JobDetails }) => {
         }}
       >
       <div style={{ position: "relative", flexShrink: 0 }}>
-        <img
-          src={job.mainImage}
-          alt={job.title}
-          style={{
-            width: 140,
-            height: 100,
-            objectFit: "cover",
-            borderRadius: 12,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: 8,
-            left: 8,
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            background: "rgba(255,255,255,0.95)",
-            padding: "4px 8px",
-            borderRadius: 20,
-            fontSize: "0.7rem",
-            fontWeight: 700,
-            color: "#1B244C",
-          }}
-        >
-          <Navigation size={10} />
-          {job.distance}
-        </div>
+        {job.mainImage ? (
+          <img
+            src={job.mainImage}
+            alt={job.titulo}
+            style={{
+              width: 140,
+              height: 100,
+              objectFit: "cover",
+              borderRadius: 12,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 140,
+              height: 100,
+              borderRadius: 12,
+              background: "var(--input-bg)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <MapPin size={24} color="var(--text-secondary)" />
+          </div>
+        )}
+        {job.distanceKm !== null && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 8,
+              left: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "rgba(255,255,255,0.95)",
+              padding: "4px 8px",
+              borderRadius: 20,
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              color: "#1B244C",
+            }}
+          >
+            <Navigation size={10} />
+            {job.distanceKm.toFixed(1)} {d.filters.km ?? "km"}
+          </div>
+        )}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -231,7 +254,7 @@ const JobCard = ({ job }: { job: JobDetails }) => {
                 fontWeight: 600,
               }}
             >
-              {d.categories[CATEGORY_KEY[job.category] as keyof typeof d.categories] ?? job.category}
+              {job.categoria_nombre}
             </span>
             <span>
               {d.card.posted} {job.postedAgo}
@@ -244,7 +267,7 @@ const JobCard = ({ job }: { job: JobDetails }) => {
               color: "var(--text)",
             }}
           >
-            {job.priceRange}
+            ${job.precio_inicial.toLocaleString()}
           </span>
         </div>
 
@@ -256,23 +279,8 @@ const JobCard = ({ job }: { job: JobDetails }) => {
             color: "var(--text)",
           }}
         >
-          {job.title}
+          {job.titulo}
         </h3>
-
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.82rem",
-            color: "var(--text-secondary)",
-            lineHeight: 1.5,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {job.description}
-        </p>
 
         <div
           style={{
@@ -282,20 +290,20 @@ const JobCard = ({ job }: { job: JobDetails }) => {
             marginTop: 12,
             fontSize: "0.78rem",
             color: "var(--text-secondary)",
+            minHeight: 18,
           }}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <MapPin size={12} />
-            {job.location}
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Clock size={12} />
-            {d.urgency[job.urgency.toLowerCase() as keyof typeof d.urgency] ?? job.urgency}
-          </span>
+          {job.location && (
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <MapPin size={12} />
+              {job.location}
+            </span>
+          )}
         </div>
 
         <button
-          onClick={() => setIsDetailsOpen(true)}
+          onClick={handleViewDetails}
+          disabled={isLoadingDetails}
           style={{
             marginTop: 14,
             background: "#2EBCCC",
@@ -303,14 +311,15 @@ const JobCard = ({ job }: { job: JobDetails }) => {
             color: "#fff",
             fontWeight: 700,
             fontSize: "0.82rem",
-            cursor: "pointer",
+            cursor: isLoadingDetails ? "default" : "pointer",
+            opacity: isLoadingDetails ? 0.7 : 1,
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
             padding: "8px 16px",
             borderRadius: 10,
             fontFamily: "inherit",
-            transition: "background 0.2s, box-shadow 0.2s",
+            transition: "background 0.2s, box-shadow 0.2s, opacity 0.2s",
             boxShadow: hovered
               ? "0 4px 14px rgba(46,188,204,0.45)"
               : "none",
@@ -323,15 +332,30 @@ const JobCard = ({ job }: { job: JobDetails }) => {
           }
         >
           {d.card.viewDetails}
-          <ArrowRight size={14} />
+          {isLoadingDetails ? (
+            <motion.span
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+              style={{
+                width: 13,
+                height: 13,
+                borderRadius: "50%",
+                border: "2px solid currentColor",
+                borderTopColor: "transparent",
+                display: "inline-block",
+              }}
+            />
+          ) : (
+            <ArrowRight size={14} />
+          )}
         </button>
       </div>
-    </div>
+    </motion.div>
 
     <JobDetailsModal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        job={job}
+        job={jobDetails}
         onApply={() => {
           setIsDetailsOpen(false);
           setIsApplyOpen(true);
@@ -341,8 +365,8 @@ const JobCard = ({ job }: { job: JobDetails }) => {
       <ApplyJobModal
         isOpen={isApplyOpen}
         onClose={() => setIsApplyOpen(false)}
-        jobTitle={job.title}
-        clientPrice={job.price}
+        jobTitle={job.titulo}
+        clientPrice={job.precio_inicial}
         onSubmit={handleApplySubmit}
       />
     </>
@@ -476,30 +500,99 @@ const JobFeedScreen: React.FC = () => {
   const d = t("jobfeedscreen");
   const navigate = useNavigate();
 
+  const { toasts, addToast, removeToast } = useToast();
+
   const [filters, setFilters] = useState<JobFilters>({
-    specialization: "",
     category: "",
-    distance: "10",
+    distance: "",
     priceRange: "",
   });
 
-  const specializationOptions: FilterOption[] = [
-    { value: "", label: d.filters.allSpecializations },
-    ...CATEGORIES.map((category) => ({
-      value: category,
-      label: d.categories[category.toLowerCase() as keyof typeof d.categories] ?? category,
-    })),
-  ];
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [providerCoords, setProviderCoords] = useState<ApproxCoords | null>(
+    null,
+  );
+  const [jobs, setJobs] = useState<FeedJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Ubicación del proveedor, en segundo plano y sin bloquear el feed, solo
+  // para calcular distancias reales — nunca se muestra ni se guarda.
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setProviderCoords({
+          lat: roundCoord(position.coords.latitude),
+          lon: roundCoord(position.coords.longitude),
+        });
+      },
+      () => {
+        /* sin permiso: el feed sigue funcionando, solo sin distancia */
+      },
+      { timeout: 8000, enableHighAccuracy: false },
+    );
+  }, []);
+
+  useEffect(() => {
+    fetchCategorias()
+      .then(setCategorias)
+      .catch((error) => console.error("fetchCategorias failed:", error));
+  }, []);
+
+  useEffect(() => {
+    const categoriaId = filters.category ? Number(filters.category) : undefined;
+    let cancelled = false;
+
+    fetchServiciosCatalog({ categoriaId, estado: "abierto" })
+      .then(async (items) => {
+        if (cancelled) return;
+        const feedJobs = items.map(servicioToFeedJob);
+        const locations = await Promise.all(
+          items.map((item) => getApproxLocation(item.latitud, item.longitud)),
+        );
+        if (cancelled) return;
+        setJobs(
+          feedJobs.map((job, i) => ({
+            ...job,
+            location: locations[i],
+            distanceKm: providerCoords
+              ? distanceKm(providerCoords, {
+                  lat: Number(items[i].latitud),
+                  lon: Number(items[i].longitud),
+                })
+              : null,
+          })),
+        );
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchServiciosCatalog failed:", error);
+        addToast(
+          "error",
+          error instanceof ApiError ? error.message : d.errors.fetchFailed,
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      setIsLoading(true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.category, providerCoords]);
 
   const categoryOptions: FilterOption[] = [
     { value: "", label: d.filters.allCategories },
-    ...CATEGORIES.map((category) => ({
-      value: category,
-      label: d.categories[category.toLowerCase() as keyof typeof d.categories] ?? category,
+    ...categorias.map((c) => ({
+      value: String(c.id_categoria),
+      label: c.nombre,
     })),
   ];
 
   const distanceOptions: FilterOption[] = [
+    { value: "", label: d.filters.anyDistance ?? d.filters.allCategories },
     { value: "5", label: `5 ${d.filters.km ?? "km"}` },
     { value: "10", label: `10 ${d.filters.km ?? "km"}` },
     { value: "25", label: `25 ${d.filters.km ?? "km"}` },
@@ -511,20 +604,26 @@ const JobFeedScreen: React.FC = () => {
     label: range === "" ? d.filters.anyPrice : formatPriceRange(range),
   }));
 
-  // TODO: replace with real API call using filters as query params
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (filters.specialization) params.set("specialization", filters.specialization);
-    if (filters.category) params.set("category", filters.category);
-    if (filters.distance) params.set("distance", filters.distance);
-    if (filters.priceRange) params.set("priceRange", filters.priceRange);
-
-    console.log("Fetch available jobs:", params.toString());
-  }, [filters]);
-
   const handleFilterChange = (key: keyof JobFilters) => (value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+  const visibleJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      if (filters.distance && job.distanceKm !== null) {
+        if (job.distanceKm > Number(filters.distance)) return false;
+      }
+      if (filters.priceRange) {
+        if (filters.priceRange === "500+") {
+          if (job.precio_inicial < 500) return false;
+        } else {
+          const [min, max] = filters.priceRange.split("-").map(Number);
+          if (job.precio_inicial < min || job.precio_inicial > max) return false;
+        }
+      }
+      return true;
+    });
+  }, [jobs, filters.distance, filters.priceRange]);
 
   return (
     <>
@@ -669,26 +768,21 @@ const JobFeedScreen: React.FC = () => {
               }}
             >
               <FilterSelect
-                label={d.filters.specialization}
-                value={filters.specialization}
-                options={specializationOptions}
-                placeholder={d.filters.allSpecializations}
-                onChange={handleFilterChange("specialization")}
-              />
-              <FilterSelect
                 label={d.filters.category}
                 value={filters.category}
                 options={categoryOptions}
                 placeholder={d.filters.allCategories}
                 onChange={handleFilterChange("category")}
               />
-              <FilterSelect
-                label={d.filters.distance}
-                value={filters.distance}
-                options={distanceOptions}
-                placeholder={`10 ${d.filters.km ?? "km"}`}
-                onChange={handleFilterChange("distance")}
-              />
+              {providerCoords && (
+                <FilterSelect
+                  label={d.filters.distance}
+                  value={filters.distance}
+                  options={distanceOptions}
+                  placeholder={d.filters.anyDistance ?? d.filters.allCategories}
+                  onChange={handleFilterChange("distance")}
+                />
+              )}
               <FilterSelect
                 label={d.filters.priceRange}
                 value={filters.priceRange}
@@ -701,9 +795,30 @@ const JobFeedScreen: React.FC = () => {
 
           <div className="jf-main-grid">
             <div className="jf-jobs-list">
-              {JOBS.map((job) => (
-                <JobCard key={job.id} job={job} />
-              ))}
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
+                ))
+              ) : visibleJobs.length === 0 ? (
+                <div
+                  style={{
+                    background: "var(--card-bg)",
+                    borderRadius: 16,
+                    border: "1px solid var(--divider)",
+                  }}
+                >
+                  <EmptyState
+                    icon={<Briefcase size={32} color="#2EBCCC" />}
+                    isDark={isDark}
+                    title={d.empty}
+                    subtitle={d.emptySubtitle}
+                  />
+                </div>
+              ) : (
+                visibleJobs.map((job) => (
+                  <JobCard key={job.id} job={job} addToast={addToast} />
+                ))
+              )}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -848,14 +963,29 @@ const JobFeedScreen: React.FC = () => {
                     {d.viewAll}
                   </button>
                 </div>
-                {APPLIED_JOBS.map((job) => (
-                  <AppliedJobItem key={job.id} job={job} />
-                ))}
+                {APPLIED_JOBS.length === 0 ? (
+                  <EmptyState
+                    icon={<Send size={20} color="#2EBCCC" />}
+                    isDark={isDark}
+                    title={d.noAppliedJobs}
+                    size="compact"
+                  />
+                ) : (
+                  APPLIED_JOBS.map((job) => (
+                    <AppliedJobItem key={job.id} job={job} />
+                  ))
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <ToastContainer
+        toasts={toasts}
+        onRemove={removeToast}
+        theme={isDark ? "dark" : "light"}
+      />
     </>
   );
 };

@@ -31,9 +31,16 @@ export const postoffers = {
   declinedMessage: "You declined this applicant.",
   undo: "Undo",
   empty: "No applicants in this category.",
+  emptySubtitle: "When a provider applies to this service, it'll show up here.",
   notFound: {
     title: "Post not found",
     subtitle: "This post may have been removed or the link is incorrect.",
     back: "Back to My Posts",
+  },
+  actionUnavailable:
+    "Accepting, rejecting, or countering proposals isn't available yet.",
+  errors: {
+    postFailed: "Couldn't load the post. Please try again later.",
+    applicantsFailed: "Couldn't load applicants. Please try again later.",
   },
 };

@@ -5,12 +5,34 @@ import { useI18n } from "../../../../i18n";
 import { ROUTES } from "../../../../router/routes";
 import { JobCard } from "./JobCard";
 import { SkeletonLoader } from "./SkeletonLoader";
+import EmptyState from "../../../../components/emptystate/EmptyState";
 
 interface AvailableJobsFeedProps {
   jobs: DashboardJob[] | undefined;
   isLoading: boolean;
   isDark: boolean;
 }
+
+const EmptyJobsState = ({ isDark }: { isDark: boolean }) => {
+  const { t } = useI18n();
+  const d = t("dashboardscreen");
+  return (
+    <div
+      style={{
+        background: "var(--card-bg)",
+        borderRadius: 16,
+        border: "1px solid var(--divider)",
+      }}
+    >
+      <EmptyState
+        icon={<Briefcase size={32} color="#2EBCCC" />}
+        isDark={isDark}
+        title={d.empty.jobs.title}
+        subtitle={d.empty.jobs.description}
+      />
+    </div>
+  );
+};
 
 export const AvailableJobsFeed = ({ jobs, isLoading, isDark }: AvailableJobsFeedProps) => {
   const { t } = useI18n();
@@ -71,56 +93,11 @@ export const AvailableJobsFeed = ({ jobs, isLoading, isDark }: AvailableJobsFeed
               <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
             ))
           ) : !jobs?.length ? (
-            <EmptyJobsState />
+            <EmptyJobsState isDark={isDark} />
           ) : (
             jobs.map((job) => <JobCard key={job.id} job={job} />)
           )}
         </div>
-      </div>
-    </div>
-  );
-};
-
-const EmptyJobsState = () => {
-  const { t } = useI18n();
-  const d = t("dashboardscreen");
-
-  return (
-    <div
-      style={{
-        background: "var(--card-bg)",
-        borderRadius: 16,
-        border: "1px solid var(--divider)",
-        padding: 32,
-        textAlign: "center",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: "50%",
-          background: "rgba(46,188,204,0.12)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          margin: "0 auto 14px",
-        }}
-      >
-        <Briefcase size={22} color="#2EBCCC" />
-      </div>
-      <div
-        style={{
-          fontWeight: 700,
-          fontSize: "1rem",
-          color: "var(--text)",
-          marginBottom: 4,
-        }}
-      >
-        {d.empty.jobs.title}
-      </div>
-      <div style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>
-        {d.empty.jobs.description}
       </div>
     </div>
   );

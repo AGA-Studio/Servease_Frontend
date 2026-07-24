@@ -1,17 +1,25 @@
 // Post Offers screen: lets a Client review, accept, reject, or counter-offer
 // applications submitted by providers on one of their posted services.
 
-import { useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { Star, Check, ArrowLeft } from "lucide-react";
+import { Star, Check, ArrowLeft, Users } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { postoffers } from "../../i18n/locales/en/postoffers";
+import EmptyState from "../../components/emptystate/EmptyState";
 
 type PostOffersStrings = typeof postoffers;
 import { ROUTES } from "../../router/routes";
-import { MOCK_POSTS, type MyPost } from "../../data/mockPosts";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
+import {
+  fetchAplicantes,
+  fetchPostDetails,
+  type Aplicante,
+  type PostDetails,
+} from "../../api/servicioApi";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -32,78 +40,33 @@ interface Applicant {
   counterDraft: string;
 }
 
-const MOCK_APPLICANTS: Applicant[] = [
-  {
-    id: 1,
-    name: "Sara Jimenez",
-    avatar: "https://i.pravatar.cc/128?img=47",
-    rating: "4.9",
-    reviews: 124,
-    jobs: 42,
-    message:
-      "Hello! I would like to offer my services, I have 5 years of experience and I have worked with many clients on the platform. I am available to start immediately.",
-    bid: 800,
-    status: "new",
-    counterAmount: null,
+// `estado_solicitud` es un CharField sin choices documentados en el backend;
+// mapeo heurístico por palabras clave hasta que el backend confirme los
+// valores exactos que puede tomar.
+function mapEstadoSolicitud(estado: string): ApplicantStatus {
+  const e = estado.toLowerCase();
+  if (e.includes("acept")) return "accepted";
+  if (e.includes("rechaz") || e.includes("declin")) return "declined";
+  if (e.includes("contra")) return "countered";
+  return "new";
+}
+
+function aplicanteToApplicant(a: Aplicante): Applicant {
+  return {
+    id: a.id_postulacion,
+    name: a.nombre_proveedor,
+    avatar: a.url_foto_perfil ?? "",
+    rating: a.rating.toFixed(1),
+    reviews: a.num_reviews,
+    jobs: a.trabajos_completados,
+    message: a.mensaje_proveedor,
+    bid: Number(a.precio_propuesto),
+    status: mapEstadoSolicitud(a.estado_solicitud),
+    counterAmount: a.presupuesto_acordado ? Number(a.presupuesto_acordado) : null,
     counterDraft: "",
-  },
-  {
-    id: 2,
-    name: "Pedro Navarro",
-    avatar: "https://i.pravatar.cc/128?img=52",
-    rating: "4.9",
-    reviews: 124,
-    jobs: 42,
-    message:
-      "Hello! I would like to offer my services, I have 5 years of experience and I have worked with many clients on the platform. I am available to start immediately.",
-    bid: 800,
-    status: "countered",
-    counterAmount: 600,
-    counterDraft: "",
-  },
-  {
-    id: 3,
-    name: "Carlos Ruiz",
-    avatar: "https://i.pravatar.cc/128?img=33",
-    rating: "4.7",
-    reviews: 89,
-    jobs: 31,
-    message:
-      "Available today and can bring my own parts. I specialize in emergency repairs and can be there within the hour.",
-    bid: 750,
-    status: "new",
-    counterAmount: null,
-    counterDraft: "",
-  },
-  {
-    id: 4,
-    name: "Luis Fernandez",
-    avatar: "https://i.pravatar.cc/128?img=15",
-    rating: "5.0",
-    reviews: 210,
-    jobs: 88,
-    message:
-      "Licensed professional with 10+ years in residential emergencies. Happy to send references from recent jobs nearby.",
-    bid: 900,
-    status: "declined",
-    counterAmount: null,
-    counterDraft: "",
-  },
-  {
-    id: 5,
-    name: "Ana Torres",
-    avatar: "https://i.pravatar.cc/128?img=48",
-    rating: "4.8",
-    reviews: 156,
-    jobs: 64,
-    message:
-      "I can be on-site within 30 minutes. Includes a free diagnostic and 90-day warranty on the repair.",
-    bid: 700,
-    status: "new",
-    counterAmount: null,
-    counterDraft: "",
-  },
-];
+  };
+}
+
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(
@@ -437,22 +400,60 @@ const acceptBtnStyle: React.CSSProperties = {
 };
 
 const PostOffersScreen: React.FC = () => {
-  useTheme();
+  const isDark = useTheme();
   const { postId } = useParams<{ postId: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
   const po = t("postoffers");
   const sb = t("sidebar");
+  const { toasts, addToast, removeToast } = useToast();
 
-  const statePost = (location.state as { post?: MyPost } | null)?.post;
-  const post = statePost ?? MOCK_POSTS.find((p) => p.id === postId);
-
-  const [applicants, setApplicants] = useState<Applicant[]>(MOCK_APPLICANTS);
+  const [post, setPost] = useState<PostDetails | null>(null);
+  const [isLoadingPost, setIsLoadingPost] = useState(true);
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [isLoadingApplicants, setIsLoadingApplicants] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [openCounterId, setOpenCounterId] = useState<number | null>(null);
 
-  if (!post) {
+  useEffect(() => {
+    if (!postId) return;
+    let cancelled = false;
+
+    fetchPostDetails(postId)
+      .then((data) => {
+        if (!cancelled) setPost(data);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchPostDetails failed:", error);
+        addToast("error", po.errors.postFailed);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingPost(false);
+      });
+
+    fetchAplicantes(postId)
+      .then((list) => {
+        if (!cancelled) setApplicants(list.map(aplicanteToApplicant));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchAplicantes failed:", error);
+        addToast("error", po.errors.applicantsFailed);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingApplicants(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId]);
+
+  const notifyActionUnavailable = () => addToast("info", po.actionUnavailable);
+
+  if (!isLoadingPost && !post) {
     return (
       <div className="page-enter" style={{ padding: "44px 56px", maxWidth: 900 }}>
         <Breadcrumbs items={[{ label: sb.myPost, to: ROUTES.APP.MY_POST }]} backTo={ROUTES.APP.MY_POST} />
@@ -468,6 +469,7 @@ const PostOffersScreen: React.FC = () => {
         >
           <ArrowLeft size={16} /> {po.notFound.back}
         </motion.button>
+        <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
       </div>
     );
   }
@@ -503,14 +505,33 @@ const PostOffersScreen: React.FC = () => {
       <Breadcrumbs
         items={[
           { label: sb.myPost, to: ROUTES.APP.MY_POST },
-          { label: post.title },
+          ...(post ? [{ label: post.titulo }] : []),
         ]}
         backTo={ROUTES.APP.MY_POST}
       />
 
-      <h1 style={{ margin: "0 0 8px", fontSize: "1.85rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}>
-        {post.title}
-      </h1>
+      {isLoadingPost ? (
+        <motion.div
+          animate={{ opacity: [0.6, 1, 0.6] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+          style={{
+            height: 30,
+            width: "45%",
+            borderRadius: 8,
+            background: isDark ? "#273570" : "#e5e7eb",
+            margin: "0 0 8px",
+          }}
+        />
+      ) : (
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: EASE }}
+          style={{ margin: "0 0 8px", fontSize: "1.85rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}
+        >
+          {post?.titulo}
+        </motion.h1>
+      )}
       <p style={{ margin: "0 0 26px", fontSize: "0.92rem", color: "var(--text-secondary)" }}>
         {po.subtitle}
       </p>
@@ -563,10 +584,32 @@ const PostOffersScreen: React.FC = () => {
           transition={{ duration: 0.22, ease: EASE }}
           style={{ display: "flex", flexDirection: "column", gap: 18 }}
         >
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-              {po.empty}
-            </div>
+          {isLoadingApplicants ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{ opacity: [0.6, 1, 0.6] }}
+                transition={{
+                  duration: 1.4,
+                  repeat: Infinity,
+                  ease: [0.4, 0, 0.6, 1],
+                  delay: i * 0.1,
+                }}
+                style={{
+                  height: 160,
+                  borderRadius: 20,
+                  background: isDark ? "#1e2d5e" : "#ffffff",
+                  border: "1px solid var(--divider)",
+                }}
+              />
+            ))
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={<Users size={32} color="#2EBCCC" />}
+              isDark={isDark}
+              title={po.empty}
+              subtitle={po.emptySubtitle}
+            />
           ) : (
             filtered.map((a, i) => (
               <ApplicantCard
@@ -575,9 +618,9 @@ const PostOffersScreen: React.FC = () => {
                 index={i}
                 po={po}
                 isCounterFormOpen={openCounterId === a.id}
-                onAccept={() => updateApplicant(a.id, { status: "accepted" })}
-                onReject={() => updateApplicant(a.id, { status: "declined" })}
-                onUndoDecline={() => updateApplicant(a.id, { status: "new" })}
+                onAccept={notifyActionUnavailable}
+                onReject={notifyActionUnavailable}
+                onUndoDecline={notifyActionUnavailable}
                 onOpenCounter={() => {
                   setOpenCounterId(a.id);
                   updateApplicant(a.id, { counterDraft: String(Math.max(0, a.bid - 150)) });
@@ -586,17 +629,16 @@ const PostOffersScreen: React.FC = () => {
                 onCounterDraftChange={(v) => updateApplicant(a.id, { counterDraft: v })}
                 onSubmitCounter={() => {
                   setOpenCounterId(null);
-                  updateApplicant(a.id, {
-                    status: "countered",
-                    counterAmount: Number(a.counterDraft) || a.bid,
-                  });
+                  notifyActionUnavailable();
                 }}
-                onCancelCounter={() => updateApplicant(a.id, { status: "new", counterAmount: null })}
+                onCancelCounter={notifyActionUnavailable}
               />
             ))
           )}
         </motion.div>
       </AnimatePresence>
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
     </div>
   );
 };

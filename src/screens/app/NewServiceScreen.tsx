@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Calendar,
+  Crosshair,
   DollarSign,
   Send,
   Tag,
@@ -17,14 +18,56 @@ import {
   Clock,
   UploadCloud,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
+import { ApiError } from "../../api/apiClient";
+import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import { createServicio, uploadServiceImage } from "../../api/servicioApi";
+import {
+  forwardGeocode,
+  getApproxLocation,
+  roundCoord,
+  type ApproxCoords,
+} from "../../utils/location";
+import {
+  DESCRIPTION_MAX_LENGTH,
+  LOCATION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  hasUnsafeMarkup,
+  isValidPrice,
+  sanitizeText,
+  stripControlChars,
+} from "../../utils/validation";
+import { ROUTES } from "../../router/routes";
 import "./animations.newservice.css";
 import { motion } from "motion/react";
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+const Spinner = ({ size = 15 }: { size?: number }) => (
+  <motion.span
+    animate={{ rotate: 360 }}
+    transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+    style={{
+      width: size,
+      height: size,
+      borderRadius: "50%",
+      border: "2px solid currentColor",
+      borderTopColor: "transparent",
+      display: "inline-block",
+      flexShrink: 0,
+    }}
+  />
+);
 
 interface FormState {
   title: string;
   category: string;
+  categoryId: number | null;
   description: string;
   location: string;
   date: string;
@@ -38,6 +81,7 @@ interface ValidationErrors {
   category?: string;
   description?: string;
   location?: string;
+  budget?: string;
 }
 
 const TOTAL_STEPS = 3;
@@ -525,6 +569,36 @@ const NewServiceScreen: React.FC = () => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
   const ns = t("newservice");
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toasts, addToast, removeToast } = useToast();
+
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categoriasError, setCategoriasError] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<ApproxCoords | null>(
+    null,
+  );
+  const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+  const [isLocatingCurrent, setIsLocatingCurrent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategorias()
+      .then((list) => {
+        if (!cancelled) setCategorias(list);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchCategorias failed:", error);
+        setCategoriasError(true);
+        addToast("error", ns.validation.categoriesUnavailable);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [mobileStep, setMobileStep] = useState(1);
   const [_prevStep, setPrevStep] = useState(1);
@@ -564,6 +638,7 @@ const NewServiceScreen: React.FC = () => {
   const [form, setForm] = useState<FormState>({
     title: "",
     category: "",
+    categoryId: null,
     description: "",
     location: "",
     date: "",
@@ -575,17 +650,30 @@ const NewServiceScreen: React.FC = () => {
   const set = (key: keyof FormState, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const validateStep = (step: number): boolean => {
+  const computeStepErrors = (step: number): ValidationErrors => {
     const e: ValidationErrors = {};
     if (step === 1) {
       if (!form.title.trim()) e.title = ns.validation.titleRequired;
-      if (!form.category) e.category = ns.validation.categoryRequired;
+      else if (hasUnsafeMarkup(form.title)) e.title = ns.validation.titleUnsafe;
+
+      if (form.categoryId === null) e.category = ns.validation.categoryRequired;
+
       if (!form.description.trim())
         e.description = ns.validation.descriptionRequired;
+      else if (hasUnsafeMarkup(form.description))
+        e.description = ns.validation.descriptionUnsafe;
     }
     if (step === 2) {
       if (!form.location.trim()) e.location = ns.validation.locationRequired;
+      else if (!locationCoords) e.location = ns.validation.locationNotResolved;
+
+      if (!isValidPrice(form.budget)) e.budget = ns.validation.budgetInvalid;
     }
+    return e;
+  };
+
+  const validateStep = (step: number): boolean => {
+    const e = computeStepErrors(step);
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -612,7 +700,14 @@ const NewServiceScreen: React.FC = () => {
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
-    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const arr = Array.from(files).filter((f) => {
+      if (!f.type.startsWith("image/")) return false;
+      if (f.size > MAX_PHOTO_BYTES) {
+        addToast("error", `${f.name} ${ns.errors.photoTooLarge}`);
+        return false;
+      }
+      return true;
+    });
     setForm((prev) => ({
       ...prev,
       photos: [...prev.photos, ...arr].slice(0, 6),
@@ -625,13 +720,107 @@ const NewServiceScreen: React.FC = () => {
       photos: prev.photos.filter((_, idx) => idx !== i),
     }));
 
-  const handleSubmit = () => {
-    if (!validateStep(mobileStep)) return;
-    console.log("Submit:", form);
+  const resolveTypedLocation = async () => {
+    const query = sanitizeText(form.location, LOCATION_MAX_LENGTH);
+    if (!query) return;
+    setIsResolvingLocation(true);
+    try {
+      const result = await forwardGeocode(query);
+      if (!result) {
+        addToast("error", ns.errors.locationNotFound);
+        return;
+      }
+      setLocationCoords(result.coords);
+      set("location", result.label);
+      setErrors((prev) => ({ ...prev, location: undefined }));
+    } finally {
+      setIsResolvingLocation(false);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      addToast("error", ns.errors.geolocationUnsupported);
+      return;
+    }
+    setIsLocatingCurrent(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const coords: ApproxCoords = {
+          lat: roundCoord(position.coords.latitude),
+          lon: roundCoord(position.coords.longitude),
+        };
+        const label = await getApproxLocation(coords.lat, coords.lon);
+        setLocationCoords(coords);
+        set("location", label || `${coords.lat}, ${coords.lon}`);
+        setErrors((prev) => ({ ...prev, location: undefined }));
+        setIsLocatingCurrent(false);
+      },
+      () => {
+        addToast("error", ns.errors.geolocationDenied);
+        setIsLocatingCurrent(false);
+      },
+      { timeout: 10000, enableHighAccuracy: false },
+    );
+  };
+
+  const handleSubmit = async () => {
+    const step1Errors = computeStepErrors(1);
+    const step2Errors = computeStepErrors(2);
+    setErrors({ ...step1Errors, ...step2Errors });
+
+    if (Object.keys(step1Errors).length > 0) {
+      setMobileStep(1);
+      return;
+    }
+    if (Object.keys(step2Errors).length > 0) {
+      setMobileStep(2);
+      return;
+    }
+    if (!user?.id || !locationCoords || form.categoryId === null) return;
+
+    setIsSubmitting(true);
+    try {
+      const imagenes = await Promise.all(
+        form.photos.map((file) => uploadServiceImage(user.id, file)),
+      );
+
+      await createServicio({
+        titulo: sanitizeText(form.title, TITLE_MAX_LENGTH),
+        descripcion: sanitizeText(form.description, DESCRIPTION_MAX_LENGTH),
+        precio_inicial: Number(form.budget).toFixed(2),
+        latitud: locationCoords.lat,
+        longitud: locationCoords.lon,
+        imagenes,
+        id_categoria: form.categoryId,
+      });
+
+      addToast("success", ns.success.posted);
+      handleClearForm();
+      navigate(ROUTES.APP.MY_POST);
+    } catch (error) {
+      addToast(
+        "error",
+        error instanceof ApiError ? error.message : ns.errors.submitFailed,
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClearForm = () => {
-    setForm({ title: "", category: "", description: "", location: "", date: "", budget: "", currency: "MXN", photos: [] });
+    setForm({
+      title: "",
+      category: "",
+      categoryId: null,
+      description: "",
+      location: "",
+      date: "",
+      budget: "",
+      currency: "MXN",
+      photos: [],
+    });
+    setLocationCoords(null);
     setErrors({});
     setMobileStep(1);
     setShowClearModal(false);
@@ -667,13 +856,15 @@ const NewServiceScreen: React.FC = () => {
   const CategoryDropdown = (
     <InputField
       label={ns.basicInfo.categoryLabel}
-      error={errors.category}
+      error={errors.category || (categoriasError ? ns.validation.categoriesUnavailable : undefined)}
       isDark={isDark}
     >
       <div className="relative" ref={categoryRef}>
         <button
           type="button"
+          disabled={categoriasError}
           onClick={() => {
+            if (categoriasError) return;
             if (categoryOpen) closeCategoryDropdown();
             else setCategoryOpen(true);
           }}
@@ -721,12 +912,16 @@ const NewServiceScreen: React.FC = () => {
               overflowY: "auto",
             }}
           >
-            {ns.categories.map((cat: string) => (
+            {categorias.map((cat) => (
               <button
-                key={cat}
+                key={cat.id_categoria}
                 type="button"
                 onClick={() => {
-                  set("category", cat);
+                  setForm((prev) => ({
+                    ...prev,
+                    category: cat.nombre,
+                    categoryId: cat.id_categoria,
+                  }));
                   closeCategoryDropdown();
                   setErrors((e) => ({ ...e, category: undefined }));
                 }}
@@ -734,7 +929,7 @@ const NewServiceScreen: React.FC = () => {
                 style={{
                   color: isDark ? "#fff" : "#000",
                   background:
-                    form.category === cat
+                    form.categoryId === cat.id_categoria
                       ? "rgba(46,188,204,0.15)"
                       : "transparent",
                 }}
@@ -743,12 +938,12 @@ const NewServiceScreen: React.FC = () => {
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background =
-                    form.category === cat
+                    form.categoryId === cat.id_categoria
                       ? "rgba(46,188,204,0.15)"
                       : "transparent")
                 }
               >
-                {cat}
+                {cat.nombre}
               </button>
             ))}
           </div>
@@ -758,7 +953,11 @@ const NewServiceScreen: React.FC = () => {
   );
 
   const BudgetInput = (
-    <InputField label={ns.details.budgetLabel ?? "Budget"} isDark={isDark}>
+    <InputField
+      label={ns.details.budgetLabel ?? "Budget"}
+      error={errors.budget}
+      isDark={isDark}
+    >
       <div className="relative flex items-center">
         <DollarSign
           size={16}
@@ -767,12 +966,14 @@ const NewServiceScreen: React.FC = () => {
         />
         <input
           type="number"
+          min="0"
+          step="0.01"
           placeholder={ns.details.budgetPlaceholder}
           value={form.budget}
-          onChange={(e) => set("budget", e.target.value)}
+          onChange={(e) => set("budget", stripControlChars(e.target.value))}
           style={
             {
-              ...inputStyles(isDark),
+              ...inputStyles(isDark, !!errors.budget),
               paddingLeft: 36,
               paddingRight: 84,
               appearance: "textfield",
@@ -885,7 +1086,10 @@ const NewServiceScreen: React.FC = () => {
           type="text"
           placeholder={ns.basicInfo.titlePlaceholder}
           value={form.title}
-          onChange={(e) => set("title", e.target.value)}
+          maxLength={TITLE_MAX_LENGTH}
+          onChange={(e) =>
+            set("title", stripControlChars(e.target.value).slice(0, TITLE_MAX_LENGTH))
+          }
           style={inputStyles(isDark, !!errors.title)}
           onFocus={(e) => (e.currentTarget.style.borderColor = "#2EBCCC")}
           onBlur={(e) =>
@@ -910,7 +1114,12 @@ const NewServiceScreen: React.FC = () => {
             rows={5}
             placeholder={ns.basicInfo.descriptionPlaceholder}
             value={form.description}
-            onChange={(e) => set("description", e.target.value.slice(0, 500))}
+            onChange={(e) =>
+              set(
+                "description",
+                stripControlChars(e.target.value).slice(0, DESCRIPTION_MAX_LENGTH),
+              )
+            }
             className="ns-textarea-desc"
             style={{
               ...inputStyles(isDark, !!errors.description),
@@ -954,7 +1163,21 @@ const NewServiceScreen: React.FC = () => {
             type="text"
             placeholder={ns.details.locationPlaceholder}
             value={form.location}
-            onChange={(e) => set("location", e.target.value)}
+            maxLength={LOCATION_MAX_LENGTH}
+            onChange={(e) => {
+              set(
+                "location",
+                stripControlChars(e.target.value).slice(0, LOCATION_MAX_LENGTH),
+              );
+              setLocationCoords(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                resolveTypedLocation();
+              }
+            }}
+            disabled={isResolvingLocation || isLocatingCurrent}
             style={{
               ...inputStyles(isDark, !!errors.location),
               paddingLeft: 36,
@@ -969,28 +1192,54 @@ const NewServiceScreen: React.FC = () => {
             }
           />
         </div>
+        <p className="text-xs mt-1.5" style={{ color: "#989898" }}>
+          {isResolvingLocation
+            ? ns.details.resolvingLocation
+            : ns.details.locationApproxNote}
+        </p>
       </InputField>
 
       <div
         className="rounded-xl overflow-hidden mb-4 relative"
         style={{ height: 140, background: isDark ? "#273570" : "#E5E7EB" }}
       >
-        <div className="w-full h-full flex items-center justify-center">
-          <div
-            className="text-xs font-medium px-4 py-1.5 rounded-full"
-            style={{
-              background: isDark ? "#1B244C" : "#fff",
-              color: "#989898",
-            }}
-          >
-            Map preview
+        {locationCoords ? (
+          <iframe
+            title="location-preview"
+            className="w-full h-full border-0"
+            loading="lazy"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+              locationCoords.lon - 0.015
+            }%2C${locationCoords.lat - 0.012}%2C${
+              locationCoords.lon + 0.015
+            }%2C${locationCoords.lat + 0.012}&layer=mapnik&marker=${
+              locationCoords.lat
+            }%2C${locationCoords.lon}`}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div
+              className="text-xs font-medium px-4 py-1.5 rounded-full"
+              style={{
+                background: isDark ? "#1B244C" : "#fff",
+                color: "#989898",
+              }}
+            >
+              {ns.details.mapPlaceholder}
+            </div>
           </div>
-        </div>
+        )}
         <button
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold text-white"
-          style={{ background: "#2EBCCC" }}
+          type="button"
+          onClick={useCurrentLocation}
+          disabled={isLocatingCurrent}
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold text-white flex items-center gap-1.5"
+          style={{ background: "#2EBCCC", opacity: isLocatingCurrent ? 0.7 : 1 }}
         >
-          {ns.details.changeLocation}
+          <Crosshair size={13} />
+          {isLocatingCurrent
+            ? ns.details.locatingCurrentLocation
+            : ns.details.useCurrentLocation}
         </button>
       </div>
 
@@ -1360,13 +1609,14 @@ const NewServiceScreen: React.FC = () => {
       )}
       <button
         onClick={isLast ? handleSubmit : handleNext}
+        disabled={isLast && isSubmitting}
         className="flex-1 h-11 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all"
-        style={{ background: "#2EBCCC" }}
+        style={{ background: "#2EBCCC", opacity: isLast && isSubmitting ? 0.7 : 1 }}
       >
         {isLast ? (
           <>
             {ns.actions.postService}
-            <Send size={15} />
+            {isSubmitting ? <Spinner /> : <Send size={15} />}
           </>
         ) : (
           <>
@@ -1455,11 +1705,12 @@ const NewServiceScreen: React.FC = () => {
                 {DetailsContent}
                 <button
                   className="post-btn-desktop w-full h-12 rounded-xl font-bold text-white hidden md:flex items-center justify-center gap-2 mt-2 transition-colors"
-                  style={{ background: "#2EBCCC" }}
+                  style={{ background: "#2EBCCC", opacity: isSubmitting ? 0.7 : 1 }}
+                  disabled={isSubmitting}
                   onClick={handleSubmit}
                 >
                   {ns.actions.postService}
-                  <Send size={16} />
+                  {isSubmitting ? <Spinner size={16} /> : <Send size={16} />}
                 </button>
                 <button
                   onClick={() => setShowClearModal(true)}
@@ -1564,6 +1815,12 @@ const NewServiceScreen: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      <ToastContainer
+        toasts={toasts}
+        onRemove={removeToast}
+        theme={isDark ? "dark" : "light"}
+      />
     </>
   );
 };

@@ -1,6 +1,6 @@
 // Modal that shows full job details: images, description, client card, map and apply action.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ConfirmModal from "../confirmmodal/ConfirmModal";
 import {
   MapPin,
@@ -152,6 +152,97 @@ const MapPlaceholder = () => (
   </div>
 );
 
+const Shimmer = ({
+  bg,
+  style,
+}: {
+  bg: string;
+  style?: React.CSSProperties;
+}) => (
+  <motion.div
+    animate={{ opacity: [0.6, 1, 0.6] }}
+    transition={{
+      duration: 1.4,
+      repeat: Infinity,
+      ease: [0.4, 0, 0.6, 1],
+    }}
+    style={{ background: bg, borderRadius: 6, ...style }}
+  />
+);
+
+const DescSkeleton = ({ isDark }: { isDark: boolean }) => {
+  const bg = isDark ? "#273570" : "#e5e7eb";
+  const cardBg = isDark ? "#1e2d5e" : "#ffffff";
+  const divider = isDark ? "#273570" : "#e5e7eb";
+  return (
+    <motion.div
+      key="jdm-desc-skeleton"
+      className="jdm-desc-card"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, filter: "blur(2px)" }}
+      transition={{ duration: 0.2, ease: EASE }}
+      style={{
+        background: cardBg,
+        borderRadius: 16,
+        border: `1px solid ${divider}`,
+        padding: 24,
+      }}
+    >
+      <Shimmer bg={bg} style={{ width: "35%", height: 16, marginBottom: 16 }} />
+      <Shimmer bg={bg} style={{ width: "100%", height: 12, marginBottom: 10 }} />
+      <Shimmer bg={bg} style={{ width: "100%", height: 12, marginBottom: 10 }} />
+      <Shimmer bg={bg} style={{ width: "70%", height: 12 }} />
+    </motion.div>
+  );
+};
+
+const SidebarSkeleton = ({ isDark }: { isDark: boolean }) => {
+  const bg = isDark ? "#273570" : "#e5e7eb";
+  const cardBg = isDark ? "#1e2d5e" : "#ffffff";
+  const divider = isDark ? "#273570" : "#e5e7eb";
+  return (
+    <motion.div
+      key="jdm-sidebar-skeleton"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, filter: "blur(2px)" }}
+      transition={{ duration: 0.2, ease: EASE }}
+      style={{ display: "flex", flexDirection: "column", gap: 20 }}
+    >
+      <div
+        className="jdm-sidebar-card"
+        style={{
+          background: cardBg,
+          borderRadius: 16,
+          border: `1px solid ${divider}`,
+          padding: 24,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+          <Shimmer bg={bg} style={{ width: 56, height: 56, borderRadius: "50%" }} />
+          <div style={{ flex: 1 }}>
+            <Shimmer bg={bg} style={{ width: "70%", height: 16, marginBottom: 8 }} />
+            <Shimmer bg={bg} style={{ width: "45%", height: 12 }} />
+          </div>
+        </div>
+        <Shimmer bg={bg} style={{ width: "100%", height: 40 }} />
+      </div>
+      <div
+        className="jdm-map-card"
+        style={{
+          background: cardBg,
+          borderRadius: 16,
+          border: `1px solid ${divider}`,
+          padding: 20,
+        }}
+      >
+        <Shimmer bg={bg} style={{ width: "100%", height: 160, borderRadius: 12 }} />
+      </div>
+    </motion.div>
+  );
+};
+
 const JobDetailsModal: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -168,6 +259,20 @@ const JobDetailsModal: React.FC<Props> = ({
   const mp = t("myposts");
   const [selectedThumb, setSelectedThumb] = useState(0);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [mainImgLoaded, setMainImgLoaded] = useState(false);
+  const [loadedThumbs, setLoadedThumbs] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (!isOpen || !job) return;
+    const timer = setTimeout(() => setIsContentReady(true), 450);
+    return () => {
+      clearTimeout(timer);
+      setIsContentReady(false);
+      setMainImgLoaded(false);
+      setLoadedThumbs({});
+    };
+  }, [isOpen, job?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) return null;
 
@@ -428,22 +533,50 @@ const JobDetailsModal: React.FC<Props> = ({
               <div className="jdm-main-grid">
                 <div>
                   <motion.div variants={itemVariants}>
-                    <motion.img
+                    <div
                       className="jdm-main-image"
-                      key={job.mainImage}
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.35, ease: EASE }}
-                      src={job.mainImage}
-                      alt={job.title}
                       style={{
+                        position: "relative",
                         width: "100%",
                         height: 320,
-                        objectFit: "cover",
                         borderRadius: 16,
                         marginBottom: 14,
+                        overflow: "hidden",
+                        background: isDark ? "#273570" : "#e5e7eb",
                       }}
-                    />
+                    >
+                      {!mainImgLoaded && (
+                        <Shimmer
+                          bg={isDark ? "#273570" : "#e5e7eb"}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            borderRadius: 0,
+                          }}
+                        />
+                      )}
+                      {job.mainImage && (
+                        <motion.img
+                          key={job.mainImage}
+                          initial={{ opacity: 0, scale: 1.02 }}
+                          animate={{
+                            opacity: mainImgLoaded ? 1 : 0,
+                            scale: 1,
+                          }}
+                          transition={{ duration: 0.35, ease: EASE }}
+                          src={job.mainImage}
+                          alt={job.title}
+                          onLoad={() => setMainImgLoaded(true)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      )}
+                    </div>
 
                     <div
                       className="jdm-thumbnails"
@@ -465,24 +598,43 @@ const JobDetailsModal: React.FC<Props> = ({
                           }}
                           transition={{ duration: 0.2 }}
                           style={{
+                            position: "relative",
                             padding: 0,
-                            border: `2px solid ${
-                              selectedThumb === idx ? "#2EBCCC" : "transparent"
-                            }`,
+                            borderWidth: 2,
+                            borderStyle: "solid",
                             borderRadius: 10,
                             overflow: "hidden",
                             cursor: "pointer",
-                            background: "none",
+                            background: isDark ? "#273570" : "#e5e7eb",
+                            width: 80,
+                            height: 60,
                           }}
                         >
+                          {!loadedThumbs[idx] && (
+                            <Shimmer
+                              bg={isDark ? "#273570" : "#e5e7eb"}
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                borderRadius: 0,
+                              }}
+                            />
+                          )}
                           <img
                             src={thumb}
                             alt={`thumbnail ${idx + 1}`}
+                            onLoad={() =>
+                              setLoadedThumbs((prev) => ({ ...prev, [idx]: true }))
+                            }
                             style={{
-                              width: 80,
-                              height: 60,
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
                               objectFit: "cover",
                               display: "block",
+                              opacity: loadedThumbs[idx] ? 1 : 0,
+                              transition: "opacity 250ms ease-out",
                             }}
                           />
                         </motion.button>
@@ -490,46 +642,67 @@ const JobDetailsModal: React.FC<Props> = ({
                     </div>
                   </motion.div>
 
-                  <motion.div
-                    className="jdm-desc-card"
-                    variants={itemVariants}
-                    style={{
-                      background: "var(--card-bg)",
-                      borderRadius: 16,
-                      border: "1px solid var(--divider)",
-                      padding: 24,
-                    }}
-                  >
-                    <h2
-                      style={{
-                        margin: "0 0 12px",
-                        fontSize: "1rem",
-                        fontWeight: 800,
-                        color: "var(--text)",
-                      }}
-                    >
-                      {d.jobDescription}
-                    </h2>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "0.9rem",
-                        color: "var(--text-secondary)",
-                        lineHeight: 1.7,
-                        whiteSpace: "pre-line",
-                      }}
-                    >
-                      {job.description}
-                    </p>
-                  </motion.div>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {isContentReady ? (
+                      <motion.div
+                        key="jdm-desc-content"
+                        className="jdm-desc-card"
+                        initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+                        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                        transition={{ duration: 0.4, ease: EASE }}
+                        style={{
+                          background: "var(--card-bg)",
+                          borderRadius: 16,
+                          border: "1px solid var(--divider)",
+                          padding: 24,
+                        }}
+                      >
+                        <h2
+                          style={{
+                            margin: "0 0 12px",
+                            fontSize: "1rem",
+                            fontWeight: 800,
+                            color: "var(--text)",
+                          }}
+                        >
+                          {d.jobDescription}
+                        </h2>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.9rem",
+                            color: "var(--text-secondary)",
+                            lineHeight: 1.7,
+                            whiteSpace: "pre-line",
+                          }}
+                        >
+                          {job.description}
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <DescSkeleton isDark={isDark} />
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <motion.div
                   variants={itemVariants}
                   style={{ display: "flex", flexDirection: "column", gap: 20 }}
                 >
-                  <div
+                <AnimatePresence mode="wait" initial={false}>
+                {!isContentReady ? (
+                  <SidebarSkeleton isDark={isDark} />
+                ) : (
+                <motion.div
+                  key="jdm-sidebar-content"
+                  variants={contentVariants}
+                  initial="hidden"
+                  animate="visible"
+                  style={{ display: "flex", flexDirection: "column", gap: 20 }}
+                >
+                  <motion.div
                     className="jdm-sidebar-card"
+                    variants={itemVariants}
                     style={{
                       background: "var(--card-bg)",
                       borderRadius: 16,
@@ -658,7 +831,7 @@ const JobDetailsModal: React.FC<Props> = ({
                     >
                       {d.viewProfile}
                     </motion.button>
-                  </div>
+                  </motion.div>
 
                   <motion.div
                     className="jdm-map-card"
@@ -695,6 +868,7 @@ const JobDetailsModal: React.FC<Props> = ({
                   {proposalStatus === "pending" && onCancelProposal && (
                     <motion.button
                       className="jdm-cancel-btn"
+                      variants={itemVariants}
                       onClick={() => setIsConfirmOpen(true)}
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
@@ -730,6 +904,7 @@ const JobDetailsModal: React.FC<Props> = ({
                   {postStatus === "receiving" && onViewApplicants && (
                     <motion.button
                       className="jdm-apply-btn"
+                      variants={itemVariants}
                       onClick={onViewApplicants}
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
@@ -771,6 +946,7 @@ const JobDetailsModal: React.FC<Props> = ({
                   {onApply && (
                     <motion.button
                       className="jdm-apply-btn"
+                      variants={itemVariants}
                       onClick={onApply}
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
@@ -808,6 +984,9 @@ const JobDetailsModal: React.FC<Props> = ({
                       </motion.div>
                     </motion.button>
                   )}
+                </motion.div>
+                )}
+                </AnimatePresence>
                 </motion.div>
               </div>
             </motion.div>

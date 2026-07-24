@@ -4,11 +4,10 @@ export const jobfeedscreen = {
   status: "Status:",
   availableForWork: "Available for Work",
   filters: {
-    specialization: "My Specialization",
     category: "Category",
-    allSpecializations: "All Specializations",
     allCategories: "All Categories",
     distance: "Distance",
+    anyDistance: "Any Distance",
     priceRange: "Price Range",
     anyPrice: "Any Price",
     km: "km",
@@ -22,10 +21,15 @@ export const jobfeedscreen = {
   viewStatus: "View Status",
   card: {
     posted: "Posted",
-    ago: "ago",
-    location: "El Refugio, Tijuana",
-    asap: "ASAP",
     viewDetails: "View Details & Apply",
+  },
+  empty: "No available jobs match these filters.",
+  emptySubtitle: "Try adjusting your filters or check back later.",
+  noAppliedJobs: "You haven't applied to any jobs yet.",
+  actionUnavailable: "Applying to services isn't available yet.",
+  errors: {
+    fetchFailed: "Couldn't load available jobs. Please try again later.",
+    detailsFailed: "Couldn't load this job's details. Please try again later.",
   },
   statuses: {
     reviewing: "Reviewing",

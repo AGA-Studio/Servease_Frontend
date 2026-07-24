@@ -33,4 +33,15 @@ export const homescreen = {
     notifications: "Notificaciones",
     postService: "Publicar Servicio",
   },
+  errors: {
+    kpisFailed: "No se pudieron cargar tus estadísticas. Intenta de nuevo más tarde.",
+    postsFailed: "No se pudieron cargar tus publicaciones. Intenta de nuevo más tarde.",
+  },
+  empty: {
+    postsTitle: "Aún no tienes publicaciones",
+    postsSubtitle: "Publica tu primera solicitud de servicio para empezar a recibir propuestas.",
+    postsCta: "Publicar Servicio",
+    activityTitle: "Sin actividad reciente",
+    activitySubtitle: "Aquí verás las novedades de tus publicaciones.",
+  },
 };

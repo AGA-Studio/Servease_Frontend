@@ -19,6 +19,41 @@ export const myposts = {
     applicants: "Aplicantes",
     viewApplicants: "Ver Aplicantes",
     viewDetails: "Ver Detalles",
+    edit: "Editar",
+    delete: "Eliminar",
+  },
+  deleteConfirm: {
+    title: "¿Eliminar esta publicación?",
+    message:
+      "Esta acción cancelará la publicación de forma permanente. Los proveedores ya no podrán verla ni postular.",
+    confirm: "Sí, eliminar",
+    cancel: "Cancelar",
+  },
+  editModal: {
+    title: "Editar Publicación",
+    titleLabel: "Título",
+    descriptionLabel: "Descripción",
+    priceLabel: "Presupuesto",
+    categoryLabel: "Categoría",
+    categoryUnavailable: "No se pudieron cargar las categorías.",
+    save: "Guardar Cambios",
+    cancel: "Cancelar",
+    confirmTitle: "¿Guardar los cambios?",
+    confirmMessage: "Se actualizará la información de esta publicación.",
+    confirmSave: "Sí, guardar",
+    confirmCancel: "Seguir editando",
+    validation: {
+      titleRequired: "El título no puede estar vacío.",
+      titleUnsafe: "El título contiene caracteres no permitidos (< o >).",
+      descriptionRequired: "La descripción no puede estar vacía.",
+      descriptionUnsafe: "La descripción contiene caracteres no permitidos (< o >).",
+      priceInvalid: "Ingresa un presupuesto válido (mayor a 0, máx. 2 decimales).",
+      categoryRequired: "Selecciona una categoría.",
+    },
+  },
+  success: {
+    deleted: "Publicación eliminada correctamente.",
+    edited: "Publicación actualizada correctamente.",
   },
   pagination: {
     loadMore: "Cargar más publicaciones",
@@ -43,6 +78,7 @@ export const myposts = {
   errors: {
     fetchFailed: "No se pudieron cargar las publicaciones. Por favor, inténtalo de nuevo.",
     deleteFailed: "No se pudo eliminar la publicación. Por favor, inténtalo de nuevo.",
+    editFailed: "No se pudo actualizar la publicación. Por favor, inténtalo de nuevo.",
     generic: "Algo salió mal. Por favor, recarga la página.",
   },
   categories: {

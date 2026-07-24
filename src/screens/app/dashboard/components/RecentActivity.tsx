@@ -1,7 +1,8 @@
-import { RotateCcw } from "lucide-react";
+import { Inbox, RotateCcw } from "lucide-react";
 import type { DashboardActivity } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { SkeletonLoader } from "./SkeletonLoader";
+import EmptyState from "../../../../components/emptystate/EmptyState";
 
 interface RecentActivityProps {
   activities: DashboardActivity[] | undefined;
@@ -60,6 +61,22 @@ export const RecentActivity = ({
 
       {isLoading ? (
         <SkeletonLoader isDark={isDark} variant="activity" />
+      ) : !activities?.length ? (
+        <div
+          style={{
+            background: "var(--card-bg)",
+            borderRadius: 16,
+            border: "1px solid var(--divider)",
+          }}
+        >
+          <EmptyState
+            icon={<Inbox size={22} color="#2EBCCC" />}
+            isDark={isDark}
+            title={d.empty.activity.title}
+            subtitle={d.empty.activity.description}
+            size="compact"
+          />
+        </div>
       ) : (
         <div
           className="ds-recent-activity-card"

@@ -30,6 +30,12 @@ export const newservice = {
     budgetPlaceholder: "0.00",
     currency: "MXN",
     changeLocation: "Change Location",
+    useCurrentLocation: "My current location",
+    locatingCurrentLocation: "Getting your location...",
+    resolvingLocation: "Locating...",
+    mapPlaceholder: "Type a neighborhood and press Enter",
+    locationApproxNote:
+      "Only the approximate neighborhood and city are saved, never your exact address.",
   },
   photos: {
     sectionTitle: "Photos",
@@ -66,8 +72,26 @@ export const newservice = {
   ],
   validation: {
     titleRequired: "Please enter a title for your request.",
+    titleUnsafe: "The title contains characters that aren't allowed (< or >).",
     categoryRequired: "Please select a service category.",
+    categoriesUnavailable:
+      "Couldn't load categories. Please try again later.",
     descriptionRequired: "Please add a description.",
+    descriptionUnsafe:
+      "The description contains characters that aren't allowed (< or >).",
     locationRequired: "Please enter a location.",
+    locationNotResolved:
+      "Press Enter to locate your neighborhood, or use your current location.",
+    budgetInvalid: "Enter a valid budget (greater than 0, max 2 decimals).",
+  },
+  errors: {
+    locationNotFound: "That location wasn't found. Try being more specific.",
+    geolocationDenied: "We couldn't access your location. Check permissions.",
+    geolocationUnsupported: "Your browser doesn't support geolocation.",
+    photoTooLarge: "is over 5MB and wasn't added.",
+    submitFailed: "Couldn't post the service. Please try again.",
+  },
+  success: {
+    posted: "Service posted successfully!",
   },
 };

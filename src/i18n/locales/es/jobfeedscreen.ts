@@ -4,11 +4,10 @@ export const jobfeedscreen = {
   status: "Estado:",
   availableForWork: "Disponible para Trabajar",
   filters: {
-    specialization: "Mi Especialización",
     category: "Categoría",
-    allSpecializations: "Todas las Especializaciones",
     allCategories: "Todas las Categorías",
     distance: "Distancia",
+    anyDistance: "Cualquier Distancia",
     priceRange: "Rango de Precio",
     anyPrice: "Cualquier Precio",
     km: "km",
@@ -22,10 +21,15 @@ export const jobfeedscreen = {
   viewStatus: "Ver Estado",
   card: {
     posted: "Publicado",
-    ago: "",
-    location: "El Refugio, Tijuana",
-    asap: "Lo antes posible",
     viewDetails: "Ver Detalles y Aplicar",
+  },
+  empty: "No hay trabajos disponibles con estos filtros.",
+  emptySubtitle: "Intenta ajustar los filtros o vuelve más tarde.",
+  noAppliedJobs: "Aún no has aplicado a ningún trabajo.",
+  actionUnavailable: "Aplicar a servicios todavía no está disponible.",
+  errors: {
+    fetchFailed: "No se pudieron cargar los trabajos disponibles. Intenta de nuevo más tarde.",
+    detailsFailed: "No se pudo cargar el detalle de este trabajo. Intenta de nuevo más tarde.",
   },
   statuses: {
     reviewing: "En Revisión",
