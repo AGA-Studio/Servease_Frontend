@@ -5,7 +5,6 @@ import {
   Search,
   Clock,
   Wallet,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Briefcase,
@@ -15,8 +14,11 @@ import { motion, AnimatePresence, useInView } from "motion/react";
 import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
+import FilterSelect from "../../components/filterselect/FilterSelect";
 import type { ThemeMode } from "../../theme/theme";
 import { MOCK_JOBS, type MyJob, type ProposalStatus } from "../../data/mockJobs";
+import type { JobDetails, JobClient } from "../../types/job";
+import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -53,6 +55,164 @@ const CATEGORY_KEYS = [
   "gardening",
   "other",
 ] as const;
+
+const MOCK_CLIENT: JobClient = {
+  name: "Maria Cazares",
+  avatar:
+    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
+  rating: 4.9,
+  reviewCount: 12,
+  memberSince: "Sep. 2025",
+  jobsPosted: 8,
+};
+
+const JOB_DETAILS_RICH: Record<string, Omit<JobDetails, keyof MyJob | "price" | "priceRange" | "mainImage" | "thumbnails">> = {
+  "1": {
+    location: "El Refugio, Tijuana",
+    when: "Today",
+    urgency: "ASAP",
+    description:
+      "Hi, I managed to break my key inside the front door lock this morning while leaving for work. The key snapped, and half of it is stuck inside the cylinder.\n\nThe door is currently locked, but I have access through the back. I need a professional to extract the broken key piece and verify the lock still functions correctly.",
+    client: MOCK_CLIENT,
+    proposalCount: 5,
+  },
+  "2": {
+    location: "Centro, Tijuana",
+    when: "Tomorrow",
+    urgency: "Flexible",
+    description:
+      "There is a leak under the bathroom sink that has been getting worse over the past few days. The pipe joint appears to be loose and may need replacement or tightening.",
+    client: { ...MOCK_CLIENT, name: "Carlos Ruiz", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80", rating: 4.7, reviewCount: 8 },
+    proposalCount: 3,
+  },
+  "3": {
+    location: "Otay, Tijuana",
+    when: "This week",
+    urgency: "Flexible",
+    description:
+      "Need a certified electrician to install wiring for a new office space. Approximately 2000 sq ft. Must comply with local electrical codes.",
+    client: { ...MOCK_CLIENT, name: "David Lopez", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80", rating: 4.8, reviewCount: 15, jobsPosted: 12 },
+    proposalCount: 7,
+  },
+  "4": {
+    location: "Playas, Tijuana",
+    when: "Tomorrow",
+    urgency: "Flexible",
+    description:
+      "Post-move deep cleaning of a 2-bedroom apartment. Includes kitchen, bathrooms, windows, and all surfaces. Apartment is empty of furniture.",
+    client: { ...MOCK_CLIENT, name: "Sara Jimenez", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=120&q=80", rating: 4.6, reviewCount: 6 },
+    proposalCount: 4,
+  },
+  "5": {
+    location: "La Mesa, Tijuana",
+    when: "Today",
+    urgency: "ASAP",
+    description:
+      "Paint 3 interior rooms (living room and 2 bedrooms) in neutral colors. Walls have minor patches that need sanding first. Paint and supplies provided.",
+    client: { ...MOCK_CLIENT, name: "Roberto Mendez", avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=120&q=80", rating: 4.3, reviewCount: 4 },
+    proposalCount: 6,
+  },
+  "6": {
+    location: "Cacho, Tijuana",
+    when: "This week",
+    urgency: "Flexible",
+    description:
+      "Regular garden maintenance needed for a residential property. Includes trimming hedges, mowing the lawn, and cleaning up leaves and debris.",
+    client: MOCK_CLIENT,
+    proposalCount: 2,
+  },
+  "7": {
+    location: "Zona Rio, Tijuana",
+    when: "Tomorrow",
+    urgency: "ASAP",
+    description:
+      "Custom built-in bookshelf for a home office. Dimensions: 2.4m wide x 2.8m tall. White oak finish with adjustable shelves. Requires precise measurement and professional installation.",
+    client: { ...MOCK_CLIENT, name: "Carlos Ruiz", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&q=80", rating: 4.7, reviewCount: 8, jobsPosted: 5 },
+    proposalCount: 3,
+  },
+  "8": {
+    location: "El Refugio, Tijuana",
+    when: "Tomorrow",
+    urgency: "Flexible",
+    description:
+      "Moving service for a 2-bedroom apartment on the 3rd floor. Includes packing materials, truck, and 2 movers. Elevator is available in the building.",
+    client: { ...MOCK_CLIENT, name: "David Lopez", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80", rating: 4.8, reviewCount: 15, jobsPosted: 12 },
+    proposalCount: 10,
+  },
+  "9": {
+    location: "Centro, Tijuana",
+    when: "Today",
+    urgency: "ASAP",
+    description:
+      "Bathroom sink has a slow leak from the drain pipe. Water is pooling under the cabinet. Need someone to diagnose and fix it before it causes water damage.",
+    client: MOCK_CLIENT,
+    proposalCount: 4,
+  },
+  "10": {
+    location: "La Mesa, Tijuana",
+    when: "Today",
+    urgency: "ASAP",
+    description:
+      "Install a new ceiling fan in the master bedroom. Wiring is already in place from a previous light fixture. Fan and mounting bracket provided by client.",
+    client: { ...MOCK_CLIENT, name: "Roberto Mendez", avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=120&q=80", rating: 4.3, reviewCount: 4 },
+    proposalCount: 2,
+  },
+  "11": {
+    location: "Zona Rio, Tijuana",
+    when: "This week",
+    urgency: "Flexible",
+    description:
+      "Weekly office cleaning contract for a small tech company. 4 rooms, 1 kitchenette, 1 bathroom. Tasks include vacuuming, dusting, trash removal, and sanitizing surfaces.",
+    client: { ...MOCK_CLIENT, name: "Sara Jimenez", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=120&q=80", rating: 4.6, reviewCount: 6, jobsPosted: 3 },
+    proposalCount: 8,
+  },
+  "12": {
+    location: "Otay, Tijuana",
+    when: "Tomorrow",
+    urgency: "Flexible",
+    description:
+      "Paint the backyard fence approximately 15 meters long and 1.8 meters high. Wood surface needs light sanding and weatherproof sealant applied after painting. Paint color: dark walnut.",
+    client: MOCK_CLIENT,
+    proposalCount: 3,
+  },
+  "13": {
+    location: "Cacho, Tijuana",
+    when: "Today",
+    urgency: "ASAP",
+    description:
+      "Central AC unit making unusual noise and not cooling properly. Needs diagnostic check, filter replacement, and basic maintenance service.",
+    client: MOCK_CLIENT,
+    proposalCount: 5,
+  },
+};
+
+const mapMyJobToDetails = (job: MyJob): JobDetails => {
+  const rich = JOB_DETAILS_RICH[job.id] ?? {
+    location: "Tijuana, Mexico",
+    when: "Today",
+    urgency: "Flexible",
+    description: job.title,
+    client: MOCK_CLIENT,
+    proposalCount: 0,
+  };
+
+  return {
+    id: job.id,
+    title: job.title,
+    category: job.category.charAt(0).toUpperCase() + job.category.slice(1),
+    location: rich.location,
+    when: rich.when,
+    urgency: rich.urgency,
+    postedAgo: `${job.postedAgo}`,
+    price: job.budget,
+    priceRange: `$${job.budget.toLocaleString()} ${job.currency}`,
+    description: rich.description,
+    mainImage: job.imageUrl ?? "",
+    thumbnails: job.imageUrl ? [job.imageUrl] : [],
+    client: rich.client,
+    proposalCount: rich.proposalCount,
+  };
+};
 
 const ProposalBadge = ({
   status,
@@ -161,10 +321,12 @@ const AnimatedJobCard = ({
   job,
   index,
   isDark,
+  onViewDetails,
 }: {
   job: MyJob;
   index: number;
   isDark: boolean;
+  onViewDetails: (job: MyJob) => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
@@ -305,6 +467,7 @@ const AnimatedJobCard = ({
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
+          onClick={() => onViewDetails(job)}
           style={{
             width: "100%",
             padding: "10px 0",
@@ -359,140 +522,6 @@ const MetaChip = ({
     {label}
   </div>
 );
-
-const FilterDropdown = ({
-  value,
-  options,
-  onChange,
-  isDark,
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-  isDark: boolean;
-}) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const selected = options.find((o) => o.value === value);
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column" }}>
-      <button
-        onClick={() => setOpen((p) => !p)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 7,
-          padding: "0 14px",
-          height: 42,
-          width: "100%",
-          borderRadius: 10,
-          border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-          background: isDark ? "#1e2d5e" : "#ffffff",
-          color: "var(--text)",
-          fontSize: "0.875rem",
-          fontWeight: 500,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          whiteSpace: "nowrap",
-          transition: "border-color 0.18s",
-          boxSizing: "border-box",
-        }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.borderColor = "#2EBCCC")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.borderColor = isDark ? "#273570" : "#e5e7eb")
-        }
-      >
-        {selected?.label}
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.18 }}
-          style={{ display: "flex" }}
-        >
-          <ChevronDown size={15} />
-        </motion.span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-            style={{
-              position: "absolute",
-              top: "calc(100% + 6px)",
-              left: 0,
-              minWidth: 180,
-              background: isDark ? "#1e2d5e" : "#ffffff",
-              border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-              borderRadius: 12,
-              boxShadow: "0 8px 28px rgba(0,0,0,0.14)",
-              zIndex: 100,
-              overflow: "hidden",
-            }}
-          >
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "9px 14px",
-                  background:
-                    opt.value === value
-                      ? isDark
-                        ? "rgba(46,188,204,0.12)"
-                        : "rgba(46,188,204,0.08)"
-                      : "transparent",
-                  color:
-                    opt.value === value ? "#2EBCCC" : "var(--text)",
-                  fontSize: "0.875rem",
-                  fontWeight: opt.value === value ? 600 : 400,
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.14s",
-                }}
-                onMouseEnter={(e) => {
-                  if (opt.value !== value)
-                    e.currentTarget.style.background = isDark
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(0,0,0,0.03)";
-                }}
-                onMouseLeave={(e) => {
-                  if (opt.value !== value)
-                    e.currentTarget.style.background = "transparent";
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
 
 const getPageList = (page: number, totalPages: number): (number | "...")[] => {
   if (totalPages <= 7) {
@@ -668,6 +697,9 @@ const MyJobsScreen: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  const [selectedJob, setSelectedJob] = useState<MyJob | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [jobs, setJobs] = useState<MyJob[]>([]);
@@ -710,6 +742,20 @@ const MyJobsScreen: React.FC = () => {
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     },
     [totalPages, safePage]
+  );
+
+  const handleViewDetails = useCallback((job: MyJob) => {
+    setSelectedJob(job);
+    setIsDetailsOpen(true);
+  }, []);
+
+  const handleCancelProposal = useCallback(
+    (job: MyJob) => {
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+      setIsDetailsOpen(false);
+      addToast("success", d.actions.cancelSuccess);
+    },
+    [addToast, d],
   );
 
   const clearFilters = () => {
@@ -1023,18 +1069,16 @@ const MyJobsScreen: React.FC = () => {
             </div>
 
             <div className="mj-filter-row" style={{ display: "flex", gap: 10 }}>
-              <FilterDropdown
+              <FilterSelect
                 value={statusFilter}
                 options={statusOptions}
                 onChange={(v) => { setStatusFilter(v); setPage(1); }}
-                isDark={isDark}
               />
 
-              <FilterDropdown
+              <FilterSelect
                 value={categoryFilter}
                 options={categoryOptions}
                 onChange={(v) => { setCategoryFilter(v); setPage(1); }}
-                isDark={isDark}
               />
             </div>
           </div>
@@ -1067,6 +1111,7 @@ const MyJobsScreen: React.FC = () => {
                     job={job}
                     index={i}
                     isDark={isDark}
+                    onViewDetails={handleViewDetails}
                   />
                 ))}
               </motion.div>
@@ -1093,6 +1138,16 @@ const MyJobsScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={selectedJob ? mapMyJobToDetails(selectedJob) : null}
+        proposalStatus={selectedJob?.proposalStatus}
+        onCancelProposal={
+          selectedJob ? () => handleCancelProposal(selectedJob) : undefined
+        }
+      />
     </>
   );
 };
