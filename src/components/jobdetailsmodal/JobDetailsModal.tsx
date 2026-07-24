@@ -15,6 +15,7 @@ import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import type { JobDetails } from "../../types/job";
 import type { ProposalStatus } from "../../data/mockJobs";
+import type { PostStatus } from "../../data/mockPosts";
 
 const CATEGORY_KEY: Record<string, string> = {
   Locksmith: "locksmith",
@@ -36,6 +37,8 @@ interface Props {
   onApply?: () => void;
   proposalStatus?: ProposalStatus;
   onCancelProposal?: () => void;
+  postStatus?: PostStatus;
+  onViewApplicants?: () => void;
 }
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -156,10 +159,13 @@ const JobDetailsModal: React.FC<Props> = ({
   onApply,
   proposalStatus,
   onCancelProposal,
+  postStatus,
+  onViewApplicants,
 }) => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
   const d = t("postdetailsscreen");
+  const mp = t("myposts");
   const [selectedThumb, setSelectedThumb] = useState(0);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
@@ -718,6 +724,47 @@ const JobDetailsModal: React.FC<Props> = ({
                       }
                     >
                       {d.cancelProposal}
+                    </motion.button>
+                  )}
+
+                  {postStatus === "receiving" && onViewApplicants && (
+                    <motion.button
+                      className="jdm-apply-btn"
+                      onClick={onViewApplicants}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      style={{
+                        width: "100%",
+                        padding: "14px",
+                        borderRadius: 12,
+                        border: "none",
+                        background: "#2EBCCC",
+                        color: "#fff",
+                        fontSize: "0.95rem",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        transition: "background 0.2s, box-shadow 0.2s",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "#239aaa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "#2EBCCC")
+                      }
+                    >
+                      {mp.card.viewApplicants}
+                      <motion.div
+                        initial={{ x: 0 }}
+                        whileHover={{ x: 4 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ArrowRight size={18} />
+                      </motion.div>
                     </motion.button>
                   )}
 

@@ -16,7 +16,6 @@ export const ROUTES = {
     PROFILE: "/app/profile",
     SETTINGS: "/app/settings",
     POST_OFFERS: "/app/my-post/:postId",
-    POST_DETAILS: "/app/my-post/:postId/details",
   },
   ADMIN: {
     DASHBOARD: "/admin/dashboard",
@@ -29,7 +28,3 @@ export const ROUTES = {
 // Builds a concrete path to the post-offers screen for a given post id.
 export const buildPostOffersPath = (postId: string): string =>
   `/app/my-post/${postId}`;
-
-// Builds a concrete path to the post-details screen for a given post id.
-export const buildPostDetailsPath = (postId: string): string =>
-  `/app/my-post/${postId}/details`;

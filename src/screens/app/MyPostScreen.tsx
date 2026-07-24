@@ -17,8 +17,56 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import type { ThemeMode } from "../../theme/theme";
-import { ROUTES, buildPostOffersPath, buildPostDetailsPath } from "../../router/routes";
+import { ROUTES, buildPostOffersPath } from "../../router/routes";
 import { MOCK_POSTS, type MyPost, type PostStatus } from "../../data/mockPosts";
+import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import type { JobDetails } from "../../types/job";
+
+const POST_CATEGORY_LABEL: Record<string, string> = {
+  locksmith: "Locksmith",
+  plumbing: "Plumbing",
+  electrical: "Electrical",
+  gardening: "Gardening",
+  hvac: "HVAC",
+  cleaning: "Cleaning",
+  painting: "Painting",
+  carpentry: "Carpentry",
+  moving: "Moving",
+  other: "Other",
+};
+
+const POST_DETAILS_RICH = {
+  location: "El Refugio, Tijuana",
+  when: "Today",
+  urgency: "ASAP",
+  description:
+    "Hi, I managed to break my key inside the front door lock this morning while leaving for work. The key snapped, and half of it is stuck inside the cylinder.\n\nThe door is currently locked, but I have access through the back. I need a professional locksmith to extract the broken key piece and verify the lock still functions correctly. If the lock is damaged, I am open to replacing the cylinder (standard Yale lock).",
+  client: {
+    name: "Maria Cazares",
+    avatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
+    rating: 4.9,
+    reviewCount: 12,
+    memberSince: "Sep. 2025",
+    jobsPosted: 8,
+  },
+};
+
+const mapMyPostToDetails = (post: MyPost): JobDetails => ({
+  id: post.id,
+  title: post.title,
+  category: POST_CATEGORY_LABEL[post.category] ?? post.category,
+  location: POST_DETAILS_RICH.location,
+  when: POST_DETAILS_RICH.when,
+  urgency: POST_DETAILS_RICH.urgency,
+  postedAgo: post.postedAgo,
+  price: post.budget,
+  priceRange: `$${post.budget.toLocaleString()} ${post.currency}`,
+  description: POST_DETAILS_RICH.description,
+  mainImage: post.imageUrl ?? "",
+  thumbnails: post.imageUrl ? [post.imageUrl] : [],
+  client: POST_DETAILS_RICH.client,
+});
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -168,10 +216,12 @@ const AnimatedCard = ({
   post,
   index,
   isDark,
+  onViewDetails,
 }: {
   post: MyPost;
   index: number;
   isDark: boolean;
+  onViewDetails: (post: MyPost) => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
@@ -348,7 +398,7 @@ const AnimatedCard = ({
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            onClick={() => navigate(buildPostDetailsPath(post.id), { state: { post } })}
+            onClick={() => onViewDetails(post)}
             style={{
               flex: 1,
               padding: "10px 0",
@@ -743,6 +793,9 @@ const MyPostScreen: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  const [selectedPost, setSelectedPost] = useState<MyPost | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [posts, setPosts] = useState<MyPost[]>([]);
@@ -788,6 +841,11 @@ const MyPostScreen: React.FC = () => {
     },
     [totalPages, safePage]
   );
+
+  const handleViewDetails = useCallback((post: MyPost) => {
+    setSelectedPost(post);
+    setIsDetailsOpen(true);
+  }, []);
 
   const clearFilters = () => {
     setSearch("");
@@ -1190,6 +1248,7 @@ const MyPostScreen: React.FC = () => {
                       post={post}
                       index={i}
                       isDark={isDark}
+                      onViewDetails={handleViewDetails}
                     />
                   ))}
                 </motion.div>
@@ -1217,6 +1276,18 @@ const MyPostScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={selectedPost ? mapMyPostToDetails(selectedPost) : null}
+        postStatus={selectedPost?.status}
+        onViewApplicants={
+          selectedPost
+            ? () => navigate(buildPostOffersPath(selectedPost.id))
+            : undefined
+        }
+      />
     </>
   );
 };
