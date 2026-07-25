@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Plus,
   Search,
@@ -13,9 +13,10 @@ import {
   Pencil,
   Trash2,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
@@ -25,12 +26,14 @@ import type { MyPost, PostStatus } from "../../data/mockPosts";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import type { JobDetails } from "../../types/job";
 import { useAuth } from "../../context/AuthContext";
-import { fetchUltimasPublicacionesCliente } from "../../api/userApi";
+import { fetchMisPublicaciones } from "../../api/userApi";
+import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import {
   deleteServicio,
   fetchAplicantes,
   fetchPostDetails,
   type PostDetails,
+  type ServicioListItem,
   type ServicioResponse,
 } from "../../api/servicioApi";
 import {
@@ -43,6 +46,8 @@ import { ApiError } from "../../api/apiClient";
 import ConfirmModal from "../../components/confirmmodal/ConfirmModal";
 import EmptyState from "../../components/emptystate/EmptyState";
 import EditPostModal from "../../components/editpostmodal/EditPostModal";
+import { useCachedResource } from "../../hooks/useCachedResource";
+import { getCached, invalidateCached, setCached } from "../../lib/dataCache";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -65,8 +70,17 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   return { theme, isDark: theme === "dark" };
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
 
 const StatusBadge = ({
   status,
@@ -123,10 +137,7 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
       border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
     }}
   >
-    <div
-      className="mp-skeleton"
-      style={{ height: 180, background: isDark ? "#273570" : "#e5e7eb" }}
-    />
+    <div className="mp-skeleton" style={{ height: 180 }} />
     <div style={{ padding: "18px 20px" }}>
       <div
         className="mp-skeleton"
@@ -134,7 +145,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
           height: 12,
           width: "40%",
           borderRadius: 6,
-          background: isDark ? "#273570" : "#e5e7eb",
           marginBottom: 12,
         }}
       />
@@ -144,7 +154,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
           height: 16,
           width: "85%",
           borderRadius: 6,
-          background: isDark ? "#273570" : "#e5e7eb",
           marginBottom: 6,
         }}
       />
@@ -154,7 +163,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
           height: 16,
           width: "60%",
           borderRadius: 6,
-          background: isDark ? "#273570" : "#e5e7eb",
           marginBottom: 18,
         }}
       />
@@ -167,7 +175,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
               height: 12,
               width: 60,
               borderRadius: 6,
-              background: isDark ? "#273570" : "#e5e7eb",
             }}
           />
         ))}
@@ -498,11 +505,18 @@ const AnimatedCard = ({
             icon={<DollarSign size={12} />}
             label={`${mp.card.budget}: $${post.budget.toLocaleString()} ${post.currency}`}
           />
-          <MetaChip
-            icon={<Users size={12} />}
-            label={`${post.applicantCount} ${mp.card.applicants}`}
-            accent={post.applicantCount > 0 && post.status === "receiving"}
-          />
+          {post.applicantCount === null ? (
+            <span
+              className="mp-skeleton"
+              style={{ height: 12, width: 64, borderRadius: 6, display: "inline-block" }}
+            />
+          ) : (
+            <MetaChip
+              icon={<Users size={12} />}
+              label={`${post.applicantCount} ${mp.card.applicants}`}
+              accent={post.applicantCount > 0 && post.status === "receiving"}
+            />
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
@@ -834,12 +848,32 @@ const Pagination = ({
 const MyPostScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useI18n();
   const mp = t("myposts");
   const { toasts, addToast, removeToast } = useToast();
   const { user } = useAuth();
+  const userId = user?.id;
+
+  // NewServiceScreen navega acá justo después de addToast(); su propio
+  // ToastContainer se desmonta antes de poder pintar el toast, así que la
+  // señal de éxito viaja por navigation state y se muestra desde acá.
+  // El ref evita que StrictMode (que en desarrollo vuelve a ejecutar este
+  // efecto una vez al montar) dispare el toast dos veces.
+  const justCreatedHandledRef = useRef(false);
+  useEffect(() => {
+    if (justCreatedHandledRef.current) return;
+    const state = location.state as { justCreatedPost?: boolean } | null;
+    if (!state?.justCreatedPost) return;
+    justCreatedHandledRef.current = true;
+    addToast("success", mp.success.created);
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 220);
+  const isSearchPending = search.trim() !== debouncedSearch.trim();
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -860,56 +894,95 @@ const MyPostScreen: React.FC = () => {
   );
 
   const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [posts, setPosts] = useState<MyPost[]>([]);
+
+  const { data: categorias } = useCachedResource<Categoria[]>(
+    "categorias",
+    fetchCategorias,
+  );
+
+  const {
+    data: results,
+    setData: setResults,
+    isLoading,
+    error: fetchErrorObj,
+    reload: handleRetry,
+  } = useCachedResource<ServicioListItem[]>(
+    userId ? `mis-publicaciones:${userId}` : null,
+    () =>
+      fetchMisPublicaciones(userId!, { page: 1, pageSize: 50 }).then(
+        (r) => r.results,
+      ),
+  );
+
+  const fetchError = fetchErrorObj
+    ? fetchErrorObj instanceof ApiError
+      ? fetchErrorObj.message
+      : mp.errors.fetchFailed
+    : null;
+
+  // Conteo de aplicantes por publicación: se resuelve por separado (no
+  // bloquea el grid) y se cachea por id de servicio para no repetir el
+  // fan-out de N requests cada vez que se vuelve a esta pantalla.
+  const [applicantCounts, setApplicantCounts] = useState<
+    Record<string, number>
+  >({});
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!results) return;
     let cancelled = false;
 
-    fetchUltimasPublicacionesCliente(user.id)
-      .then(async (servicios) => {
-        const counts = await Promise.all(
-          servicios.map((servicio) =>
-            fetchAplicantes(servicio.id_servicio)
-              .then((list) => list.length)
-              .catch(() => 0),
-          ),
+    results.forEach((servicio) => {
+      const id = String(servicio.id_servicio);
+      const cacheKey = `aplicantes-count:${id}`;
+      const cached = getCached<number>(cacheKey);
+      if (cached !== undefined) {
+        setApplicantCounts((prev) =>
+          prev[id] === cached ? prev : { ...prev, [id]: cached },
         );
-        if (cancelled) return;
-        setPosts(
-          servicios.map((servicio, i) => ({
-            id: String(servicio.id_servicio),
-            title: servicio.titulo,
-            category: String(servicio.id_categoria),
-            status: mapEstadoToStatus(servicio.estado),
-            postedAgo: timeAgo(servicio.fecha),
-            budget: Number(servicio.precio_inicial),
-            currency: "MXN",
-            applicantCount: counts[i],
-            imageUrl: servicio.imagenes[0],
-          })),
-        );
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchUltimasPublicacionesCliente failed:", error);
-        addToast("error", mp.errors.fetchFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+      }
+
+      fetchAplicantes(servicio.id_servicio)
+        .then((list) => {
+          if (cancelled) return;
+          setCached(cacheKey, list.length);
+          setApplicantCounts((prev) =>
+            prev[id] === list.length ? prev : { ...prev, [id]: list.length },
+          );
+        })
+        .catch(() => {
+          if (cancelled || cached !== undefined) return;
+          setApplicantCounts((prev) =>
+            prev[id] !== undefined ? prev : { ...prev, [id]: 0 },
+          );
+        });
+    });
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [results]);
+
+  const posts: MyPost[] = useMemo(
+    () =>
+      (results ?? []).map((servicio) => ({
+        id: String(servicio.id_servicio),
+        title: servicio.titulo,
+        category: servicio.categoria_nombre,
+        status: mapEstadoToStatus(servicio.estado),
+        postedAgo: timeAgo(servicio.fecha),
+        budget: Number(servicio.precio_inicial),
+        currency: "MXN",
+        applicantCount:
+          applicantCounts[String(servicio.id_servicio)] ?? null,
+        imageUrl: servicio.imagenes[0],
+      })),
+    [results, applicantCounts],
+  );
 
   const filtered = posts.filter((p) => {
     const matchSearch = p.title
       .toLowerCase()
-      .includes(search.toLowerCase());
+      .includes(debouncedSearch.trim().toLowerCase());
     const matchStatus =
       statusFilter === "all" || p.status === statusFilter;
     const matchCategory =
@@ -968,7 +1041,15 @@ const MyPostScreen: React.FC = () => {
     setIsDeleting(true);
     try {
       await deleteServicio(deleteTarget.id);
-      setPosts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setResults((prev) =>
+        (prev ?? []).filter(
+          (s) => String(s.id_servicio) !== deleteTarget.id,
+        ),
+      );
+      // Home muestra "últimas publicaciones" en otra forma/cache — no vale
+      // la pena parchearla desde acá, solo invalidarla para que se
+      // refresque sola la próxima vez que se visite.
+      if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
       addToast("success", mp.success.deleted);
     } catch (error) {
       addToast(
@@ -980,7 +1061,7 @@ const MyPostScreen: React.FC = () => {
       setIsDeleteConfirmOpen(false);
       setDeleteTarget(null);
     }
-  }, [deleteTarget, addToast, mp.success.deleted, mp.errors.deleteFailed]);
+  }, [deleteTarget, addToast, mp.success.deleted, mp.errors.deleteFailed, setResults, userId]);
 
   const handleEditClick = useCallback(
     (post: MyPost) => {
@@ -1001,16 +1082,25 @@ const MyPostScreen: React.FC = () => {
 
   const handleEditSaved = useCallback(
     (updated: ServicioResponse) => {
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === String(updated.id_servicio)
-            ? { ...p, title: updated.titulo, budget: Number(updated.precio_inicial) }
-            : p,
+      const categoriaNombre =
+        (categorias ?? []).find((c) => c.id_categoria === updated.id_categoria)
+          ?.nombre ?? "";
+      setResults((prev) =>
+        (prev ?? []).map((s) =>
+          s.id_servicio === updated.id_servicio
+            ? {
+                ...s,
+                titulo: updated.titulo,
+                precio_inicial: updated.precio_inicial,
+                categoria_nombre: categoriaNombre || s.categoria_nombre,
+              }
+            : s,
         ),
       );
+      if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
       addToast("success", mp.success.edited);
     },
-    [addToast, mp.success.edited],
+    [addToast, mp.success.edited, categorias, setResults, userId],
   );
 
   const clearFilters = () => {
@@ -1029,6 +1119,13 @@ const MyPostScreen: React.FC = () => {
     { value: "receiving", label: mp.status.receiving },
     { value: "in_progress", label: mp.status.inProgress },
     { value: "completed", label: mp.status.completed },
+  ];
+
+  const categoryFilterOptions = [
+    { value: "all", label: mp.filters.allCategories },
+    ...(categorias ?? [])
+      .map((c) => ({ value: c.nombre, label: c.nombre }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
   ];
 
   return (
@@ -1111,11 +1208,15 @@ const MyPostScreen: React.FC = () => {
           pointer-events: none;
           display: flex;
         }
-        .mp-search-clear {
+        .mp-search-action {
           position: absolute;
           right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
+          top: 0;
+          bottom: 0;
+          display: flex;
+          align-items: center;
+        }
+        .mp-search-clear {
           background: none;
           border: none;
           cursor: pointer;
@@ -1123,6 +1224,32 @@ const MyPostScreen: React.FC = () => {
           display: flex;
           padding: 2px;
           border-radius: 4px;
+        }
+        .mp-clear-filters-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          height: 42px;
+          padding: 0 14px;
+          border-radius: 10px;
+          border: 1.5px solid transparent;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.82rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          white-space: nowrap;
+          overflow: hidden;
+          flex-shrink: 0;
+          transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .mp-clear-filters-btn:hover {
+            color: #FF4444;
+            border-color: rgba(255,68,68,0.35);
+            background: ${isDark ? "rgba(255,68,68,0.08)" : "rgba(255,68,68,0.06)"};
+          }
         }
         .mp-grid {
           display: grid;
@@ -1341,34 +1468,93 @@ const MyPostScreen: React.FC = () => {
                 type="text"
                 placeholder={mp.searchPlaceholder}
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
               />
-              <AnimatePresence>
-                {search && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.7 }}
-                    transition={{ duration: 0.14 }}
-                    className="mp-search-clear"
-                    onClick={() => setSearch("")}
-                  >
-                    <X size={14} />
-                  </motion.button>
-                )}
-              </AnimatePresence>
+              <div className="mp-search-action">
+                <AnimatePresence mode="wait" initial={false}>
+                  {isSearchPending ? (
+                    <motion.span
+                      key="spinner"
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      transition={{ duration: 0.14 }}
+                      className="mp-search-clear"
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+                        style={{
+                          width: 13,
+                          height: 13,
+                          borderRadius: "50%",
+                          border: "2px solid currentColor",
+                          borderTopColor: "transparent",
+                          display: "inline-block",
+                        }}
+                      />
+                    </motion.span>
+                  ) : (
+                    search && (
+                      <motion.button
+                        key="clear"
+                        initial={{ opacity: 0, scale: 0.7 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.7 }}
+                        transition={{ duration: 0.14 }}
+                        className="mp-search-clear"
+                        onClick={() => setSearch("")}
+                      >
+                        <X size={14} />
+                      </motion.button>
+                    )
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             <div className="mp-filter-row" style={{ display: "flex", gap: 10 }}>
               <FilterDropdown
                 value={statusFilter}
                 options={statusOptions}
-                onChange={(v) => { setStatusFilter(v); setPage(1); }}
+                onChange={(v) => {
+                  setStatusFilter(v);
+                  setPage(1);
+                }}
                 isDark={isDark}
               />
-              {/* Filtro de categoría oculto: el backend no expone nombres de
-                  categoría en este listado (solo id_categoria), así que no hay
-                  forma de mapear el filtro a algo legible ni funcional. */}
+              {categoryFilterOptions.length > 1 && (
+                <FilterDropdown
+                  value={categoryFilter}
+                  options={categoryFilterOptions}
+                  onChange={(v) => {
+                    setCategoryFilter(v);
+                    setPage(1);
+                  }}
+                  isDark={isDark}
+                />
+              )}
+              <AnimatePresence>
+                {(statusFilter !== "all" || categoryFilter !== "all") && (
+                  <motion.button
+                    key="clear-filters"
+                    initial={{ opacity: 0, scale: 0.9, width: 0 }}
+                    animate={{ opacity: 1, scale: 1, width: "auto" }}
+                    exit={{ opacity: 0, scale: 0.9, width: 0 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                    onClick={clearFilters}
+                    className="mp-clear-filters-btn"
+                  >
+                    <X size={13} />
+                    <span>{mp.empty.clearFilters}</span>
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -1378,6 +1564,17 @@ const MyPostScreen: React.FC = () => {
                 <SkeletonCard key={i} isDark={isDark} />
               ))}
             </div>
+          ) : fetchError ? (
+            <EmptyState
+              icon={<AlertCircle size={32} color="#FF4444" />}
+              isDark={isDark}
+              title={mp.errors.retryTitle}
+              subtitle={fetchError}
+              action={{
+                label: mp.errors.retry,
+                onClick: handleRetry,
+              }}
+            />
           ) : paginated.length === 0 ? (
             <EmptyState
               icon={<FileText size={32} color="#2EBCCC" />}
@@ -1398,11 +1595,11 @@ const MyPostScreen: React.FC = () => {
             <>
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={safePage}
+                  key={`${safePage}|${debouncedSearch}|${statusFilter}|${categoryFilter}`}
                   className="mp-grid"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
+                  initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -6, filter: "blur(2px)" }}
                   transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   {paginated.map((post, i) => (

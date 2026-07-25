@@ -29,6 +29,25 @@ export function distanceKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Nominatim etiqueta la colonia como "quarter" o "neighbourhood" en México;
+// "suburb" suele ser la delegación/borough (ej. "Del. La Presa Este"), no la colonia.
+function addressToLabel(address: Record<string, string>): string {
+  const colonia =
+    address.neighbourhood ||
+    address.quarter ||
+    address.suburb ||
+    address.residential ||
+    "";
+  const ciudad =
+    address.city ||
+    address.town ||
+    address.village ||
+    address.municipality ||
+    address.county?.replace(/^Municipio de /i, "") ||
+    "";
+  return [colonia, ciudad].filter(Boolean).join(", ");
+}
+
 export async function getApproxLocation(
   latitud: string | number,
   longitud: string | number,
@@ -51,25 +70,7 @@ export async function getApproxLocation(
     if (!response.ok) return "";
 
     const data = await response.json();
-    const address = data?.address ?? {};
-
-    // Nominatim etiqueta la colonia como "quarter" o "neighbourhood" en México;
-    // "suburb" suele ser la delegación/borough (ej. "Del. La Presa Este"), no la colonia.
-    const colonia =
-      address.neighbourhood ||
-      address.quarter ||
-      address.suburb ||
-      address.residential ||
-      "";
-    const ciudad =
-      address.city ||
-      address.town ||
-      address.village ||
-      address.municipality ||
-      address.county?.replace(/^Municipio de /i, "") ||
-      "";
-
-    const result = [colonia, ciudad].filter(Boolean).join(", ");
+    const result = addressToLabel(data?.address ?? {});
     cache.set(cacheKey, result);
     return result;
   } catch (error) {
@@ -78,39 +79,86 @@ export async function getApproxLocation(
   }
 }
 
-// Busca texto libre (ej. "El Refugio, Tijuana") y devuelve coordenadas
-// redondeadas (nunca la ubicación exacta que Nominatim podría resolver,
-// como un domicilio puntual) junto con la etiqueta "colonia, ciudad" ya
-// normalizada para mostrar en el formulario.
-export async function forwardGeocode(
+export interface LocationSuggestion {
+  coords: ApproxCoords;
+  label: string;
+}
+
+// Mismo bounding box que valida el backend (servicios/serializers.py:
+// TIJUANA_LAT_MIN/MAX, TIJUANA_LON_MIN/MAX) — tienen que coincidir exacto o
+// el usuario puede elegir una ubicación que el frontend acepta y el backend
+// rechaza al enviar el formulario.
+export const TIJUANA_BOUNDS = {
+  lonMin: -117.15,
+  lonMax: -116.78,
+  latMin: 32.4,
+  latMax: 32.56,
+};
+const TIJUANA_CENTER = { lat: 32.5027, lon: -116.9761 };
+
+export function isWithinTijuana(lat: number, lon: number): boolean {
+  return (
+    lat >= TIJUANA_BOUNDS.latMin &&
+    lat <= TIJUANA_BOUNDS.latMax &&
+    lon >= TIJUANA_BOUNDS.lonMin &&
+    lon <= TIJUANA_BOUNDS.lonMax
+  );
+}
+
+interface PhotonFeature {
+  properties: {
+    name?: string;
+    city?: string;
+    district?: string;
+    state?: string;
+  };
+  geometry: { coordinates: [number, number] };
+}
+
+// Autocompletado de colonias/privadas dentro de Tijuana mientras el usuario
+// escribe. Nominatim (usado en getApproxLocation) hace *full-text* search y
+// no reconoce prefijos ("ref" no encuentra "El Refugio" hasta completar la
+// palabra) — Photon (geocoder de komoot sobre datos OSM) sí está diseñado
+// para autocompletar letra por letra, así que se usa aquí en vez de Nominatim.
+export async function searchTijuanaLocations(
   query: string,
-): Promise<{ coords: ApproxCoords; label: string } | null> {
+): Promise<LocationSuggestion[]> {
   const trimmed = query.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return [];
 
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-        trimmed,
-      )}&format=json&addressdetails=1&limit=1&countrycodes=mx`,
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}` +
+        `&lat=${TIJUANA_CENTER.lat}&lon=${TIJUANA_CENTER.lon}&limit=10`,
       { headers: { Accept: "application/json" } },
     );
 
-    if (!response.ok) return null;
+    if (!response.ok) return [];
 
-    const results = await response.json();
-    const first = results?.[0];
-    if (!first) return null;
+    const data = await response.json();
+    const features: PhotonFeature[] = data?.features ?? [];
 
-    const coords: ApproxCoords = {
-      lat: roundCoord(Number(first.lat)),
-      lon: roundCoord(Number(first.lon)),
-    };
+    const seen = new Set<string>();
+    const suggestions: LocationSuggestion[] = [];
+    for (const f of features) {
+      const [lon, lat] = f.geometry?.coordinates ?? [];
+      if (typeof lat !== "number" || typeof lon !== "number") continue;
+      if (!isWithinTijuana(lat, lon)) continue;
 
-    const label = await getApproxLocation(coords.lat, coords.lon);
-    return { coords, label: label || trimmed };
+      const colonia = f.properties.name ?? "";
+      const ciudad = f.properties.city || f.properties.district || "Tijuana";
+      const label = [colonia, ciudad].filter(Boolean).join(", ");
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+
+      suggestions.push({
+        coords: { lat: roundCoord(lat), lon: roundCoord(lon) },
+        label,
+      });
+    }
+    return suggestions;
   } catch (error) {
-    console.error("forwardGeocode failed:", error);
-    return null;
+    console.error("searchTijuanaLocations failed:", error);
+    return [];
   }
 }

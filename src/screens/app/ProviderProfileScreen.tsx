@@ -820,9 +820,7 @@ const ProviderProfileScreen: React.FC = () => {
                 margin: 0,
               }}
             >
-              Professional handyman with experience in plumbing, electrical
-              repairs, painting, and carpentry. Committed to delivering quality
-              work on time and keeping every job site clean.
+              {profile?.descripcion_perfil || p.about.defaultBio}
             </p>
             <div
               style={{ height: 1, background: "var(--divider)", margin: "22px 0" }}

@@ -52,6 +52,7 @@ export const myposts = {
     },
   },
   success: {
+    created: "Post created successfully!",
     deleted: "Post deleted successfully.",
     edited: "Post updated successfully.",
   },
@@ -80,6 +81,8 @@ export const myposts = {
     deleteFailed: "Could not delete the post. Please try again.",
     editFailed: "Could not update the post. Please try again.",
     generic: "Something went wrong. Please refresh the page.",
+    retryTitle: "Couldn't load your posts",
+    retry: "Retry",
   },
   categories: {
     locksmith: "Locksmith",

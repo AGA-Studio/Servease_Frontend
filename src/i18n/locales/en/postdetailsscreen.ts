@@ -5,6 +5,7 @@ export const postdetailsscreen = {
   },
   price: "Price",
   posted: "Posted",
+  deadline: "Deadline",
   ago: "ago",
   category: "Locksmith",
   today: "Today",

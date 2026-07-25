@@ -45,6 +45,7 @@ export function mapPostDetailsToJobDetails(
     location,
     when: "",
     urgency: "",
+    fecha_final: details.fecha_final,
     postedAgo: timeAgo(details.fecha),
     price: Number(details.precio_inicial),
     priceRange: `$${Number(details.precio_inicial).toLocaleString()}`,

@@ -1,6 +1,7 @@
 import { apiGet, apiPatch } from "./apiClient";
 import { supabase } from "../lib/supabase";
 import type { UserRole } from "../context/AuthContext";
+import type { ServicioListItem } from "./servicioApi";
 
 export interface UserProfile {
   id: string;
@@ -8,6 +9,7 @@ export interface UserProfile {
   apellido_paterno: string;
   apellido_materno: string | null;
   url_foto_perfil: string | null;
+  descripcion_perfil: string | null;
   fecha_registro: string;
   rol: UserRole;
   correo: string;
@@ -27,6 +29,7 @@ interface UsuarioResponse {
   correo: string;
   celular: string | null;
   url_foto_perfil: string | null;
+  descripcion_perfil: string | null;
   fecha_registro: string;
   estado: boolean;
   rol: UserRole;
@@ -34,14 +37,14 @@ interface UsuarioResponse {
   id_empresa: number | null;
 }
 
-export async function fetchUserProfileOrThrow(): Promise<UserProfile> {
-  const data = await apiGet<UsuarioResponse>("/api/usuarios/auth/");
+function mapUsuarioResponse(data: UsuarioResponse): UserProfile {
   return {
     id: data.id_usuario,
     nombre: data.nombre,
     apellido_paterno: data.apellido_pa,
     apellido_materno: data.apellido_ma,
     url_foto_perfil: data.url_foto_perfil,
+    descripcion_perfil: data.descripcion_perfil,
     fecha_registro: data.fecha_registro,
     rol: data.rol,
     correo: data.correo,
@@ -53,6 +56,11 @@ export async function fetchUserProfileOrThrow(): Promise<UserProfile> {
   };
 }
 
+export async function fetchUserProfileOrThrow(): Promise<UserProfile> {
+  const data = await apiGet<UsuarioResponse>("/api/usuarios/auth/");
+  return mapUsuarioResponse(data);
+}
+
 export async function fetchUserProfile(): Promise<UserProfile | null> {
   try {
     return await fetchUserProfileOrThrow();
@@ -60,6 +68,28 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
     console.error("fetchUserProfile failed:", error);
     return null;
   }
+}
+
+// PATCH /api/usuarios/auth/personal-info/ — solo rol cliente. Todos los
+// campos son opcionales (partial update); el backend regresa el usuario
+// completo actualizado.
+export interface UpdatePersonalInfoPayload {
+  nombre?: string;
+  segundo_nombre?: string;
+  apellido_pa?: string;
+  apellido_ma?: string;
+  celular?: string;
+  descripcion_perfil?: string;
+}
+
+export async function updatePersonalInfo(
+  payload: UpdatePersonalInfoPayload,
+): Promise<UserProfile> {
+  const data = await apiPatch<UsuarioResponse>(
+    "/api/usuarios/auth/personal-info/",
+    { ...payload },
+  );
+  return mapUsuarioResponse(data);
 }
 
 export interface PerfilCliente {
@@ -76,6 +106,24 @@ export async function fetchPerfilCliente(
   userId: string,
 ): Promise<PerfilCliente> {
   return apiGet<PerfilCliente>(`/api/usuarios/${userId}/perfil-cliente/`);
+}
+
+// GET /api/usuarios/<id>/reviews/ — reviews recibidas por el cliente, más
+// recientes primero (orden ya viene del backend).
+export interface ReviewCliente {
+  id_calificacion: number;
+  cliente_id: string;
+  puntuacion: number;
+  comentario: string | null;
+  fecha: string;
+  nombre_evaluador: string;
+  foto_evaluador: string | null;
+}
+
+export async function fetchReviewsCliente(
+  userId: string,
+): Promise<ReviewCliente[]> {
+  return apiGet<ReviewCliente[]>(`/api/usuarios/${userId}/reviews/`);
 }
 
 export interface ServicioCliente {
@@ -98,6 +146,29 @@ export async function fetchUltimasPublicacionesCliente(
 ): Promise<ServicioCliente[]> {
   return apiGet<ServicioCliente[]>(
     `/api/usuarios/${userId}/ultimas-publicaciones/`,
+  );
+}
+
+// GET /api/usuarios/<id>/mis-publicaciones/ — todas las publicaciones del
+// cliente, paginadas (DRF PageNumberPagination) y filtrables por estado y
+// categoria_id. Reemplaza a ultimas-publicaciones (limitada a 5) en la
+// pantalla de Mis Publicaciones.
+export interface MisPublicacionesResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ServicioListItem[];
+}
+
+export async function fetchMisPublicaciones(
+  userId: string,
+  params: { page?: number; pageSize?: number } = {},
+): Promise<MisPublicacionesResponse> {
+  const qs = new URLSearchParams();
+  qs.set("page", String(params.page ?? 1));
+  qs.set("page_size", String(params.pageSize ?? 50));
+  return apiGet<MisPublicacionesResponse>(
+    `/api/usuarios/${userId}/mis-publicaciones/?${qs.toString()}`,
   );
 }
 

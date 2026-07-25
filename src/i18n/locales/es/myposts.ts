@@ -52,6 +52,7 @@ export const myposts = {
     },
   },
   success: {
+    created: "¡Publicación creada con éxito!",
     deleted: "Publicación eliminada correctamente.",
     edited: "Publicación actualizada correctamente.",
   },
@@ -80,6 +81,8 @@ export const myposts = {
     deleteFailed: "No se pudo eliminar la publicación. Por favor, inténtalo de nuevo.",
     editFailed: "No se pudo actualizar la publicación. Por favor, inténtalo de nuevo.",
     generic: "Algo salió mal. Por favor, recarga la página.",
+    retryTitle: "No se pudieron cargar tus publicaciones",
+    retry: "Reintentar",
   },
   categories: {
     locksmith: "Cerrajería",

@@ -15,6 +15,7 @@ export interface JobDetails {
   when: string;
   urgency: string;
   postedAgo: string;
+  fecha_final?: string | null;
   price: number;
   priceRange: string;
   description: string;

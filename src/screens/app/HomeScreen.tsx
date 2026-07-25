@@ -1,6 +1,6 @@
 // Client home screen: greeting, KPI stats, active posts list, and recent activity feed.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   MapPin,
@@ -38,6 +38,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { motion, AnimatePresence } from "motion/react";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
+import { useCachedResource } from "../../hooks/useCachedResource";
 
 interface Post {
   id: string;
@@ -109,6 +110,7 @@ function servicioToJobDetails(
     location,
     when: "",
     urgency: "",
+    fecha_final: servicio.fecha_final,
     postedAgo: timeAgo(servicio.fecha),
     price,
     priceRange: `$${price.toLocaleString()}`,
@@ -406,7 +408,7 @@ const PostCard = ({
           onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
         >
           {post.status === "receiving"
-            ? h.serviceCard.link.reviewProposals
+            ? h.serviceCard.link.viewDetails
             : h.serviceCard.link.viewDetails}
           <ArrowRight size={14} />
         </button>
@@ -517,8 +519,6 @@ const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const { toasts, addToast, removeToast } = useToast();
 
-  const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
@@ -527,53 +527,73 @@ const HomeScreen: React.FC = () => {
     setIsDetailsOpen(true);
   };
 
-  const [isLoadingKpis, setIsLoadingKpis] = useState(true);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const {
+    data: perfil,
+    isLoading: isLoadingKpis,
+    error: kpisError,
+  } = useCachedResource(
+    user?.id ? `perfil-cliente:${user.id}` : null,
+    () => fetchPerfilCliente(user!.id),
+  );
+
+  const {
+    data: servicios,
+    isLoading: isLoadingPosts,
+    error: postsErrorObj,
+  } = useCachedResource(
+    user?.id ? `ultimas-publicaciones:${user.id}` : null,
+    () => fetchUltimasPublicacionesCliente(user!.id),
+  );
+
+  // La cache de dataCache.ts ya recuerda los posts entre visitas; solo la
+  // ubicación aproximada (Nominatim, servicio externo) se resuelve aparte
+  // por cada post — su propia cache interna (por coordenada) hace que en
+  // visitas repetidas se resuelva casi al instante.
+  const [locations, setLocations] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!servicios) return;
     let cancelled = false;
-
-    fetchPerfilCliente(user.id)
-      .then((data) => {
-        if (!cancelled) setPerfil(data);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchPerfilCliente failed:", error);
-        addToast("error", h.errors.kpisFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingKpis(false);
-      });
-
-    fetchUltimasPublicacionesCliente(user.id)
-      .then(async (servicios) => {
-        const posts = servicios.map(servicioToPost);
-        const locations = await Promise.all(
-          servicios.map((servicio) =>
-            getApproxLocation(servicio.latitud ?? "", servicio.longitud ?? ""),
-          ),
-        );
-        if (cancelled) return;
-        setPosts(
-          posts.map((post, i) => ({ ...post, location: locations[i] })),
-        );
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchUltimasPublicacionesCliente failed:", error);
-        addToast("error", h.errors.postsFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingPosts(false);
-      });
-
+    servicios.forEach((servicio) => {
+      getApproxLocation(servicio.latitud ?? "", servicio.longitud ?? "").then(
+        (location) => {
+          if (cancelled || !location) return;
+          const id = String(servicio.id_servicio);
+          setLocations((prev) =>
+            prev[id] === location ? prev : { ...prev, [id]: location },
+          );
+        },
+      );
+    });
     return () => {
       cancelled = true;
     };
+  }, [servicios]);
+
+  const posts = useMemo(
+    () =>
+      (servicios ?? []).map((servicio, i) => ({
+        ...servicioToPost(servicio, i),
+        location: locations[String(servicio.id_servicio)] ?? "",
+      })),
+    [servicios, locations],
+  );
+
+  useEffect(() => {
+    if (kpisError) {
+      console.error("fetchPerfilCliente failed:", kpisError);
+      addToast("error", h.errors.kpisFailed);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [kpisError]);
+
+  useEffect(() => {
+    if (postsErrorObj) {
+      console.error("fetchUltimasPublicacionesCliente failed:", postsErrorObj);
+      addToast("error", h.errors.postsFailed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postsErrorObj]);
 
   return (
     <>
@@ -1245,7 +1265,7 @@ const HomeScreen: React.FC = () => {
         onClose={() => setIsDetailsOpen(false)}
         job={
           selectedPost
-            ? servicioToJobDetails(selectedPost.raw, perfil, selectedPost.location)
+            ? servicioToJobDetails(selectedPost.raw, perfil ?? null, selectedPost.location)
             : null
         }
         postStatus={selectedPost?.status}
