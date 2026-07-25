@@ -27,12 +27,20 @@ import ToastContainer from "../../components/Toast/ToastContainer";
 import { ApiError } from "../../api/apiClient";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import { createServicio, uploadServiceImage } from "../../api/servicioApi";
+import { invalidateCached } from "../../lib/dataCache";
 import {
-  forwardGeocode,
   getApproxLocation,
+  isWithinTijuana,
   roundCoord,
+  searchTijuanaLocations,
   type ApproxCoords,
+  type LocationSuggestion,
 } from "../../utils/location";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import {
   DESCRIPTION_MAX_LENGTH,
   LOCATION_MAX_LENGTH,
@@ -47,6 +55,29 @@ import "./animations.newservice.css";
 import { motion } from "motion/react";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+// IDs fijos de la tabla tipo_cambio en el backend (sin endpoint de listado,
+// solo 2 valores posibles — coincide con el selector MXN/USD del form).
+const TIPO_CAMBIO_IDS: Record<"MXN" | "USD", number> = { MXN: 1, USD: 2 };
+
+// Leaflet referencia sus íconos de marker vía rutas relativas que se rompen
+// con bundlers como Vite; hay que apuntarlos a los assets importados.
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
+  ._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
 
 const Spinner = ({ size = 15 }: { size?: number }) => (
   <motion.span
@@ -582,6 +613,47 @@ const NewServiceScreen: React.FC = () => {
   const [isLocatingCurrent, setIsLocatingCurrent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [locationSuggestions, setLocationSuggestions] = useState<
+    LocationSuggestion[]
+  >([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightedSuggestion, setHighlightedSuggestion] = useState(0);
+  const suppressNextSearchRef = useRef(false);
+  const locationInputWrapRef = useRef<HTMLDivElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+
+  // Mapa Leaflet (tiles OSM directas, sin el iframe del sitio de
+  // openstreetmap.org que trae su propia barra de "Report a problem").
+  useEffect(() => {
+    if (!locationCoords || !mapContainerRef.current) return;
+    const center: [number, number] = [locationCoords.lat, locationCoords.lon];
+
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current, {
+        zoomControl: false,
+        scrollWheelZoom: false,
+        attributionControl: true,
+      }).setView(center, 15);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+        maxZoom: 19,
+      }).addTo(mapRef.current);
+      markerRef.current = L.marker(center).addTo(mapRef.current);
+    } else {
+      mapRef.current.setView(center, 15);
+      markerRef.current?.setLatLng(center);
+    }
+  }, [locationCoords]);
+
+  useEffect(() => {
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     fetchCategorias()
@@ -720,19 +792,113 @@ const NewServiceScreen: React.FC = () => {
       photos: prev.photos.filter((_, idx) => idx !== i),
     }));
 
+  const debouncedLocationQuery = useDebounce(form.location, 180);
+
+  // Autocompletado: cada vez que el usuario deja de teclear ~300ms, se
+  // buscan colonias/privadas dentro de Tijuana que coincidan. Se salta la
+  // búsqueda justo después de seleccionar una sugerencia (suppressNextSearchRef)
+  // para no reabrir el dropdown con el propio label ya elegido.
+  useEffect(() => {
+    if (suppressNextSearchRef.current) {
+      suppressNextSearchRef.current = false;
+      return;
+    }
+    const query = sanitizeText(debouncedLocationQuery, LOCATION_MAX_LENGTH).trim();
+    let cancelled = false;
+
+    async function run() {
+      if (query.length < 2) {
+        setLocationSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+      setIsResolvingLocation(true);
+      try {
+        const results = await searchTijuanaLocations(query);
+        if (cancelled) return;
+        setLocationSuggestions(results);
+        setShowSuggestions(results.length > 0);
+        setHighlightedSuggestion(0);
+      } finally {
+        if (!cancelled) setIsResolvingLocation(false);
+      }
+    }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedLocationQuery]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        locationInputWrapRef.current &&
+        !locationInputWrapRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selectLocationSuggestion = (suggestion: LocationSuggestion) => {
+    suppressNextSearchRef.current = true;
+    setLocationCoords(suggestion.coords);
+    set("location", suggestion.label);
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+    setErrors((prev) => ({ ...prev, location: undefined }));
+  };
+
+  const handleLocationKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showSuggestions && locationSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightedSuggestion((i) =>
+          Math.min(i + 1, locationSuggestions.length - 1),
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightedSuggestion((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Escape") {
+        setShowSuggestions(false);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        selectLocationSuggestion(locationSuggestions[highlightedSuggestion]);
+        return;
+      }
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      resolveTypedLocation();
+    }
+  };
+
+  // Fallback para cuando el usuario presiona Enter antes de que el
+  // autocompletado tenga resultados (ej. justo al escribir): busca de una
+  // vez y toma la mejor coincidencia dentro de Tijuana.
   const resolveTypedLocation = async () => {
     const query = sanitizeText(form.location, LOCATION_MAX_LENGTH);
     if (!query) return;
     setIsResolvingLocation(true);
     try {
-      const result = await forwardGeocode(query);
-      if (!result) {
+      const results = await searchTijuanaLocations(query);
+      const best = results[0];
+      if (!best) {
         addToast("error", ns.errors.locationNotFound);
         return;
       }
-      setLocationCoords(result.coords);
-      set("location", result.label);
-      setErrors((prev) => ({ ...prev, location: undefined }));
+      selectLocationSuggestion(best);
     } finally {
       setIsResolvingLocation(false);
     }
@@ -750,6 +916,11 @@ const NewServiceScreen: React.FC = () => {
           lat: roundCoord(position.coords.latitude),
           lon: roundCoord(position.coords.longitude),
         };
+        if (!isWithinTijuana(coords.lat, coords.lon)) {
+          addToast("error", ns.errors.locationOutsideTijuana);
+          setIsLocatingCurrent(false);
+          return;
+        }
         const label = await getApproxLocation(coords.lat, coords.lon);
         setLocationCoords(coords);
         set("location", label || `${coords.lat}, ${coords.lon}`);
@@ -793,11 +964,24 @@ const NewServiceScreen: React.FC = () => {
         longitud: locationCoords.lon,
         imagenes,
         id_categoria: form.categoryId,
+        fecha_final: form.date || undefined,
+        id_tipo_cambio: TIPO_CAMBIO_IDS[form.currency],
       });
 
-      addToast("success", ns.success.posted);
+      // Se creó una publicación nueva: invalida la cache de Home y Mis
+      // Publicaciones para ese usuario, así la próxima visita trae datos
+      // frescos en vez de la lista vieja guardada en memoria.
+      if (user?.id) {
+        invalidateCached(`ultimas-publicaciones:${user.id}`);
+        invalidateCached(`mis-publicaciones:${user.id}`);
+      }
+
       handleClearForm();
-      navigate(ROUTES.APP.MY_POST);
+      // El toast vive en el estado local de esta pantalla (useToast) y
+      // navigate() la desmonta de inmediato — no da tiempo a que se vea.
+      // Se manda la señal de éxito vía navigation state y My Posts la
+      // muestra al montar.
+      navigate(ROUTES.APP.MY_POST, { state: { justCreatedPost: true } });
     } catch (error) {
       addToast(
         "error",
@@ -1153,7 +1337,7 @@ const NewServiceScreen: React.FC = () => {
         error={errors.location}
         isDark={isDark}
       >
-        <div className="relative">
+        <div className="relative" ref={locationInputWrapRef}>
           <MapPin
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2"
@@ -1171,18 +1355,17 @@ const NewServiceScreen: React.FC = () => {
               );
               setLocationCoords(null);
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                resolveTypedLocation();
-              }
+            onKeyDown={handleLocationKeyDown}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "#2EBCCC";
+              if (locationSuggestions.length > 0) setShowSuggestions(true);
             }}
-            disabled={isResolvingLocation || isLocatingCurrent}
+            disabled={isLocatingCurrent}
             style={{
               ...inputStyles(isDark, !!errors.location),
               paddingLeft: 36,
+              paddingRight: isResolvingLocation ? 36 : 14,
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#2EBCCC")}
             onBlur={(e) =>
               (e.currentTarget.style.borderColor = errors.location
                 ? "#FF4444"
@@ -1191,6 +1374,47 @@ const NewServiceScreen: React.FC = () => {
                   : "#E5E7EB")
             }
           />
+          {isResolvingLocation && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 flex" style={{ color: "#2EBCCC" }}>
+              <Spinner size={14} />
+            </span>
+          )}
+
+          {showSuggestions && locationSuggestions.length > 0 && (
+            <div
+              className="absolute left-0 right-0 z-30 mt-1.5 rounded-xl overflow-hidden shadow-2xl"
+              style={{
+                background: isDark ? "#1e2d5e" : "#ffffff",
+                border: `1.5px solid ${isDark ? "#2d3e7a" : "#E5E7EB"}`,
+                maxHeight: 220,
+                overflowY: "auto",
+              }}
+            >
+              {locationSuggestions.map((s, i) => (
+                <button
+                  key={`${s.label}-${i}`}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectLocationSuggestion(s)}
+                  onMouseEnter={() => setHighlightedSuggestion(i)}
+                  className="w-full text-left px-3.5 py-2.5 text-sm flex items-center gap-2"
+                  style={{
+                    background:
+                      i === highlightedSuggestion
+                        ? isDark
+                          ? "rgba(46,188,204,0.14)"
+                          : "rgba(46,188,204,0.08)"
+                        : "transparent",
+                    color: isDark ? "#fff" : "#000",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <MapPin size={13} style={{ color: "#2EBCCC", flexShrink: 0 }} />
+                  <span className="truncate">{s.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <p className="text-xs mt-1.5" style={{ color: "#989898" }}>
           {isResolvingLocation
@@ -1203,20 +1427,12 @@ const NewServiceScreen: React.FC = () => {
         className="rounded-xl overflow-hidden mb-4 relative"
         style={{ height: 140, background: isDark ? "#273570" : "#E5E7EB" }}
       >
-        {locationCoords ? (
-          <iframe
-            title="location-preview"
-            className="w-full h-full border-0"
-            loading="lazy"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-              locationCoords.lon - 0.015
-            }%2C${locationCoords.lat - 0.012}%2C${
-              locationCoords.lon + 0.015
-            }%2C${locationCoords.lat + 0.012}&layer=mapnik&marker=${
-              locationCoords.lat
-            }%2C${locationCoords.lon}`}
-          />
-        ) : (
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full"
+          style={{ display: locationCoords ? "block" : "none" }}
+        />
+        {!locationCoords && (
           <div className="w-full h-full flex items-center justify-center">
             <div
               className="text-xs font-medium px-4 py-1.5 rounded-full"

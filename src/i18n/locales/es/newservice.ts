@@ -33,7 +33,7 @@ export const newservice = {
     useCurrentLocation: "Mi ubicación actual",
     locatingCurrentLocation: "Obteniendo tu ubicación...",
     resolvingLocation: "Buscando ubicación...",
-    mapPlaceholder: "Escribe una colonia y presiona Enter",
+    mapPlaceholder: "Escribe una colonia o privada en Tijuana",
     locationApproxNote:
       "Solo se guarda la colonia y ciudad aproximada, nunca tu dirección exacta.",
   },
@@ -86,6 +86,7 @@ export const newservice = {
   },
   errors: {
     locationNotFound: "No se encontró esa ubicación. Intenta ser más específico.",
+    locationOutsideTijuana: "Esa ubicación está fuera de Tijuana. Por ahora solo aceptamos servicios dentro de la ciudad.",
     geolocationDenied: "No pudimos acceder a tu ubicación. Revisa los permisos.",
     geolocationUnsupported: "Tu navegador no soporta geolocalización.",
     photoTooLarge: "supera 5MB y no se agregó.",

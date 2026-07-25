@@ -8,12 +8,44 @@ export const profile = {
       writtenReviews: "Reseñas Escritas",
       seeAll: "Ver todas",
     },
+    reviewsModal: {
+      title: "Reseñas",
+      empty: "Aún no tienes reseñas.",
+      noComment: "Sin comentario.",
+    },
     personalInfo: {
       title: "Información Personal",
       defaultBio:
         "Siempre busco personas confiables que me ayuden con diferentes servicios. En Servease me gusta encontrar trabajadores responsables y bien recomendados.",
       memberSince: "Miembro Desde",
       language: "Idioma",
+      phone: "Celular",
+      phoneNotSet: "Sin registrar",
+    },
+    editModal: {
+      title: "Editar Información Personal",
+      nameLabel: "Nombre",
+      secondNameLabel: "Segundo Nombre (opcional)",
+      lastNamePLabel: "Apellido Paterno",
+      lastNameMLabel: "Apellido Materno (opcional)",
+      phoneLabel: "Celular (opcional)",
+      bioLabel: "Biografía (opcional)",
+      save: "Guardar Cambios",
+      cancel: "Cancelar",
+      validation: {
+        nameRequired: "El nombre no puede estar vacío.",
+        nameUnsafe: "El nombre contiene caracteres no permitidos (< o >).",
+        lastNamePRequired: "El apellido paterno no puede estar vacío.",
+        lastNamePUnsafe: "El apellido paterno contiene caracteres no permitidos (< o >).",
+        phoneInvalid: "Ingresa un número de celular válido (10 dígitos).",
+        bioUnsafe: "La biografía contiene caracteres no permitidos (< o >).",
+      },
+    },
+    success: {
+      profileUpdated: "Perfil actualizado correctamente.",
+    },
+    errors: {
+      profileUpdateFailed: "No se pudo actualizar tu perfil. Intenta de nuevo.",
     },
     recentPosts: {
       title: "Publicaciones Recientes",
@@ -42,6 +74,7 @@ export const profile = {
     },
     about: {
       title: "Acerca de",
+      defaultBio: "Este proveedor aún no ha agregado una descripción.",
       yearsExperience: "Años de experiencia",
       languages: "Idiomas",
       services: "Servicios",

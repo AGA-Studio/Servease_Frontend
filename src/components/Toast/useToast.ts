@@ -12,9 +12,16 @@ export const useToast = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((type: ToastType, message: string) => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4500);
+    setToasts((prev) => {
+      // Evita toasts duplicados cuando el mismo aviso se dispara dos veces
+      // seguidas (ej. StrictMode re-ejecutando un efecto en desarrollo).
+      if (prev.some((t) => t.type === type && t.message === message)) {
+        return prev;
+      }
+      const id = Math.random().toString(36).slice(2);
+      setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4500);
+      return [...prev, { id, type, message }];
+    });
   }, []);
 
   const removeToast = useCallback(

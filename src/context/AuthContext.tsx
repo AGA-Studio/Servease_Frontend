@@ -38,6 +38,7 @@ interface AuthContextValue {
     photo?: File | null;
   }) => Promise<string | null>;
   logout: () => Promise<void>;
+  updateProfile: (updated: UserProfile) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -190,6 +191,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     await supabase.auth.signOut();
   }, []);
 
+  // Para usar después de un PATCH exitoso (ej. editar info personal): el
+  // backend ya regresa el usuario completo actualizado, así que no hace
+  // falta un refetch — solo sincronizar el estado local con esa respuesta.
+  const updateProfile = useCallback((updated: UserProfile) => {
+    setProfile(updated);
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            firstName: updated.nombre,
+            lastnameP: updated.apellido_paterno,
+            lastnameM: updated.apellido_materno ?? undefined,
+            role: updated.rol,
+          }
+        : prev,
+    );
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -201,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         loginWithGoogle,
         signup,
         logout,
+        updateProfile,
       }}
     >
       {children}

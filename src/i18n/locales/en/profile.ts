@@ -8,12 +8,44 @@ export const profile = {
       writtenReviews: "Written Reviews",
       seeAll: "See all",
     },
+    reviewsModal: {
+      title: "Reviews",
+      empty: "You don't have any reviews yet.",
+      noComment: "No comment.",
+    },
     personalInfo: {
       title: "Personal Info",
       defaultBio:
         "I am always looking for reliable people to help me with different services. At Servease I like to find responsible and well-recommended workers.",
       memberSince: "Member Since",
       language: "Language",
+      phone: "Phone",
+      phoneNotSet: "Not set",
+    },
+    editModal: {
+      title: "Edit Personal Info",
+      nameLabel: "First Name",
+      secondNameLabel: "Second Name (optional)",
+      lastNamePLabel: "Last Name",
+      lastNameMLabel: "Second Last Name (optional)",
+      phoneLabel: "Phone (optional)",
+      bioLabel: "Bio (optional)",
+      save: "Save Changes",
+      cancel: "Cancel",
+      validation: {
+        nameRequired: "First name can't be empty.",
+        nameUnsafe: "The first name contains characters that aren't allowed (< or >).",
+        lastNamePRequired: "Last name can't be empty.",
+        lastNamePUnsafe: "The last name contains characters that aren't allowed (< or >).",
+        phoneInvalid: "Enter a valid phone number (10 digits).",
+        bioUnsafe: "The bio contains characters that aren't allowed (< or >).",
+      },
+    },
+    success: {
+      profileUpdated: "Profile updated successfully.",
+    },
+    errors: {
+      profileUpdateFailed: "Could not update your profile. Please try again.",
     },
     recentPosts: {
       title: "Recent Posts",
@@ -42,6 +74,7 @@ export const profile = {
     },
     about: {
       title: "About",
+      defaultBio: "This provider hasn't added a description yet.",
       yearsExperience: "Years of experience",
       languages: "Languages",
       services: "Services",

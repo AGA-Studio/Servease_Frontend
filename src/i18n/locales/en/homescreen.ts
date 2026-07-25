@@ -14,7 +14,7 @@ export const homescreen = {
   serviceCard: {
     link: {
       viewDetails: "View Details",
-      reviewProposals: "Review Proposals",
+      reviewProposals: "R",
     },
     status: {
       inProgress: "In Progress",

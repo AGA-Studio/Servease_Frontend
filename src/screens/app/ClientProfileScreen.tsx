@@ -19,6 +19,19 @@ import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n";
 import { ROUTES } from "../../router/routes";
 import type { ThemeMode } from "../../theme/theme";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
+import EditPersonalInfoModal from "../../components/editpersonalinfomodal/EditPersonalInfoModal";
+import { useCachedResource } from "../../hooks/useCachedResource";
+import {
+  fetchPerfilCliente,
+  fetchReviewsCliente,
+  fetchUltimasPublicacionesCliente,
+  type ServicioCliente,
+} from "../../api/userApi";
+import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
+import { timeAgo, mapEstadoToStatus } from "../../utils/servicio";
+import ReviewsModal from "../../components/reviewsmodal/ReviewsModal";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -54,50 +67,35 @@ interface RecentPost {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const MOCK_POSTS: RecentPost[] = [
-  {
-    id: "1",
-    icon: <Wrench size={18} />,
-    title: "Roadside Assistance: Chain Break",
-    postedAgo: "2h ago",
-    price: "$450",
-    status: "completed",
-  },
-  {
-    id: "2",
-    icon: <Sparkles size={18} />,
-    title: "Full Service",
-    postedAgo: "1 day ago",
-    price: "$1,200",
-    status: "inProgress",
-  },
-  {
-    id: "3",
-    icon: <Triangle size={18} />,
-    title: "Exhaust System Adaptation",
-    postedAgo: "5h ago",
-    price: "$950",
-    status: "completed",
-  },
-  {
-    id: "4",
-    icon: <Zap size={18} />,
-    title: "Diagnostic - Electrical Failure",
-    postedAgo: "3h ago",
-    price: "$1,200",
-    status: "inProgress",
-  },
-  {
-    id: "5",
-    icon: <Lightbulb size={18} />,
-    title: "LED Lights & USB Port Install",
-    postedAgo: "Yesterday",
-    price: "$600",
-    status: "completed",
-  },
+// El backend no manda un ícono por categoría, así que se cicla un set
+// decorativo por índice — mismo criterio que POST_ICONS en HomeScreen.
+const RECENT_POST_ICONS = [
+  <Wrench size={18} />,
+  <Sparkles size={18} />,
+  <Triangle size={18} />,
+  <Zap size={18} />,
+  <Lightbulb size={18} />,
 ];
 
-const MOCK_STATS = { postedJobs: 148, rating: 4.0, reviews: 128 };
+function servicioEstadoToPostStatus(estado: string): PostStatus {
+  const mapped = mapEstadoToStatus(estado);
+  return mapped === "in_progress" ? "inProgress" : mapped;
+}
+
+function servicioToRecentPost(
+  servicio: ServicioCliente,
+  index: number,
+): RecentPost {
+  return {
+    id: String(servicio.id_servicio),
+    icon: RECENT_POST_ICONS[index % RECENT_POST_ICONS.length],
+    title: servicio.titulo,
+    postedAgo: timeAgo(servicio.fecha),
+    price: `$${Number(servicio.precio_inicial).toLocaleString()}`,
+    status: servicioEstadoToPostStatus(servicio.estado),
+  };
+}
+
 
 const TextButton = ({
   children,
@@ -330,11 +328,40 @@ const PostRow = ({
 
 const ClientProfileScreen: React.FC = () => {
   const { isDark } = useTheme();
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
   const navigate = useNavigate();
   const { t, locale } = useI18n();
   const p = t("profile").client;
   const languageLabel = locale === "es" ? "Español" : "English";
+  const { toasts, addToast, removeToast } = useToast();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
+  const { data: perfilCliente, isLoading: isLoadingStats } = useCachedResource(
+    user?.id ? `perfil-cliente:${user.id}` : null,
+    () => fetchPerfilCliente(user!.id),
+  );
+  const stats = {
+    postedJobs: perfilCliente?.num_publicaciones ?? 0,
+    rating: perfilCliente?.rating ?? 0,
+    reviews: perfilCliente?.num_reviews ?? 0,
+  };
+
+  // Misma key de cache que HomeScreen — si ya visitaste Home, esto carga al
+  // instante en vez de refetch.
+  const { data: recentServicios, isLoading: isLoadingRecentPosts } =
+    useCachedResource(
+      user?.id ? `ultimas-publicaciones:${user.id}` : null,
+      () => fetchUltimasPublicacionesCliente(user!.id),
+    );
+  const recentPosts = (recentServicios ?? []).map(servicioToRecentPost);
+
+  const [isReviewsOpen, setIsReviewsOpen] = useState(false);
+  // Se pide solo hasta que se abre el modal la primera vez (key null antes
+  // de eso), no en cada visita al perfil.
+  const { data: reviews, isLoading: isLoadingReviews } = useCachedResource(
+    isReviewsOpen && user?.id ? `reviews:${user.id}` : null,
+    () => fetchReviewsCliente(user!.id),
+  );
 
   const fullName = user
     ? `${user.firstName} ${user.lastnameP}${user.lastnameM ? ` ${user.lastnameM}` : ""}`
@@ -398,6 +425,7 @@ const ClientProfileScreen: React.FC = () => {
           <div style={{ position: "absolute", top: 20, right: 24, display: "flex", gap: 10 }}>
             <motion.button
               className="cp-btn-ghost"
+              onClick={() => setIsEditOpen(true)}
               whileHover={{ scale: 1.03, background: "rgba(255,255,255,0.22)" }}
               whileTap={{ scale: 0.96 }}
               style={{
@@ -478,57 +506,76 @@ const ClientProfileScreen: React.FC = () => {
           </motion.div>
 
           {/* Stats row */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: 18,
-              marginTop: 28,
-            }}
-          >
-            <StatCard icon={<ClipboardList size={15} />} label={p.stats.postedJobs} index={0} isDark={isDark}>
-              <div style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--text)" }}>
-                {MOCK_STATS.postedJobs}
-              </div>
-            </StatCard>
-
-            <StatCard icon={<Star size={15} />} label={p.stats.overallRating} index={1} isDark={isDark}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--text)" }}>
-                  {MOCK_STATS.rating.toFixed(1)}
-                </span>
-                <div style={{ display: "flex", gap: 2 }}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <motion.span
-                      key={i}
-                      className="cp-star"
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.25, delay: 0.3 + i * 0.05, ease: EASE }}
-                    >
-                      <Star
-                        size={16}
-                        fill={i < Math.round(MOCK_STATS.rating) ? "#2EBCCC" : "none"}
-                        color={i < Math.round(MOCK_STATS.rating) ? "#2EBCCC" : "#d6dbe2"}
-                      />
-                    </motion.span>
-                  ))}
-                </div>
-              </div>
-            </StatCard>
-
-            <StatCard
-              icon={<MessageSquare size={15} />}
-              label={p.stats.writtenReviews}
-              index={2}
-              isDark={isDark}
-              action={<TextButton>{p.stats.seeAll} →</TextButton>}
+          {isLoadingStats ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: 18,
+                marginTop: 28,
+              }}
             >
-              <div style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--text)" }}>
-                {MOCK_STATS.reviews}
-              </div>
-            </StatCard>
-          </div>
+              {[0, 1, 2].map((i) => (
+                <SkeletonLoader key={i} isDark={isDark} variant="kpi" />
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: 18,
+                marginTop: 28,
+              }}
+            >
+              <StatCard icon={<ClipboardList size={15} />} label={p.stats.postedJobs} index={0} isDark={isDark}>
+                <div style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--text)" }}>
+                  {stats.postedJobs}
+                </div>
+              </StatCard>
+
+              <StatCard icon={<Star size={15} />} label={p.stats.overallRating} index={1} isDark={isDark}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--text)" }}>
+                    {stats.rating.toFixed(1)}
+                  </span>
+                  <div style={{ display: "flex", gap: 2 }}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <motion.span
+                        key={i}
+                        className="cp-star"
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.25, delay: 0.3 + i * 0.05, ease: EASE }}
+                      >
+                        <Star
+                          size={16}
+                          fill={i < Math.round(stats.rating) ? "#2EBCCC" : "none"}
+                          color={i < Math.round(stats.rating) ? "#2EBCCC" : "#d6dbe2"}
+                        />
+                      </motion.span>
+                    ))}
+                  </div>
+                </div>
+              </StatCard>
+
+              <StatCard
+                icon={<MessageSquare size={15} />}
+                label={p.stats.writtenReviews}
+                index={2}
+                isDark={isDark}
+                action={
+                  <TextButton onClick={() => setIsReviewsOpen(true)}>
+                    {p.stats.seeAll} →
+                  </TextButton>
+                }
+              >
+                <div style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--text)" }}>
+                  {stats.reviews}
+                </div>
+              </StatCard>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -566,7 +613,7 @@ const ClientProfileScreen: React.FC = () => {
             {p.personalInfo.title}
           </div>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: 1.7, margin: 0 }}>
-            {p.personalInfo.defaultBio}
+            {profile?.descripcion_perfil || p.personalInfo.defaultBio}
           </p>
           <div style={{ height: 1, background: "var(--divider)", margin: "22px 0" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -576,6 +623,14 @@ const ClientProfileScreen: React.FC = () => {
               </span>
               <span style={{ color: "var(--text)", fontWeight: 700, fontSize: "0.85rem", textTransform: "capitalize" }}>
                 {memberSince}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                {p.personalInfo.phone}
+              </span>
+              <span style={{ color: "var(--text)", fontWeight: 700, fontSize: "0.85rem" }}>
+                {profile?.celular || p.personalInfo.phoneNotSet}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -619,19 +674,92 @@ const ClientProfileScreen: React.FC = () => {
             </TextButton>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {MOCK_POSTS.map((post, i) => (
-              <PostRow
-                key={post.id}
-                post={post}
-                index={i}
-                isDark={isDark}
-                statusLabels={statusLabels}
-                postedLabel={p.recentPosts.postedAgo}
-              />
-            ))}
+            {isLoadingRecentPosts ? (
+              [0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: "16px 8px",
+                    borderTop: i > 0 ? `1px solid var(--divider)` : undefined,
+                  }}
+                >
+                  <motion.div
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      background: isDark ? "#273570" : "#e5e7eb",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <motion.div
+                      animate={{ opacity: [0.6, 1, 0.6] }}
+                      transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                      style={{
+                        width: "60%",
+                        height: 14,
+                        borderRadius: 6,
+                        background: isDark ? "#273570" : "#e5e7eb",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : recentPosts.length === 0 ? (
+              <p
+                style={{
+                  color: "var(--text-secondary)",
+                  fontSize: "0.9rem",
+                  textAlign: "center",
+                  padding: "24px 8px",
+                  margin: 0,
+                }}
+              >
+                {p.recentPosts.empty}
+              </p>
+            ) : (
+              recentPosts.map((post, i) => (
+                <PostRow
+                  key={post.id}
+                  post={post}
+                  index={i}
+                  isDark={isDark}
+                  statusLabels={statusLabels}
+                  postedLabel={p.recentPosts.postedAgo}
+                />
+              ))
+            )}
           </div>
         </motion.div>
       </div>
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
+
+      <EditPersonalInfoModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        profile={profile}
+        onSaved={(updated) => {
+          updateProfile(updated);
+          addToast("success", p.success.profileUpdated);
+        }}
+        onError={(message) => addToast("error", message)}
+      />
+
+      <ReviewsModal
+        isOpen={isReviewsOpen}
+        onClose={() => setIsReviewsOpen(false)}
+        reviews={reviews ?? []}
+        isLoading={isLoadingReviews}
+        isDark={isDark}
+        strings={p.reviewsModal}
+      />
     </div>
   );
 };

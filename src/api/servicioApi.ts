@@ -9,6 +9,9 @@ export interface CreateServicioPayload {
   longitud: number;
   imagenes: string[];
   id_categoria: number;
+  // Opcionales — el backend los acepta con required=False/allow_null=True.
+  fecha_final?: string;
+  id_tipo_cambio?: number;
 }
 
 export interface ServicioResponse {
@@ -24,6 +27,8 @@ export interface ServicioResponse {
   fecha_final: string | null;
   id_cliente: string;
   id_categoria: number;
+  id_tipo_cambio: number | null;
+  tipo_cambio_nombre: string | null;
 }
 
 // Rama main del backend: la creación vive en /crear/ (la raíz "/api/servicios/"
@@ -75,12 +80,14 @@ export interface PostDetails {
   rating_cliente: number;
   num_reviews_cliente: number;
   total_publicaciones_cliente: number;
+  fecha_final: string | null;
 }
 
 export async function fetchPostDetails(
   idServicio: number | string,
 ): Promise<PostDetails> {
-  return apiGet<PostDetails>(`/api/servicios/${idServicio}/detalle/`);
+  const data = await apiGet<PostDetails>(`/api/servicios/${idServicio}/detalle/`);
+  return data;
 }
 
 // GET /api/servicios/<id>/aplicantes/ — solo el dueño del servicio (403 si no).

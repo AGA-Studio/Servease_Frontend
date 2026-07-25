@@ -5,6 +5,7 @@ export const postdetailsscreen = {
   },
   price: "Precio",
   posted: "Publicado",
+  deadline: "Fecha límite",
   ago: "",
   category: "Cerrajero",
   today: "Hoy",

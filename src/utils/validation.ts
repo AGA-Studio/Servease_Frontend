@@ -11,6 +11,11 @@ const HTML_INJECTION_PATTERN = /[<>]|javascript:|data:text\/html/i;
 export const TITLE_MAX_LENGTH = 150;
 export const DESCRIPTION_MAX_LENGTH = 500;
 export const LOCATION_MAX_LENGTH = 150;
+// Coincide con Usuario.nombre/apellido_pa/apellido_ma (max_length=100) y
+// Usuario.celular (max_length=20) en el backend.
+export const NAME_MAX_LENGTH = 100;
+export const PHONE_MAX_LENGTH = 20;
+export const BIO_MAX_LENGTH = 500;
 
 export const MAX_PRICE = 10_000_000;
 
@@ -35,6 +40,15 @@ export function isValidPrice(value: string): boolean {
   if (n <= 0 || n > MAX_PRICE) return false;
   // máx 2 decimales
   return /^\d+(\.\d{1,2})?$/.test(value.trim());
+}
+
+/** Celular es opcional; si viene, exige 10 dígitos (formato MX), con
+ * espacios/guiones/paréntesis permitidos como separadores visuales. */
+export function isValidPhone(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  const digits = trimmed.replace(/[\s\-().]/g, "");
+  return /^\d{10}$/.test(digits);
 }
 
 export function isValidLatLon(lat: number, lon: number): boolean {
