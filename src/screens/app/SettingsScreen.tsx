@@ -8,10 +8,9 @@ import {
   Moon,
   Check,
   ChevronRight,
-  Eye,
-  EyeOff,
   Mail,
   Lock,
+  Send,
   BadgeCheck,
   Smartphone,
   Trash2,
@@ -25,6 +24,12 @@ import { useI18n } from "../../i18n";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
+import { requestPasswordReset } from "../../api/userApi";
+import { hasMfaEnabled } from "../../api/mfaApi";
+import { ApiError } from "../../api/apiClient";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
+import TwoFactorSetupModal from "../../components/mfa/TwoFactorSetupModal";
 
 type Tab = "account" | "appearance" | "privacy" | "legal";
 
@@ -55,13 +60,34 @@ const SettingsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("account");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const { toasts, addToast, removeToast } = useToast();
 
   const [email, setEmail] = useState(user?.email ?? "");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null);
+  const [showMfaSetup, setShowMfaSetup] = useState(false);
+
+  useEffect(() => {
+    hasMfaEnabled().then(setMfaEnabled);
+  }, []);
+
+  const handleRequestPasswordReset = async () => {
+    setSendingReset(true);
+    try {
+      await requestPasswordReset();
+      setResetSent(true);
+      addToast("success", s.toast.passwordResetSent);
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof ApiError ? err.message : s.toast.error,
+      );
+    } finally {
+      setSendingReset(false);
+    }
+  };
 
   const currentTheme = document.documentElement.getAttribute("data-theme") as
     | "light"
@@ -328,16 +354,7 @@ const SettingsScreen: React.FC = () => {
                 </div>
 
                 <div className="px-6 py-5">
-                  <button
-                    onClick={() => setChangingPassword(!changingPassword)}
-                    onMouseDown={press}
-                    onMouseUp={release}
-                    onMouseLeave={release}
-                    className="flex items-center justify-between w-full text-left border-none bg-transparent cursor-pointer"
-                    style={{
-                      transition: btnTransition,
-                    }}
-                  >
+                  <div className="flex items-center justify-between">
                     <div>
                       <p
                         className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5"
@@ -353,102 +370,36 @@ const SettingsScreen: React.FC = () => {
                         ••••••••
                       </p>
                     </div>
-                    <div
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold"
+                    <button
+                      onClick={handleRequestPasswordReset}
+                      disabled={sendingReset}
+                      onMouseDown={press}
+                      onMouseUp={release}
+                      onMouseLeave={release}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border-none cursor-pointer disabled:opacity-60"
                       style={{
                         background: "rgba(46,188,204,0.08)",
                         color: "#2EBCCC",
                         transition: btnTransition,
                       }}
                     >
-                      {changingPassword ? "Cancel" : s.account.changePassword}
-                      <ChevronRight
-                        size={14}
-                        style={{
-                          transform: changingPassword
-                            ? "rotate(90deg)"
-                            : "rotate(0deg)",
-                          transition: `transform 300ms ${easeOut}`,
-                        }}
-                      />
-                    </div>
-                  </button>
+                      {sendingReset
+                        ? s.account.changePasswordSending
+                        : s.account.changePassword}
+                      <Send size={13} />
+                    </button>
+                  </div>
 
-                  {changingPassword && (
-                    <div
-                      className="mt-5 space-y-4 overflow-hidden"
+                  {resetSent && (
+                    <p
+                      className="text-xs mt-3 font-medium"
                       style={{
+                        color: "#2EBCCC",
                         animation: `fadeUp 250ms ${easeOut}`,
                       }}
                     >
-                      <div className="relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          placeholder={s.account.currentPassword}
-                          className="w-full px-4 py-4 rounded-2xl text-sm font-medium outline-none border pr-12"
-                          style={{
-                            background: inputBg,
-                            borderColor: glassBorder,
-                            color: textPrimary,
-                            transition: inputTransition,
-                          }}
-                          onFocus={(e) =>
-                            (e.currentTarget.style.borderColor = "#2EBCCC")
-                          }
-                          onBlur={(e) =>
-                            (e.currentTarget.style.borderColor = glassBorder)
-                          }
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer bg-transparent border-none p-0 flex items-center"
-                          style={{ color: textSecondary }}
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder={s.account.newPassword}
-                        className="w-full px-4 py-4 rounded-2xl text-sm font-medium outline-none border"
-                        style={{
-                          background: inputBg,
-                          borderColor: glassBorder,
-                          color: textPrimary,
-                          transition: inputTransition,
-                        }}
-                        onFocus={(e) =>
-                          (e.currentTarget.style.borderColor = "#2EBCCC")
-                        }
-                        onBlur={(e) =>
-                          (e.currentTarget.style.borderColor = glassBorder)
-                        }
-                      />
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder={s.account.confirmPassword}
-                        className="w-full px-4 py-4 rounded-2xl text-sm font-medium outline-none border"
-                        style={{
-                          background: inputBg,
-                          borderColor: glassBorder,
-                          color: textPrimary,
-                          transition: inputTransition,
-                        }}
-                        onFocus={(e) =>
-                          (e.currentTarget.style.borderColor = "#2EBCCC")
-                        }
-                        onBlur={(e) =>
-                          (e.currentTarget.style.borderColor = glassBorder)
-                        }
-                      />
-                    </div>
+                      {s.account.changePasswordSent}
+                    </p>
                   )}
                 </div>
               </div>
@@ -669,10 +620,15 @@ const SettingsScreen: React.FC = () => {
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                       style={{
-                        background: "rgba(255,178,0,0.1)",
+                        background: mfaEnabled
+                          ? "rgba(74,168,37,0.12)"
+                          : "rgba(255,178,0,0.1)",
                       }}
                     >
-                      <Fingerprint size={18} style={{ color: "#FFB200" }} />
+                      <Fingerprint
+                        size={18}
+                        style={{ color: mfaEnabled ? "#4AA825" : "#FFB200" }}
+                      />
                     </div>
                     <div>
                       <p
@@ -689,15 +645,36 @@ const SettingsScreen: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <span
-                    className="self-end sm:self-auto px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 sm:ml-4"
-                    style={{
-                      background: "rgba(255,178,0,0.1)",
-                      color: "#FFB200",
-                    }}
-                  >
-                    {s.privacy.twoFactorComing}
-                  </span>
+                  {mfaEnabled === null ? (
+                    <span
+                      className="self-end sm:self-auto px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 sm:ml-4"
+                      style={{ background: inputBg, color: textSecondary }}
+                    >
+                      {s.privacy.twoFactorChecking}
+                    </span>
+                  ) : mfaEnabled ? (
+                    <span
+                      className="self-end sm:self-auto px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 sm:ml-4"
+                      style={{ background: "rgba(74,168,37,0.12)", color: "#4AA825" }}
+                    >
+                      {s.privacy.twoFactorEnabled}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setShowMfaSetup(true)}
+                      onMouseDown={press}
+                      onMouseUp={release}
+                      onMouseLeave={release}
+                      className="self-end sm:self-auto px-4 py-2 rounded-xl text-xs font-bold border-none cursor-pointer shrink-0 sm:ml-4"
+                      style={{
+                        background: "#2EBCCC",
+                        color: "#FFFFFF",
+                        transition: btnTransition,
+                      }}
+                    >
+                      {s.privacy.twoFactorEnable}
+                    </button>
+                  )}
                 </div>
 
                 <div
@@ -911,6 +888,20 @@ const SettingsScreen: React.FC = () => {
           }
         }
       `}</style>
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
+
+      {showMfaSetup && (
+        <TwoFactorSetupModal
+          isDark={isDark}
+          onClose={() => setShowMfaSetup(false)}
+          onEnabled={() => {
+            setShowMfaSetup(false);
+            setMfaEnabled(true);
+            addToast("success", s.privacy.twoFactorEnabled);
+          }}
+        />
+      )}
     </div>
   );
 };
