@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Plus,
   Search,
@@ -9,64 +9,45 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  MoreVertical,
+  Pencil,
+  Trash2,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import type { ThemeMode } from "../../theme/theme";
 import { ROUTES, buildPostOffersPath } from "../../router/routes";
-import { MOCK_POSTS, type MyPost, type PostStatus } from "../../data/mockPosts";
+import type { MyPost, PostStatus } from "../../data/mockPosts";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import type { JobDetails } from "../../types/job";
-
-const POST_CATEGORY_LABEL: Record<string, string> = {
-  locksmith: "Locksmith",
-  plumbing: "Plumbing",
-  electrical: "Electrical",
-  gardening: "Gardening",
-  hvac: "HVAC",
-  cleaning: "Cleaning",
-  painting: "Painting",
-  carpentry: "Carpentry",
-  moving: "Moving",
-  other: "Other",
-};
-
-const POST_DETAILS_RICH = {
-  location: "El Refugio, Tijuana",
-  when: "Today",
-  urgency: "ASAP",
-  description:
-    "Hi, I managed to break my key inside the front door lock this morning while leaving for work. The key snapped, and half of it is stuck inside the cylinder.\n\nThe door is currently locked, but I have access through the back. I need a professional locksmith to extract the broken key piece and verify the lock still functions correctly. If the lock is damaged, I am open to replacing the cylinder (standard Yale lock).",
-  client: {
-    name: "Maria Cazares",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
-    rating: 4.9,
-    reviewCount: 12,
-    memberSince: "Sep. 2025",
-    jobsPosted: 8,
-  },
-};
-
-const mapMyPostToDetails = (post: MyPost): JobDetails => ({
-  id: post.id,
-  title: post.title,
-  category: POST_CATEGORY_LABEL[post.category] ?? post.category,
-  location: POST_DETAILS_RICH.location,
-  when: POST_DETAILS_RICH.when,
-  urgency: POST_DETAILS_RICH.urgency,
-  postedAgo: post.postedAgo,
-  price: post.budget,
-  priceRange: `$${post.budget.toLocaleString()} ${post.currency}`,
-  description: POST_DETAILS_RICH.description,
-  mainImage: post.imageUrl ?? "",
-  thumbnails: post.imageUrl ? [post.imageUrl] : [],
-  client: POST_DETAILS_RICH.client,
-});
+import { useAuth } from "../../context/AuthContext";
+import { fetchMisPublicaciones } from "../../api/userApi";
+import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import {
+  deleteServicio,
+  fetchAplicantes,
+  fetchPostDetails,
+  type PostDetails,
+  type ServicioListItem,
+  type ServicioResponse,
+} from "../../api/servicioApi";
+import {
+  timeAgo,
+  mapEstadoToStatus,
+  mapPostDetailsToJobDetails,
+} from "../../utils/servicio";
+import { getApproxLocation } from "../../utils/location";
+import { ApiError } from "../../api/apiClient";
+import ConfirmModal from "../../components/confirmmodal/ConfirmModal";
+import EmptyState from "../../components/emptystate/EmptyState";
+import EditPostModal from "../../components/editpostmodal/EditPostModal";
+import { useCachedResource } from "../../hooks/useCachedResource";
+import { getCached, invalidateCached, setCached } from "../../lib/dataCache";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -89,20 +70,17 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   return { theme, isDark: theme === "dark" };
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
-const CATEGORY_KEYS = [
-  "locksmith",
-  "plumbing",
-  "electrical",
-  "cleaning",
-  "painting",
-  "carpentry",
-  "moving",
-  "gardening",
-  "other",
-] as const;
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
 
 const StatusBadge = ({
   status,
@@ -159,10 +137,7 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
       border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
     }}
   >
-    <div
-      className="mp-skeleton"
-      style={{ height: 180, background: isDark ? "#273570" : "#e5e7eb" }}
-    />
+    <div className="mp-skeleton" style={{ height: 180 }} />
     <div style={{ padding: "18px 20px" }}>
       <div
         className="mp-skeleton"
@@ -170,7 +145,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
           height: 12,
           width: "40%",
           borderRadius: 6,
-          background: isDark ? "#273570" : "#e5e7eb",
           marginBottom: 12,
         }}
       />
@@ -180,7 +154,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
           height: 16,
           width: "85%",
           borderRadius: 6,
-          background: isDark ? "#273570" : "#e5e7eb",
           marginBottom: 6,
         }}
       />
@@ -190,7 +163,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
           height: 16,
           width: "60%",
           borderRadius: 6,
-          background: isDark ? "#273570" : "#e5e7eb",
           marginBottom: 18,
         }}
       />
@@ -203,7 +175,6 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
               height: 12,
               width: 60,
               borderRadius: 6,
-              background: isDark ? "#273570" : "#e5e7eb",
             }}
           />
         ))}
@@ -212,16 +183,182 @@ const SkeletonCard = ({ isDark }: { isDark: boolean }) => (
   </div>
 );
 
+const MENU_EASE = [0.23, 1, 0.32, 1] as const;
+
+const CardMenu = ({
+  isDark,
+  isLoadingEdit,
+  onEdit,
+  onDelete,
+}: {
+  isDark: boolean;
+  isLoadingEdit: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) => {
+  const { t } = useI18n();
+  const mp = t("myposts");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: "absolute", top: 10, right: 10, zIndex: 2 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <motion.button
+        onClick={() => (isLoadingEdit ? undefined : setOpen((o) => !o))}
+        whileHover={{ scale: isLoadingEdit ? 1 : 1.08 }}
+        whileTap={{ scale: isLoadingEdit ? 1 : 0.92 }}
+        transition={{ duration: 0.15 }}
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: "50%",
+          border: "none",
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(4px)",
+          color: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: isLoadingEdit ? "default" : "pointer",
+        }}
+      >
+        {isLoadingEdit ? (
+          <motion.span
+            animate={{ rotate: 360 }}
+            transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+            style={{
+              width: 13,
+              height: 13,
+              borderRadius: "50%",
+              border: "2px solid currentColor",
+              borderTopColor: "transparent",
+              display: "inline-block",
+            }}
+          />
+        ) : (
+          <MoreVertical size={16} />
+        )}
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: -6 }}
+            transition={{ duration: 0.16, ease: MENU_EASE }}
+            style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              right: 0,
+              transformOrigin: "top right",
+              minWidth: 150,
+              background: isDark ? "#1e2d5e" : "#ffffff",
+              border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
+              borderRadius: 12,
+              boxShadow: "0 8px 28px rgba(0,0,0,0.18)",
+              overflow: "hidden",
+            }}
+          >
+            <button
+              onClick={() => {
+                setOpen(false);
+                onEdit();
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                width: "100%",
+                padding: "10px 14px",
+                background: "transparent",
+                border: "none",
+                color: "var(--text)",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textAlign: "left",
+                transition: "background 140ms ease",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <Pencil size={14} color="#2EBCCC" />
+              {mp.card.edit}
+            </button>
+            <button
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                width: "100%",
+                padding: "10px 14px",
+                background: "transparent",
+                border: "none",
+                color: "#FF4444",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textAlign: "left",
+                transition: "background 140ms ease",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,68,68,0.10)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <Trash2 size={14} color="#FF4444" />
+              {mp.card.delete}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const AnimatedCard = ({
   post,
   index,
   isDark,
   onViewDetails,
+  isLoadingDetails,
+  onEdit,
+  onDelete,
+  isLoadingEdit,
 }: {
   post: MyPost;
   index: number;
   isDark: boolean;
   onViewDetails: (post: MyPost) => void;
+  isLoadingDetails: boolean;
+  onEdit: (post: MyPost) => void;
+  onDelete: (post: MyPost) => void;
+  isLoadingEdit: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
@@ -299,6 +436,14 @@ const AnimatedCard = ({
               "linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35) 100%)",
           }}
         />
+        {post.status === "receiving" && (
+          <CardMenu
+            isDark={isDark}
+            isLoadingEdit={isLoadingEdit}
+            onEdit={() => onEdit(post)}
+            onDelete={() => onDelete(post)}
+          />
+        )}
       </div>
 
       <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", flex: 1 }}>
@@ -360,11 +505,18 @@ const AnimatedCard = ({
             icon={<DollarSign size={12} />}
             label={`${mp.card.budget}: $${post.budget.toLocaleString()} ${post.currency}`}
           />
-          <MetaChip
-            icon={<Users size={12} />}
-            label={`${post.applicantCount} ${mp.card.applicants}`}
-            accent={post.applicantCount > 0 && post.status === "receiving"}
-          />
+          {post.applicantCount === null ? (
+            <span
+              className="mp-skeleton"
+              style={{ height: 12, width: 64, borderRadius: 6, display: "inline-block" }}
+            />
+          ) : (
+            <MetaChip
+              icon={<Users size={12} />}
+              label={`${post.applicantCount} ${mp.card.applicants}`}
+              accent={post.applicantCount > 0 && post.status === "receiving"}
+            />
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
@@ -399,6 +551,7 @@ const AnimatedCard = ({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onViewDetails(post)}
+            disabled={isLoadingDetails}
             style={{
               flex: 1,
               padding: "10px 0",
@@ -408,12 +561,18 @@ const AnimatedCard = ({
               color: "var(--text)",
               fontWeight: 700,
               fontSize: "0.83rem",
-              cursor: "pointer",
+              cursor: isLoadingDetails ? "default" : "pointer",
+              opacity: isLoadingDetails ? 0.6 : 1,
               fontFamily: "inherit",
               letterSpacing: "0.01em",
-              transition: "border-color 160ms ease-out, color 160ms ease-out",
+              transition: "border-color 160ms ease-out, color 160ms ease-out, opacity 160ms ease-out",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 7,
             }}
             onHoverStart={(e) => {
+              if (isLoadingDetails) return;
               (e.target as HTMLButtonElement).style.borderColor = "#2EBCCC";
               (e.target as HTMLButtonElement).style.color = "#2EBCCC";
             }}
@@ -424,6 +583,20 @@ const AnimatedCard = ({
               (e.target as HTMLButtonElement).style.color = "var(--text)";
             }}
           >
+            {isLoadingDetails && (
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  border: "2px solid currentColor",
+                  borderTopColor: "transparent",
+                  display: "inline-block",
+                }}
+              />
+            )}
             {mp.card.viewDetails}
           </motion.button>
         </div>
@@ -671,152 +844,145 @@ const Pagination = ({
   );
 };
 
-const EmptyState = ({
-  hasFilters,
-  isDark,
-  onClear,
-  onPost,
-}: {
-  hasFilters: boolean;
-  isDark: boolean;
-  onClear: () => void;
-  onPost: () => void;
-}) => {
-  const { t } = useI18n();
-  const mp = t("myposts");
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "64px 24px",
-        textAlign: "center",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          width: 72,
-          height: 72,
-          borderRadius: "50%",
-          background: isDark
-            ? "rgba(46,188,204,0.12)"
-            : "rgba(46,188,204,0.08)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 4,
-        }}
-      >
-        <FileText size={32} color="#2EBCCC" />
-      </div>
-      <p
-        style={{
-          fontWeight: 700,
-          fontSize: "1.05rem",
-          color: "var(--text)",
-          margin: 0,
-        }}
-      >
-        {hasFilters ? mp.empty.noResults : mp.empty.title}
-      </p>
-      <p
-        style={{
-          color: "var(--text-secondary)",
-          fontSize: "0.875rem",
-          margin: 0,
-          maxWidth: 320,
-        }}
-      >
-        {hasFilters ? "" : mp.empty.subtitle}
-      </p>
-      {hasFilters ? (
-        <button
-          onClick={onClear}
-          style={{
-            marginTop: 8,
-            padding: "9px 22px",
-            borderRadius: 10,
-            border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
-            background: "transparent",
-            color: "var(--text)",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          {mp.empty.clearFilters}
-        </button>
-      ) : (
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={onPost}
-          style={{
-            marginTop: 8,
-            padding: "10px 24px",
-            borderRadius: 10,
-            border: "none",
-            background: "#2EBCCC",
-            color: "#ffffff",
-            fontSize: "0.875rem",
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-          }}
-        >
-          <Plus size={16} strokeWidth={2.5} />
-          {mp.empty.cta}
-        </motion.button>
-      )}
-    </motion.div>
-  );
-};
 
 const MyPostScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useI18n();
   const mp = t("myposts");
   const { toasts, addToast, removeToast } = useToast();
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  // NewServiceScreen navega acá justo después de addToast(); su propio
+  // ToastContainer se desmonta antes de poder pintar el toast, así que la
+  // señal de éxito viaja por navigation state y se muestra desde acá.
+  // El ref evita que StrictMode (que en desarrollo vuelve a ejecutar este
+  // efecto una vez al montar) dispare el toast dos veces.
+  const justCreatedHandledRef = useRef(false);
+  useEffect(() => {
+    if (justCreatedHandledRef.current) return;
+    const state = location.state as { justCreatedPost?: boolean } | null;
+    if (!state?.justCreatedPost) return;
+    justCreatedHandledRef.current = true;
+    addToast("success", mp.success.created);
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 220);
+  const isSearchPending = search.trim() !== debouncedSearch.trim();
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [selectedPost, setSelectedPost] = useState<MyPost | null>(null);
+  const [selectedJobDetails, setSelectedJobDetails] =
+    useState<JobDetails | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<MyPost | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<PostDetails | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [loadingEditPostId, setLoadingEditPostId] = useState<string | null>(
+    null,
+  );
 
   const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [posts, setPosts] = useState<MyPost[]>([]);
+
+  const { data: categorias } = useCachedResource<Categoria[]>(
+    "categorias",
+    fetchCategorias,
+  );
+
+  const {
+    data: results,
+    setData: setResults,
+    isLoading,
+    error: fetchErrorObj,
+    reload: handleRetry,
+  } = useCachedResource<ServicioListItem[]>(
+    userId ? `mis-publicaciones:${userId}` : null,
+    () =>
+      fetchMisPublicaciones(userId!, { page: 1, pageSize: 50 }).then(
+        (r) => r.results,
+      ),
+  );
+
+  const fetchError = fetchErrorObj
+    ? fetchErrorObj instanceof ApiError
+      ? fetchErrorObj.message
+      : mp.errors.fetchFailed
+    : null;
+
+  // Conteo de aplicantes por publicación: se resuelve por separado (no
+  // bloquea el grid) y se cachea por id de servicio para no repetir el
+  // fan-out de N requests cada vez que se vuelve a esta pantalla.
+  const [applicantCounts, setApplicantCounts] = useState<
+    Record<string, number>
+  >({});
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        setPosts(MOCK_POSTS);
-        setIsLoading(false);
-      } catch {
-        addToast("error", mp.errors.fetchFailed);
-        setIsLoading(false);
+    if (!results) return;
+    let cancelled = false;
+
+    results.forEach((servicio) => {
+      const id = String(servicio.id_servicio);
+      const cacheKey = `aplicantes-count:${id}`;
+      const cached = getCached<number>(cacheKey);
+      if (cached !== undefined) {
+        setApplicantCounts((prev) =>
+          prev[id] === cached ? prev : { ...prev, [id]: cached },
+        );
       }
-    }, 900);
-    return () => clearTimeout(t);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+      fetchAplicantes(servicio.id_servicio)
+        .then((list) => {
+          if (cancelled) return;
+          setCached(cacheKey, list.length);
+          setApplicantCounts((prev) =>
+            prev[id] === list.length ? prev : { ...prev, [id]: list.length },
+          );
+        })
+        .catch(() => {
+          if (cancelled || cached !== undefined) return;
+          setApplicantCounts((prev) =>
+            prev[id] !== undefined ? prev : { ...prev, [id]: 0 },
+          );
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [results]);
+
+  const posts: MyPost[] = useMemo(
+    () =>
+      (results ?? []).map((servicio) => ({
+        id: String(servicio.id_servicio),
+        title: servicio.titulo,
+        category: servicio.categoria_nombre,
+        status: mapEstadoToStatus(servicio.estado),
+        postedAgo: timeAgo(servicio.fecha),
+        budget: Number(servicio.precio_inicial),
+        currency: "MXN",
+        applicantCount:
+          applicantCounts[String(servicio.id_servicio)] ?? null,
+        imageUrl: servicio.imagenes[0],
+      })),
+    [results, applicantCounts],
+  );
 
   const filtered = posts.filter((p) => {
     const matchSearch = p.title
       .toLowerCase()
-      .includes(search.toLowerCase());
+      .includes(debouncedSearch.trim().toLowerCase());
     const matchStatus =
       statusFilter === "all" || p.status === statusFilter;
     const matchCategory =
@@ -842,10 +1008,100 @@ const MyPostScreen: React.FC = () => {
     [totalPages, safePage]
   );
 
-  const handleViewDetails = useCallback((post: MyPost) => {
-    setSelectedPost(post);
-    setIsDetailsOpen(true);
+  const handleViewDetails = useCallback(
+    (post: MyPost) => {
+      setSelectedPost(post);
+      setSelectedJobDetails(null);
+      setIsLoadingDetails(true);
+      fetchPostDetails(post.id)
+        .then(async (details) => {
+          const location = await getApproxLocation(
+            details.latitud,
+            details.longitud,
+          );
+          setSelectedJobDetails(mapPostDetailsToJobDetails(details, location));
+          setIsDetailsOpen(true);
+        })
+        .catch((error) => {
+          console.error("fetchPostDetails failed:", error);
+          addToast("error", mp.errors.generic);
+        })
+        .finally(() => setIsLoadingDetails(false));
+    },
+    [addToast, mp.errors.generic],
+  );
+
+  const handleDeleteClick = useCallback((post: MyPost) => {
+    setDeleteTarget(post);
+    setIsDeleteConfirmOpen(true);
   }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deleteServicio(deleteTarget.id);
+      setResults((prev) =>
+        (prev ?? []).filter(
+          (s) => String(s.id_servicio) !== deleteTarget.id,
+        ),
+      );
+      // Home muestra "últimas publicaciones" en otra forma/cache — no vale
+      // la pena parchearla desde acá, solo invalidarla para que se
+      // refresque sola la próxima vez que se visite.
+      if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
+      addToast("success", mp.success.deleted);
+    } catch (error) {
+      addToast(
+        "error",
+        error instanceof ApiError ? error.message : mp.errors.deleteFailed,
+      );
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteConfirmOpen(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, addToast, mp.success.deleted, mp.errors.deleteFailed, setResults, userId]);
+
+  const handleEditClick = useCallback(
+    (post: MyPost) => {
+      setLoadingEditPostId(post.id);
+      fetchPostDetails(post.id)
+        .then((details) => {
+          setEditTarget(details);
+          setIsEditOpen(true);
+        })
+        .catch((error) => {
+          console.error("fetchPostDetails failed:", error);
+          addToast("error", mp.errors.generic);
+        })
+        .finally(() => setLoadingEditPostId(null));
+    },
+    [addToast, mp.errors.generic],
+  );
+
+  const handleEditSaved = useCallback(
+    (updated: ServicioResponse) => {
+      const categoriaNombre =
+        (categorias ?? []).find((c) => c.id_categoria === updated.id_categoria)
+          ?.nombre ?? "";
+      setResults((prev) =>
+        (prev ?? []).map((s) =>
+          s.id_servicio === updated.id_servicio
+            ? {
+                ...s,
+                titulo: updated.titulo,
+                precio_inicial: updated.precio_inicial,
+                categoria_nombre: categoriaNombre || s.categoria_nombre,
+              }
+            : s,
+        ),
+      );
+      if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
+      addToast("success", mp.success.edited);
+    },
+    [addToast, mp.success.edited, categorias, setResults, userId],
+  );
 
   const clearFilters = () => {
     setSearch("");
@@ -865,12 +1121,11 @@ const MyPostScreen: React.FC = () => {
     { value: "completed", label: mp.status.completed },
   ];
 
-  const categoryOptions = [
+  const categoryFilterOptions = [
     { value: "all", label: mp.filters.allCategories },
-    ...CATEGORY_KEYS.map((k) => ({
-      value: k,
-      label: mp.categories[k],
-    })),
+    ...(categorias ?? [])
+      .map((c) => ({ value: c.nombre, label: c.nombre }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
   ];
 
   return (
@@ -953,11 +1208,15 @@ const MyPostScreen: React.FC = () => {
           pointer-events: none;
           display: flex;
         }
-        .mp-search-clear {
+        .mp-search-action {
           position: absolute;
           right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
+          top: 0;
+          bottom: 0;
+          display: flex;
+          align-items: center;
+        }
+        .mp-search-clear {
           background: none;
           border: none;
           cursor: pointer;
@@ -965,6 +1224,32 @@ const MyPostScreen: React.FC = () => {
           display: flex;
           padding: 2px;
           border-radius: 4px;
+        }
+        .mp-clear-filters-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          height: 42px;
+          padding: 0 14px;
+          border-radius: 10px;
+          border: 1.5px solid transparent;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.82rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          white-space: nowrap;
+          overflow: hidden;
+          flex-shrink: 0;
+          transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .mp-clear-filters-btn:hover {
+            color: #FF4444;
+            border-color: rgba(255,68,68,0.35);
+            background: ${isDark ? "rgba(255,68,68,0.08)" : "rgba(255,68,68,0.06)"};
+          }
         }
         .mp-grid {
           display: grid;
@@ -1183,38 +1468,93 @@ const MyPostScreen: React.FC = () => {
                 type="text"
                 placeholder={mp.searchPlaceholder}
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
               />
-              <AnimatePresence>
-                {search && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.7 }}
-                    transition={{ duration: 0.14 }}
-                    className="mp-search-clear"
-                    onClick={() => setSearch("")}
-                  >
-                    <X size={14} />
-                  </motion.button>
-                )}
-              </AnimatePresence>
+              <div className="mp-search-action">
+                <AnimatePresence mode="wait" initial={false}>
+                  {isSearchPending ? (
+                    <motion.span
+                      key="spinner"
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      transition={{ duration: 0.14 }}
+                      className="mp-search-clear"
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+                        style={{
+                          width: 13,
+                          height: 13,
+                          borderRadius: "50%",
+                          border: "2px solid currentColor",
+                          borderTopColor: "transparent",
+                          display: "inline-block",
+                        }}
+                      />
+                    </motion.span>
+                  ) : (
+                    search && (
+                      <motion.button
+                        key="clear"
+                        initial={{ opacity: 0, scale: 0.7 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.7 }}
+                        transition={{ duration: 0.14 }}
+                        className="mp-search-clear"
+                        onClick={() => setSearch("")}
+                      >
+                        <X size={14} />
+                      </motion.button>
+                    )
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             <div className="mp-filter-row" style={{ display: "flex", gap: 10 }}>
               <FilterDropdown
                 value={statusFilter}
                 options={statusOptions}
-                onChange={(v) => { setStatusFilter(v); setPage(1); }}
+                onChange={(v) => {
+                  setStatusFilter(v);
+                  setPage(1);
+                }}
                 isDark={isDark}
               />
-
-              <FilterDropdown
-                value={categoryFilter}
-                options={categoryOptions}
-                onChange={(v) => { setCategoryFilter(v); setPage(1); }}
-                isDark={isDark}
-              />
+              {categoryFilterOptions.length > 1 && (
+                <FilterDropdown
+                  value={categoryFilter}
+                  options={categoryFilterOptions}
+                  onChange={(v) => {
+                    setCategoryFilter(v);
+                    setPage(1);
+                  }}
+                  isDark={isDark}
+                />
+              )}
+              <AnimatePresence>
+                {(statusFilter !== "all" || categoryFilter !== "all") && (
+                  <motion.button
+                    key="clear-filters"
+                    initial={{ opacity: 0, scale: 0.9, width: 0 }}
+                    animate={{ opacity: 1, scale: 1, width: "auto" }}
+                    exit={{ opacity: 0, scale: 0.9, width: 0 }}
+                    whileTap={{ scale: 0.96 }}
+                    transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                    onClick={clearFilters}
+                    className="mp-clear-filters-btn"
+                  >
+                    <X size={13} />
+                    <span>{mp.empty.clearFilters}</span>
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -1224,22 +1564,42 @@ const MyPostScreen: React.FC = () => {
                 <SkeletonCard key={i} isDark={isDark} />
               ))}
             </div>
+          ) : fetchError ? (
+            <EmptyState
+              icon={<AlertCircle size={32} color="#FF4444" />}
+              isDark={isDark}
+              title={mp.errors.retryTitle}
+              subtitle={fetchError}
+              action={{
+                label: mp.errors.retry,
+                onClick: handleRetry,
+              }}
+            />
           ) : paginated.length === 0 ? (
             <EmptyState
-              hasFilters={hasActiveFilters}
+              icon={<FileText size={32} color="#2EBCCC" />}
               isDark={isDark}
-              onClear={clearFilters}
-              onPost={() => navigate(ROUTES.APP.NEW_SERVICE)}
+              title={hasActiveFilters ? mp.empty.noResults : mp.empty.title}
+              subtitle={hasActiveFilters ? undefined : mp.empty.subtitle}
+              action={
+                hasActiveFilters
+                  ? { label: mp.empty.clearFilters, onClick: clearFilters, variant: "ghost" }
+                  : {
+                      label: mp.empty.cta,
+                      onClick: () => navigate(ROUTES.APP.NEW_SERVICE),
+                      icon: <Plus size={16} strokeWidth={2.5} />,
+                    }
+              }
             />
           ) : (
             <>
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={safePage}
+                  key={`${safePage}|${debouncedSearch}|${statusFilter}|${categoryFilter}`}
                   className="mp-grid"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
+                  initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -6, filter: "blur(2px)" }}
                   transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   {paginated.map((post, i) => (
@@ -1249,6 +1609,12 @@ const MyPostScreen: React.FC = () => {
                       index={i}
                       isDark={isDark}
                       onViewDetails={handleViewDetails}
+                      isLoadingDetails={
+                        isLoadingDetails && selectedPost?.id === post.id
+                      }
+                      onEdit={handleEditClick}
+                      onDelete={handleDeleteClick}
+                      isLoadingEdit={loadingEditPostId === post.id}
                     />
                   ))}
                 </motion.div>
@@ -1280,13 +1646,33 @@ const MyPostScreen: React.FC = () => {
       <JobDetailsModal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        job={selectedPost ? mapMyPostToDetails(selectedPost) : null}
+        job={selectedJobDetails}
         postStatus={selectedPost?.status}
         onViewApplicants={
           selectedPost
             ? () => navigate(buildPostOffersPath(selectedPost.id))
             : undefined
         }
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        isDark={isDark}
+        title={mp.deleteConfirm.title}
+        message={mp.deleteConfirm.message}
+        confirmLabel={isDeleting ? mp.pagination.loading : mp.deleteConfirm.confirm}
+        cancelLabel={mp.deleteConfirm.cancel}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+      />
+
+      <EditPostModal
+        key={editTarget?.id_servicio ?? "none"}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        post={editTarget}
+        onSaved={handleEditSaved}
+        onError={(message) => addToast("error", message)}
       />
     </>
   );

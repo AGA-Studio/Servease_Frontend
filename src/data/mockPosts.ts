@@ -8,7 +8,7 @@ export interface MyPost {
   postedAgo: string;
   budget: number;
   currency: string;
-  applicantCount: number;
+  applicantCount: number | null;
   imageUrl?: string;
 }
 

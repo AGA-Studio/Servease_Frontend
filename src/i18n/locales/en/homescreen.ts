@@ -14,7 +14,7 @@ export const homescreen = {
   serviceCard: {
     link: {
       viewDetails: "View Details",
-      reviewProposals: "Review Proposals",
+      reviewProposals: "R",
     },
     status: {
       inProgress: "In Progress",
@@ -32,5 +32,16 @@ export const homescreen = {
   tooltips: {
     notifications: "Notifications",
     postService: "Post a Service",
+  },
+  errors: {
+    kpisFailed: "Couldn't load your stats. Please try again later.",
+    postsFailed: "Couldn't load your posts. Please try again later.",
+  },
+  empty: {
+    postsTitle: "No posts yet",
+    postsSubtitle: "Post your first service request to start receiving proposals.",
+    postsCta: "Post a Service",
+    activityTitle: "No recent activity",
+    activitySubtitle: "Updates on your posts will show up here.",
   },
 };

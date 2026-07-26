@@ -26,8 +26,14 @@ interface AuthContextValue {
   profile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<string | null>;
+  mfaPending: boolean;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null; mfaPending: boolean }>;
   loginWithGoogle: () => Promise<void>;
+  completeMfaLogin: () => Promise<string | null>;
+  cancelMfaLogin: () => Promise<void>;
   signup: (data: {
     email: string;
     password: string;
@@ -38,6 +44,7 @@ interface AuthContextValue {
     photo?: File | null;
   }) => Promise<string | null>;
   logout: () => Promise<void>;
+  updateProfile: (updated: UserProfile) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -59,6 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mfaPending, setMfaPending] = useState(false);
+
+  const needsMfaChallenge = useCallback(async (): Promise<boolean> => {
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    return !!data && data.nextLevel === "aal2" && data.currentLevel !== data.nextLevel;
+  }, []);
 
   const loadProfile = useCallback(async (session: Session) => {
     const userProfile = await fetchUserProfile();
@@ -79,9 +92,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
+    const resolveSession = async (session: Session) => {
+      if (await needsMfaChallenge()) {
+        setMfaPending(true);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+      setMfaPending(false);
+      await loadProfile(session);
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        loadProfile(session).finally(() => setIsLoading(false));
+        resolveSession(session).finally(() => setIsLoading(false));
       } else {
         setIsLoading(false);
       }
@@ -91,26 +115,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        loadProfile(session).finally(() => setIsLoading(false));
+        resolveSession(session).finally(() => setIsLoading(false));
       } else {
         setUser(null);
         setProfile(null);
+        setMfaPending(false);
         setIsLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [loadProfile, needsMfaChallenge]);
 
   const login = useCallback(
-    async (email: string, password: string): Promise<string | null> => {
+    async (
+      email: string,
+      password: string,
+    ): Promise<{ error: string | null; mfaPending: boolean }> => {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) return error.message;
-      if (!data.session) return null;
+      if (error) return { error: error.message, mfaPending: false };
+      if (!data.session) return { error: null, mfaPending: false };
+
+      if (await needsMfaChallenge()) {
+        setMfaPending(true);
+        return { error: null, mfaPending: true };
+      }
 
       try {
         const userProfile = await fetchUserProfileOrThrow();
@@ -123,18 +156,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           lastnameM: userProfile.apellido_materno ?? undefined,
           role: userProfile.rol,
         });
-        return null;
+        return { error: null, mfaPending: false };
       } catch (err) {
-        // Backend rejected the session (e.g. unconfirmed account): don't
-        // leave a half-authenticated Supabase session lying around.
         await supabase.auth.signOut();
-        return err instanceof ApiError
-          ? err.message
-          : "No pudimos iniciar sesión. Intenta de nuevo.";
+        return {
+          error:
+            err instanceof ApiError
+              ? err.message
+              : "No pudimos iniciar sesión. Intenta de nuevo.",
+          mfaPending: false,
+        };
       }
     },
-    [],
+    [needsMfaChallenge],
   );
+
+  const completeMfaLogin = useCallback(async (): Promise<string | null> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return "No hay sesión activa.";
+
+    try {
+      const userProfile = await fetchUserProfileOrThrow();
+      setProfile(userProfile);
+      setUser({
+        id: session.user.id,
+        email: session.user.email ?? "",
+        firstName: userProfile.nombre,
+        lastnameP: userProfile.apellido_paterno,
+        lastnameM: userProfile.apellido_materno ?? undefined,
+        role: userProfile.rol,
+      });
+      setMfaPending(false);
+      return null;
+    } catch (err) {
+      await supabase.auth.signOut();
+      setMfaPending(false);
+      return err instanceof ApiError
+        ? err.message
+        : "No pudimos iniciar sesión. Intenta de nuevo.";
+    }
+  }, []);
+
+  const cancelMfaLogin = useCallback(async () => {
+    await supabase.auth.signOut();
+    setMfaPending(false);
+  }, []);
 
   const loginWithGoogle = useCallback(async () => {
     await supabase.auth.signInWithOAuth({
@@ -190,6 +258,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     await supabase.auth.signOut();
   }, []);
 
+  // Para usar después de un PATCH exitoso (ej. editar info personal): el
+  // backend ya regresa el usuario completo actualizado, así que no hace
+  // falta un refetch — solo sincronizar el estado local con esa respuesta.
+  const updateProfile = useCallback((updated: UserProfile) => {
+    setProfile(updated);
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            firstName: updated.nombre,
+            lastnameP: updated.apellido_paterno,
+            lastnameM: updated.apellido_materno ?? undefined,
+            role: updated.rol,
+          }
+        : prev,
+    );
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -197,10 +283,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         profile,
         isAuthenticated: !!user,
         isLoading,
+        mfaPending,
         login,
         loginWithGoogle,
+        completeMfaLogin,
+        cancelMfaLogin,
         signup,
         logout,
+        updateProfile,
       }}
     >
       {children}
