@@ -14,6 +14,9 @@ import { postdetailsscreen } from "./postdetailsscreen";
 import { applyjobmodal } from "./applyjobmodal";
 import { admin } from "./admin";
 import { confirmemailscreen } from "./confirmemailscreen";
+import { resetpasswordscreen } from "./resetpasswordscreen";
+import { mfasetupmodal } from "./mfasetupmodal";
+import { mfachallengemodal } from "./mfachallengemodal";
 export const en = {
   auth,
   common,
@@ -31,4 +34,7 @@ export const en = {
   applyjobmodal,
   admin,
   confirmemailscreen,
+  resetpasswordscreen,
+  mfasetupmodal,
+  mfachallengemodal,
 };

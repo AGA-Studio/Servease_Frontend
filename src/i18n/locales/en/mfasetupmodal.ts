@@ -1,0 +1,30 @@
+export const mfasetupmodal = {
+  scan: {
+    title: "Enable two-factor authentication",
+    body: "Scan this code with your authenticator app (Google Authenticator, Authy, 1Password...).",
+    secretLabel: "Can't scan? Copy this code:",
+    copy: "Copy",
+    copied: "Copied!",
+    codeLabel: "6-digit code",
+    codePlaceholder: "000000",
+    verify: "Verify and enable",
+    verifying: "Verifying...",
+    invalidCode: "Invalid or expired code.",
+    newCode: "Expired? Generate a new one",
+    enrollError: "Couldn't start 2FA setup. Please try again.",
+  },
+  backupCodes: {
+    title: "Save your backup codes",
+    body: "Use these to sign in if you lose access to your authenticator app. Each one works only once.",
+    copyAll: "Copy all",
+    download: "Download .txt",
+    confirm: "I've saved my codes somewhere safe.",
+    continue: "Continue",
+  },
+  success: {
+    title: "2FA enabled!",
+    body: "Your account is now protected with two-factor authentication. Next time you sign in we'll ask for your code.",
+    close: "Got it",
+  },
+  close: "Cancel",
+};

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch } from "./apiClient";
+import { apiGet, apiPatch, apiPost } from "./apiClient";
 import { supabase } from "../lib/supabase";
 import type { UserRole } from "../context/AuthContext";
 import type { ServicioListItem } from "./servicioApi";
@@ -90,6 +90,13 @@ export async function updatePersonalInfo(
     { ...payload },
   );
   return mapUsuarioResponse(data);
+}
+
+// POST /api/usuarios/settings/password-reset/ — dispara el correo de
+// restablecimiento (Supabase Auth "recover") a la cuenta del usuario logueado.
+// El backend usa request.user.correo, no recibe body.
+export async function requestPasswordReset(): Promise<void> {
+  await apiPost<void>("/api/usuarios/settings/password-reset/", {});
 }
 
 export interface PerfilCliente {

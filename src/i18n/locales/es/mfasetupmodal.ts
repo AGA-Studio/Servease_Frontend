@@ -1,0 +1,30 @@
+export const mfasetupmodal = {
+  scan: {
+    title: "Activa la verificación en dos pasos",
+    body: "Escanea este código con tu app de autenticación (Google Authenticator, Authy, 1Password...).",
+    secretLabel: "¿No puedes escanear? Copia este código:",
+    copy: "Copiar",
+    copied: "¡Copiado!",
+    codeLabel: "Código de 6 dígitos",
+    codePlaceholder: "000000",
+    verify: "Verificar y activar",
+    verifying: "Verificando...",
+    invalidCode: "Código inválido o expirado.",
+    newCode: "¿Expiró? Generar uno nuevo",
+    enrollError: "No se pudo iniciar el registro de 2FA. Intenta de nuevo.",
+  },
+  backupCodes: {
+    title: "Guarda tus códigos de respaldo",
+    body: "Úsalos para entrar si pierdes acceso a tu app de autenticación. Cada uno funciona una sola vez.",
+    copyAll: "Copiar todos",
+    download: "Descargar .txt",
+    confirm: "Ya guardé mis códigos en un lugar seguro.",
+    continue: "Continuar",
+  },
+  success: {
+    title: "¡2FA activado!",
+    body: "Tu cuenta ahora está protegida con verificación en dos pasos. La próxima vez que inicies sesión te pediremos tu código.",
+    close: "Entendido",
+  },
+  close: "Cancelar",
+};

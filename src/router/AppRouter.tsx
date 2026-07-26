@@ -8,6 +8,7 @@ import { ROUTES } from "./routes";
 
 import AuthScreen from "../screens/auth/AuthScreen";
 import ConfirmEmailScreen from "../screens/auth/ConfirmEmailScreen";
+import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 import TermsScreen from "../screens/legal/TermsScreen";
 import PrivacyScreen from "../screens/legal/PrivacyScreen";
 import AppLayout from "../layouts/AppLayout";
@@ -53,6 +54,7 @@ const AppRouter: React.FC = () => (
       <Route path="/" element={<RootRedirect />} />
       <Route path={ROUTES.AUTH} element={<AuthScreen />} />
       <Route path={ROUTES.CONFIRM_EMAIL} element={<ConfirmEmailScreen />} />
+      <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordScreen />} />
       <Route path={ROUTES.TERMS} element={<TermsScreen />} />
       <Route path={ROUTES.PRIVACY} element={<PrivacyScreen />} />
 

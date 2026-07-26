@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../router/routes";
@@ -13,16 +13,24 @@ import {
   Wrench,
   Camera,
   X,
+  KeyRound,
 } from "lucide-react";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { useToast } from "../../components/Toast/useToast";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
+import { supabase } from "../../lib/supabase";
 import "../../styles/animations.global.css";
 import "./animations.auth.css";
 import ServeaseLogoDark from "../../assets/Servease-Icono-Modo-Oscuro.svg";
 import ServeaseLogo from "../../assets/Servease-Icono.svg";
 import { useAuth } from "../../context/AuthContext";
+import MfaChallengeModal from "../../components/mfa/MfaChallengeModal";
+import {
+  getPasswordStrength,
+  PASSWORD_STRENGTH_COLOR,
+  PASSWORD_STRENGTH_WIDTH,
+} from "../../utils/passwordStrength";
 
 type AuthMode = "login" | "signup";
 
@@ -209,6 +217,164 @@ const DevModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
   );
 };
 
+const FORGOT_PASSWORD_COOLDOWN_SECONDS = 60;
+// Mismo patrón de validación que login/signup en esta pantalla — mantiene
+// consistencia, no es la defensa real (esa vive del lado de Supabase).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LENGTH = 254; // límite de RFC 5321
+
+const ForgotPasswordModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
+  onClose,
+  theme,
+}) => {
+  const { t } = useI18n();
+  const auth = t("auth");
+  const fp = auth.forgotPasswordModal;
+  const isDark = theme === "dark";
+
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"form" | "sending" | "sent">("form");
+  const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Doble guard: ni doble-submit mientras envía, ni reenvío antes del
+    // cooldown. Es UX, no seguridad real — cualquiera puede saltarse esto
+    // desde la consola, la defensa real es el rate limit del lado de
+    // Supabase, que corre server-side sin importar cómo llegue la petición.
+    if (status === "sending" || cooldown > 0) return;
+
+    const trimmed = email.trim();
+    if (!trimmed || trimmed.length > MAX_EMAIL_LENGTH || !EMAIL_REGEX.test(trimmed)) {
+      setError(auth.errors.emailInvalid);
+      return;
+    }
+
+    setError(null);
+    setStatus("sending");
+
+    const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(
+      trimmed,
+      { redirectTo: `${window.location.origin}${ROUTES.RESET_PASSWORD}` },
+    );
+
+    // GoTrue nunca revela si la cuenta existe — siempre regresa éxito pa
+    // evitar que este formulario sirva para enumerar correos registrados.
+    // Solo distinguimos rate limit, que no filtra nada de la cuenta, solo
+    // dice "mandaste muchas solicitudes seguidas".
+    if (supabaseError) {
+      const isRateLimited =
+        "status" in supabaseError && supabaseError.status === 429;
+      setError(isRateLimited ? fp.rateLimited : fp.genericError);
+      setStatus("form");
+      return;
+    }
+
+    setCooldown(FORGOT_PASSWORD_COOLDOWN_SECONDS);
+    setStatus("sent");
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[10000] flex items-center justify-center p-6 animate-fade-in">
+      <div
+        className={`${isDark ? "bg-[#1B244C] border-[#273570]" : "bg-white border-gray-200"} border rounded-3xl p-10 max-w-[420px] w-full shadow-[0_32px_80px_rgba(0,0,0,0.3)] animate-scale-in`}
+      >
+        {status === "sent" ? (
+          <div className="text-center">
+            <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6 animate-scale-in">
+              <Mail size={32} className="text-[#2EBCCC]" />
+            </div>
+            <h2
+              className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+            >
+              {fp.sentTitle}
+            </h2>
+            <p
+              className={`text-[0.9375rem] leading-7 mb-8 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+            >
+              {fp.sentBody}
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] active:scale-[0.97] text-white font-extrabold text-[0.9375rem] py-4 rounded-2xl border-none cursor-pointer shadow-[0_8px_24px_#2EBCCC44] transition-[transform,background-color] duration-150 ease-out"
+            >
+              {fp.close}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="text-center">
+              <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6">
+                <KeyRound size={32} className="text-[#2EBCCC]" />
+              </div>
+              <h2
+                className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+              >
+                {fp.title}
+              </h2>
+              <p
+                className={`text-[0.9375rem] leading-7 mb-6 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+              >
+                {fp.body}
+              </p>
+            </div>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left" autoComplete="off">
+              <InputField
+                label={fp.emailLabel}
+                type="email"
+                name="forgot-password-email"
+                placeholder={fp.emailPlaceholder}
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                }}
+                icon={<Mail size={18} />}
+                focusedField={focusedField}
+                onFocus={() => setFocusedField("forgot-password-email")}
+                onBlur={() => setFocusedField(null)}
+                theme={theme}
+                error={error ?? undefined}
+                maxLength={MAX_EMAIL_LENGTH}
+              />
+              <button
+                type="submit"
+                disabled={status === "sending" || cooldown > 0}
+                className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] text-white font-extrabold text-[0.9375rem] py-4 px-5 rounded-2xl border-none cursor-pointer flex items-center justify-center gap-2.5 shadow-[0_8px_24px_#2EBCCC44] transition-all duration-200"
+              >
+                {status === "sending" ? (
+                  <>
+                    <Spinner />
+                    <span className="animate-pulse">{fp.submitting}</span>
+                  </>
+                ) : cooldown > 0 ? (
+                  `${fp.resendIn} ${cooldown}s`
+                ) : (
+                  fp.submit
+                )}
+              </button>
+            </form>
+            <button
+              onClick={onClose}
+              className={`w-full mt-3 bg-transparent border-none cursor-pointer font-bold text-[0.8125rem] py-2 transition-colors ${isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-black"}`}
+            >
+              {fp.close}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 interface InputFieldProps {
   type?: string;
   placeholder: string;
@@ -224,6 +390,7 @@ interface InputFieldProps {
   suffix?: React.ReactNode;
   badge?: string;
   error?: string;
+  maxLength?: number;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -241,6 +408,7 @@ const InputField: React.FC<InputFieldProps> = ({
   suffix,
   badge,
   error,
+  maxLength,
 }) => {
   const isDark = theme === "dark";
   const isFocused = focusedField === name;
@@ -267,6 +435,7 @@ const InputField: React.FC<InputFieldProps> = ({
             onChange={onChange}
             onFocus={onFocus}
             onBlur={onBlur}
+            maxLength={maxLength}
             className={`w-full pl-12 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 placeholder:text-slate-400 ${suffix ? "pr-12" : badge ? "pr-24" : "pr-4"} ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : isFocused ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
           />
           {suffix && (
@@ -320,6 +489,7 @@ const AuthScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showDevModal, setShowDevModal] = useState(false);
   const [showConfirmEmailModal, setShowConfirmEmailModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [signupStep, setSignupStep] = useState(0);
   const [stepDirection, setStepDirection] = useState<"forward" | "back">(
@@ -354,7 +524,23 @@ const AuthScreen: React.FC = () => {
   const isLogin = mode === "login";
   const auth = t("auth");
 
-  const { login, signup, loginWithGoogle } = useAuth();
+  const { login, signup, loginWithGoogle, mfaPending, isAuthenticated } = useAuth();
+  const [showMfaModal, setShowMfaModal] = useState(false);
+
+  useEffect(() => {
+    if (mfaPending) setShowMfaModal(true);
+  }, [mfaPending]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timeout = setTimeout(() => navigate("/", { replace: true }), 450);
+    return () => clearTimeout(timeout);
+  }, [isAuthenticated, navigate]);
+
+  const signupPasswordStrength = useMemo(
+    () => (signupData.password ? getPasswordStrength(signupData.password) : null),
+    [signupData.password],
+  );
 
   const switchMode = (next: AuthMode) => {
     setStepDirection("forward");
@@ -479,15 +665,18 @@ const AuthScreen: React.FC = () => {
     e.preventDefault();
     if (!validateLoginForm()) return;
     setIsLoading(true);
-    const error = await login(loginData.email, loginData.password);
+    const { error, mfaPending: pendingMfa } = await login(
+      loginData.email,
+      loginData.password,
+    );
+    setIsLoading(false);
     if (error) {
-      setIsLoading(false);
       addToast("error", error);
       return;
     }
-
-    setIsLoading(false);
-    navigate("/", { replace: true });
+    if (!pendingMfa) {
+      addToast("success", auth.toast.loginSuccess);
+    }
   };
 
   const handleGoogleAuth = async () => {
@@ -525,6 +714,19 @@ const AuthScreen: React.FC = () => {
             switchMode("login");
           }}
           theme={theme}
+        />
+      )}
+      {showForgotPasswordModal && (
+        <ForgotPasswordModal
+          onClose={() => setShowForgotPasswordModal(false)}
+          theme={theme}
+        />
+      )}
+
+      {showMfaModal && (
+        <MfaChallengeModal
+          isDark={isDark}
+          onDone={() => setShowMfaModal(false)}
         />
       )}
 
@@ -708,9 +910,7 @@ const AuthScreen: React.FC = () => {
                   <div className="flex justify-end pt-0.5 pb-3">
                     <button
                       type="button"
-                      onClick={() =>
-                        addToast("info", auth.toast.forgotPassword)
-                      }
+                      onClick={() => setShowForgotPasswordModal(true)}
                       className="bg-transparent border-none cursor-pointer text-[#2EBCCC] hover:text-[#239aaa] font-bold text-[0.8125rem] p-0 transition-colors"
                     >
                       {auth.login.forgotPassword}
@@ -883,6 +1083,27 @@ const AuthScreen: React.FC = () => {
                             </button>
                           }
                         />
+                        {signupData.password.length > 0 && signupPasswordStrength && (
+                          <div className="flex items-center gap-2 px-1 animate-fade-up">
+                            <div className="flex-1 h-1 rounded-full bg-[#E5E7EB] overflow-hidden">
+                              <div
+                                style={{
+                                  width: PASSWORD_STRENGTH_WIDTH[signupPasswordStrength],
+                                  background: PASSWORD_STRENGTH_COLOR[signupPasswordStrength],
+                                  transition:
+                                    "width 220ms ease-out, background-color 220ms ease-out",
+                                }}
+                                className="h-full rounded-full"
+                              />
+                            </div>
+                            <span
+                              style={{ color: PASSWORD_STRENGTH_COLOR[signupPasswordStrength] }}
+                              className="text-[11px] font-bold shrink-0"
+                            >
+                              {auth.signup.strength[signupPasswordStrength]}
+                            </span>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex flex-col items-center py-2">
@@ -961,7 +1182,11 @@ const AuthScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleNextStep}
-                      disabled={isLoading}
+                      disabled={
+                        isLoading ||
+                        (signupStep === auth.signup.steps.length - 1 &&
+                          !signupAcceptedTerms)
+                      }
                       className={primaryBtnBase}
                     >
                       {isLoading ? (
