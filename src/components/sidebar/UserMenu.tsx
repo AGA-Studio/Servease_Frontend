@@ -6,7 +6,7 @@ import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
 import { useI18n } from "../../i18n";
-import LogoutModal from "./LogoutModal";
+import CustomizableModal from "../modal/CustomizableModal";
 
 interface Props {
   isCollapsed: boolean;
@@ -206,9 +206,13 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
         ))}
       </div>
 
-      <LogoutModal
+      <CustomizableModal
         isOpen={showLogoutModal}
-        isDark={isDark}
+        variant="warning"
+        title={t("auth").logoutModal.title}
+        subtitle={t("auth").logoutModal.message}
+        confirmText={t("auth").logoutModal.confirm}
+        cancelText={t("auth").logoutModal.cancel}
         onClose={() => setShowLogoutModal(false)}
         onConfirm={handleLogoutConfirm}
       />

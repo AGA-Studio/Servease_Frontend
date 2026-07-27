@@ -39,6 +39,26 @@ export const postoffers = {
   },
   actionUnavailable:
     "Accepting, rejecting, or countering proposals isn't available yet.",
+  confirmAccept: {
+    title: "Accept Application",
+    message: "Accept {name}'s proposal for ${bid}? They'll be notified and you can start coordinating the service.",
+    confirm: "Yes, Accept",
+  },
+  confirmReject: {
+    title: "Reject Application",
+    message: "Reject {name}'s proposal? This can be undone afterwards.",
+    confirm: "Yes, Reject",
+  },
+  confirmCancelCounter: {
+    title: "Cancel Counter-Offer",
+    message: "Cancel the counter-offer sent to {name}? They'll go back to their original bid.",
+    confirm: "Yes, Cancel",
+  },
+  confirmUndoDecline: {
+    title: "Undo Rejection",
+    message: "Restore {name}'s application back to pending?",
+    confirm: "Yes, Restore",
+  },
   errors: {
     postFailed: "Couldn't load the post. Please try again later.",
     applicantsFailed: "Couldn't load applicants. Please try again later.",

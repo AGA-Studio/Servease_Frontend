@@ -9,6 +9,7 @@ import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { updatePersonalInfo, type UserProfile } from "../../api/userApi";
 import { ApiError } from "../../api/apiClient";
+import CustomizableModal from "../modal/CustomizableModal";
 import {
   BIO_MAX_LENGTH,
   NAME_MAX_LENGTH,
@@ -55,6 +56,7 @@ const EditPersonalInfoModal: React.FC<Props> = ({
   const [bio, setBio] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !profile) return;
@@ -96,8 +98,13 @@ const EditPersonalInfoModal: React.FC<Props> = ({
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = async () => {
+  const handleSaveClick = () => {
     if (!validate()) return;
+    setShowSaveConfirm(true);
+  };
+
+  const handleSave = async () => {
+    setShowSaveConfirm(false);
     setIsSaving(true);
     try {
       const updated = await updatePersonalInfo({
@@ -347,7 +354,7 @@ const EditPersonalInfoModal: React.FC<Props> = ({
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={handleSave}
+                onClick={handleSaveClick}
                 disabled={isSaving}
                 style={{
                   flex: 1,
@@ -369,6 +376,17 @@ const EditPersonalInfoModal: React.FC<Props> = ({
           </motion.div>
         </motion.div>
       )}
+
+      <CustomizableModal
+        isOpen={showSaveConfirm}
+        variant="feature"
+        title={p.editModal.confirmSave.title}
+        subtitle={p.editModal.confirmSave.message}
+        confirmText={p.editModal.confirmSave.confirm}
+        isSubmitting={isSaving}
+        onConfirm={handleSave}
+        onClose={() => setShowSaveConfirm(false)}
+      />
     </AnimatePresence>,
     document.body,
   );

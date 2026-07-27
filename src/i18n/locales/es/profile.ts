@@ -32,6 +32,11 @@ export const profile = {
       bioLabel: "Biografía (opcional)",
       save: "Guardar Cambios",
       cancel: "Cancelar",
+      confirmSave: {
+        title: "Guardar Cambios",
+        message: "¿Guardar los cambios a tu información personal?",
+        confirm: "Guardar",
+      },
       validation: {
         nameRequired: "El nombre no puede estar vacío.",
         nameUnsafe: "El nombre contiene caracteres no permitidos (< o >).",

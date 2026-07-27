@@ -39,6 +39,26 @@ export const postoffers = {
   },
   actionUnavailable:
     "Aceptar, rechazar o contraofertar propuestas todavía no está disponible.",
+  confirmAccept: {
+    title: "Aceptar Aplicación",
+    message: "¿Aceptar a {name} por ${bid}? Se le notificará y podrán comenzar a coordinar el servicio.",
+    confirm: "Sí, Aceptar",
+  },
+  confirmReject: {
+    title: "Rechazar Aplicación",
+    message: "¿Rechazar la propuesta de {name}? Esta acción se puede deshacer después.",
+    confirm: "Sí, Rechazar",
+  },
+  confirmCancelCounter: {
+    title: "Cancelar Contraoferta",
+    message: "¿Cancelar la contraoferta enviada a {name}? Volverá a su propuesta original.",
+    confirm: "Sí, Cancelar",
+  },
+  confirmUndoDecline: {
+    title: "Deshacer Rechazo",
+    message: "¿Quieres restaurar la aplicación de {name} como pendiente?",
+    confirm: "Sí, Restaurar",
+  },
   errors: {
     postFailed: "No se pudo cargar la publicación. Intenta de nuevo más tarde.",
     applicantsFailed:

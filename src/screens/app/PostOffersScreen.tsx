@@ -14,6 +14,8 @@ import { ROUTES } from "../../router/routes";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
+import CustomizableModal from "../../components/modal/CustomizableModal";
+import ClientCounterModal from "../../components/counteroffermodal/ClientCounterModal";
 import {
   fetchAplicantes,
   fetchPostDetails,
@@ -37,7 +39,6 @@ interface Applicant {
   bid: number;
   status: ApplicantStatus;
   counterAmount: number | null;
-  counterDraft: string;
 }
 
 // `estado_solicitud` es un CharField sin choices documentados en el backend;
@@ -63,7 +64,6 @@ function aplicanteToApplicant(a: Aplicante): Applicant {
     bid: Number(a.precio_propuesto),
     status: mapEstadoSolicitud(a.estado_solicitud),
     counterAmount: a.presupuesto_acordado ? Number(a.presupuesto_acordado) : null,
-    counterDraft: "",
   };
 }
 
@@ -110,223 +110,357 @@ const Badge = ({ status, po }: { status: ApplicantStatus; po: PostOffersStrings 
 const ApplicantCard = ({
   applicant,
   index,
-  isCounterFormOpen,
   onAccept,
   onReject,
   onOpenCounter,
-  onCancelDraft,
-  onCounterDraftChange,
-  onSubmitCounter,
   onCancelCounter,
   onUndoDecline,
   po,
 }: {
   applicant: Applicant;
   index: number;
-  isCounterFormOpen: boolean;
   onAccept: () => void;
   onReject: () => void;
   onOpenCounter: () => void;
-  onCancelDraft: () => void;
-  onCounterDraftChange: (v: string) => void;
-  onSubmitCounter: () => void;
   onCancelCounter: () => void;
   onUndoDecline: () => void;
   po: PostOffersStrings;
 }) => {
   const a = applicant;
-  const isBidView = !isCounterFormOpen && a.status === "new";
-  const isCounteredView = !isCounterFormOpen && a.status === "countered";
+  const isBidView = a.status === "new";
+  const isCounteredView = a.status === "countered";
   const isAcceptedView = a.status === "accepted";
   const isDeclinedView = a.status === "declined";
+  const cardOpacity = a.status === "declined" ? 0.7 : 1;
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: a.status === "declined" ? 0.7 : 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.06, ease: EASE }}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "220px 1px 1fr",
-        gap: 28,
-        background: "var(--sidebar-bg)",
-        border: "1px solid var(--divider)",
-        borderRadius: 20,
-        padding: 28,
-        boxShadow: "0 2px 10px rgba(0,0,0,0.035)",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <img
-          src={a.avatar}
-          alt={a.name}
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: "50%",
-            objectFit: "cover",
-            boxShadow: "0 0 0 3px var(--sidebar-bg), 0 0 0 4px var(--divider)",
-          }}
-        />
-        <div style={{ fontSize: "1.03rem", fontWeight: 700, color: "var(--text)", marginTop: 4 }}>
-          {a.name}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "var(--text-secondary)" }}>
-          <Star size={13} fill="#FFB200" color="#FFB200" />
-          <span style={{ fontWeight: 700, color: "var(--text)" }}>{a.rating}</span>
-          <span>({a.reviews} {po.reviews})</span>
-        </div>
-        <div
-          style={{
-            background: "var(--input-bg)",
-            borderRadius: 10,
-            padding: "9px 14px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: "0.78rem",
-            color: "var(--text-secondary)",
-            marginTop: 4,
-          }}
-        >
-          <span>{po.jobsCompleted}</span>
-          <span style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.88rem" }}>{a.jobs}</span>
-        </div>
-        <a
-          href="#"
-          onClick={(e) => e.preventDefault()}
-          style={{
-            fontSize: "0.84rem",
-            fontWeight: 600,
-            color: "#2EBCCC",
-            textDecoration: "none",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            marginTop: 2,
-          }}
-        >
-          {po.seeProfile} <span>→</span>
-        </a>
-      </div>
-
-      <div style={{ background: "var(--divider)" }} />
-
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-          <span
+    <>
+      {/* Desktop layout — unchanged, hidden on mobile via CSS */}
+      <motion.div
+        layout
+        className="po-card-desktop"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: cardOpacity, y: 0 }}
+        transition={{ duration: 0.4, delay: index * 0.06, ease: EASE }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "220px 1px 1fr",
+          gap: 28,
+          background: "var(--sidebar-bg)",
+          border: "1px solid var(--divider)",
+          borderRadius: 20,
+          padding: 28,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.035)",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <img
+            src={a.avatar}
+            alt={a.name}
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
-              letterSpacing: "0.06em",
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              objectFit: "cover",
+              boxShadow: "0 0 0 3px var(--sidebar-bg), 0 0 0 4px var(--divider)",
+            }}
+          />
+          <div style={{ fontSize: "1.03rem", fontWeight: 700, color: "var(--text)", marginTop: 4 }}>
+            {a.name}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "var(--text-secondary)" }}>
+            <Star size={13} fill="#FFB200" color="#FFB200" />
+            <span style={{ fontWeight: 700, color: "var(--text)" }}>{a.rating}</span>
+            <span>({a.reviews} {po.reviews})</span>
+          </div>
+          <div
+            style={{
+              background: "var(--input-bg)",
+              borderRadius: 10,
+              padding: "9px 14px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "0.78rem",
               color: "var(--text-secondary)",
-              textTransform: "uppercase",
+              marginTop: 4,
             }}
           >
-            {po.proposalMessage}
-          </span>
-          <Badge status={a.status} po={po} />
-        </div>
-        <p style={{ margin: "10px 0 0", fontSize: "0.9rem", lineHeight: 1.6, color: "var(--text)" }}>
-          {a.message}
-        </p>
-
-        {isBidView && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, flexWrap: "wrap", gap: 14 }}>
-            <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
-                {po.providerBid}
-              </div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.bid}</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <motion.button whileTap={{ scale: 0.95 }} onClick={onReject} style={ghostBtnStyle}>
-                {po.reject}
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onOpenCounter} style={counterBtnStyle}>
-                {po.counterOffer}
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.96 }} onClick={onAccept} style={acceptBtnStyle}>
-                {po.accept}
-              </motion.button>
-            </div>
+            <span>{po.jobsCompleted}</span>
+            <span style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.88rem" }}>{a.jobs}</span>
           </div>
-        )}
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            style={{
+              fontSize: "0.84rem",
+              fontWeight: 600,
+              color: "#2EBCCC",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              marginTop: 2,
+            }}
+          >
+            {po.seeProfile} <span>→</span>
+          </a>
+        </div>
 
-        <AnimatePresence>
-          {isCounterFormOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, height: 0 }}
-              animate={{ opacity: 1, scale: 1, height: "auto" }}
-              exit={{ opacity: 0, scale: 0.96, height: 0 }}
-              transition={{ duration: 0.2, ease: EASE }}
+        <div style={{ background: "var(--divider)" }} />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+            <span
               style={{
-                marginTop: 18,
-                background: "var(--input-bg)",
-                borderRadius: 12,
-                padding: 16,
-                display: "flex",
-                alignItems: "flex-end",
-                gap: 14,
-                flexWrap: "wrap",
-                overflow: "hidden",
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                color: "var(--text-secondary)",
+                textTransform: "uppercase",
               }}
             >
-              <div>
-                <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 6 }}>
-                  {po.yourCounterOffer}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 2, background: "var(--sidebar-bg)", border: "1.5px solid var(--divider)", borderRadius: 10, padding: "6px 12px", width: 140 }}>
-                  <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>$</span>
-                  <input
-                    type="number"
-                    value={a.counterDraft}
-                    onChange={(e) => onCounterDraftChange(e.target.value)}
-                    style={{ border: "none", outline: "none", background: "transparent", fontSize: "1.05rem", fontWeight: 700, width: "100%", color: "var(--text)", fontFamily: "inherit" }}
-                  />
-                </div>
-              </div>
-              <motion.button whileTap={{ scale: 0.95 }} onClick={onCancelDraft} style={ghostBtnStyle}>
-                {po.cancel}
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onSubmitCounter} style={{ ...acceptBtnStyle, background: "var(--primary)", marginLeft: "auto" }}>
-                {po.sendCounter}
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {po.proposalMessage}
+            </span>
+            <Badge status={a.status} po={po} />
+          </div>
+          <p style={{ margin: "10px 0 0", fontSize: "0.9rem", lineHeight: 1.6, color: "var(--text)" }}>
+            {a.message}
+          </p>
 
-        {isCounteredView && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, flexWrap: "wrap", gap: 14 }}>
-            <div style={{ display: "flex", gap: 26 }}>
+          {isBidView && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, flexWrap: "wrap", gap: 14 }}>
               <div>
                 <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
-                  {po.originalBid}
+                  {po.providerBid}
                 </div>
-                <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.bid}</div>
+                <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.bid}</div>
               </div>
-              <div>
-                <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
-                  {po.yourCounter}
-                </div>
-                <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={onReject} style={ghostBtnStyle}>
+                  {po.reject}
+                </motion.button>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onOpenCounter} style={counterBtnStyle}>
+                  {po.counterOffer}
+                </motion.button>
+                <motion.button whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.96 }} onClick={onAccept} style={acceptBtnStyle}>
+                  {po.accept}
+                </motion.button>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <motion.button whileTap={{ scale: 0.95 }} onClick={onCancelCounter} style={ghostBtnStyle}>
-                {po.cancelCounter}
-              </motion.button>
-              <div style={{ background: "rgba(255,178,0,0.14)", color: "#8a5a00", fontWeight: 700, fontSize: "0.82rem", padding: "12px 18px", borderRadius: 11, display: "flex", alignItems: "center", gap: 8 }}>
-                <motion.span
-                  animate={{ opacity: [1, 0.4, 1] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                  style={{ width: 7, height: 7, borderRadius: "50%", background: "#FFB200", display: "inline-block" }}
-                />
-                {po.waitingForResponse}
+          )}
+
+          {isCounteredView && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, flexWrap: "wrap", gap: 14 }}>
+              <div style={{ display: "flex", gap: 26 }}>
+                <div>
+                  <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                    {po.originalBid}
+                  </div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.bid}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
+                    {po.yourCounter}
+                  </div>
+                  <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
+                </div>
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={onCancelCounter} style={ghostBtnStyle}>
+                  {po.cancelCounter}
+                </motion.button>
+                <div style={{ background: "rgba(255,178,0,0.14)", color: "#8a5a00", fontWeight: 700, fontSize: "0.82rem", padding: "12px 18px", borderRadius: 11, display: "flex", alignItems: "center", gap: 8 }}>
+                  <motion.span
+                    animate={{ opacity: [1, 0.4, 1] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ width: 7, height: 7, borderRadius: "50%", background: "#FFB200", display: "inline-block" }}
+                  />
+                  {po.waitingForResponse}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isAcceptedView && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: EASE }}
+              style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18, background: "rgba(74,168,37,0.12)", borderRadius: 12, padding: "16px 18px" }}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.15, 1] }}
+                transition={{ duration: 0.35, ease: EASE }}
+                style={{ width: 30, height: 30, borderRadius: "50%", background: "#4AA825", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}
+              >
+                <Check size={16} color="#fff" strokeWidth={2.5} />
+              </motion.div>
+              <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2f6b16" }}>
+                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", String(a.bid))}
+              </div>
+            </motion.div>
+          )}
+
+          {isDeclinedView && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18 }}>
+              <div style={{ fontSize: "0.84rem", fontWeight: 600, color: "var(--text-secondary)" }}>{po.declinedMessage}</div>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={onUndoDecline} style={{ background: "none", border: "1.5px solid var(--divider)", color: "var(--text)", fontWeight: 600, fontSize: "0.8rem", padding: "8px 14px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit" }}>
+                {po.undo}
+              </motion.button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Mobile layout — dedicated design, hidden on desktop via CSS */}
+      <motion.div
+        layout
+        className="po-card-mobile"
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: cardOpacity, y: 0 }}
+        transition={{ duration: 0.4, delay: index * 0.06, ease: EASE }}
+        style={{
+          display: "none",
+          flexDirection: "column",
+          gap: 14,
+          background: "var(--sidebar-bg)",
+          border: "1px solid var(--divider)",
+          borderRadius: 18,
+          padding: 18,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.035)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <img
+            src={a.avatar}
+            alt={a.name}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              objectFit: "cover",
+              boxShadow: "0 0 0 2px var(--sidebar-bg), 0 0 0 3px #2EBCCC",
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: "0.98rem", fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {a.name}
+              </span>
+              <Badge status={a.status} po={po} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.82rem", color: "var(--text-secondary)", marginTop: 4 }}>
+              <Star size={13} fill="#FFB200" color="#FFB200" />
+              <span style={{ fontWeight: 700, color: "var(--text)" }}>{a.rating}</span>
+              <span>({a.reviews} {po.reviews})</span>
             </div>
           </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div
+            style={{
+              flex: 1,
+              background: "var(--input-bg)",
+              borderRadius: 10,
+              padding: "9px 14px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "0.76rem",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <span>{po.jobsCompleted}</span>
+            <span style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.86rem" }}>{a.jobs}</span>
+          </div>
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "#2EBCCC",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              flexShrink: 0,
+            }}
+          >
+            {po.seeProfile} <span>→</span>
+          </a>
+        </div>
+
+        <div style={{ height: 1, background: "var(--divider)" }} />
+
+        <div>
+          <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 6 }}>
+            {po.proposalMessage}
+          </div>
+          <p style={{ margin: 0, fontSize: "0.88rem", lineHeight: 1.55, color: "var(--text)" }}>
+            {a.message}
+          </p>
+        </div>
+
+        {isBidView && (
+          <>
+            <div>
+              <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                {po.providerBid}
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>${a.bid}</div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.01, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={onAccept}
+              style={{ ...acceptBtnStyle, width: "100%", textAlign: "center" }}
+            >
+              {po.accept}
+            </motion.button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={onReject} style={{ ...mobileOutlineBtnStyle, flex: 1 }}>
+                {po.reject}
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={onOpenCounter} style={{ ...counterBtnStyle, flex: 1, textAlign: "center" }}>
+                {po.counterOffer}
+              </motion.button>
+            </div>
+          </>
+        )}
+
+        {isCounteredView && (
+          <>
+            <div style={{ display: "flex", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                  {po.originalBid}
+                </div>
+                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.bid}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
+                  {po.yourCounter}
+                </div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
+              </div>
+            </div>
+            <div style={{ background: "rgba(255,178,0,0.14)", color: "#8a5a00", fontWeight: 700, fontSize: "0.8rem", padding: "12px 16px", borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <motion.span
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                style={{ width: 7, height: 7, borderRadius: "50%", background: "#FFB200", display: "inline-block", flexShrink: 0 }}
+              />
+              {po.waitingForResponse}
+            </div>
+            <motion.button whileTap={{ scale: 0.97 }} onClick={onCancelCounter} style={{ ...mobileOutlineBtnStyle, width: "100%" }}>
+              {po.cancelCounter}
+            </motion.button>
+          </>
         )}
 
         {isAcceptedView && (
@@ -334,32 +468,32 @@ const ApplicantCard = ({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: EASE }}
-            style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18, background: "rgba(74,168,37,0.12)", borderRadius: 12, padding: "16px 18px" }}
+            style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(74,168,37,0.12)", borderRadius: 12, padding: "14px 16px" }}
           >
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: [0, 1.15, 1] }}
               transition={{ duration: 0.35, ease: EASE }}
-              style={{ width: 30, height: 30, borderRadius: "50%", background: "#4AA825", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}
+              style={{ width: 28, height: 28, borderRadius: "50%", background: "#4AA825", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}
             >
-              <Check size={16} color="#fff" strokeWidth={2.5} />
+              <Check size={14} color="#fff" strokeWidth={2.5} />
             </motion.div>
-            <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2f6b16" }}>
+            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2f6b16" }}>
               {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", String(a.bid))}
             </div>
           </motion.div>
         )}
 
         {isDeclinedView && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18 }}>
-            <div style={{ fontSize: "0.84rem", fontWeight: 600, color: "var(--text-secondary)" }}>{po.declinedMessage}</div>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={onUndoDecline} style={{ background: "none", border: "1.5px solid var(--divider)", color: "var(--text)", fontWeight: 600, fontSize: "0.8rem", padding: "8px 14px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-secondary)" }}>{po.declinedMessage}</div>
+            <motion.button whileTap={{ scale: 0.97 }} onClick={onUndoDecline} style={{ ...mobileOutlineBtnStyle, width: "100%" }}>
               {po.undo}
             </motion.button>
           </div>
         )}
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };
 
@@ -399,6 +533,19 @@ const acceptBtnStyle: React.CSSProperties = {
   boxShadow: "0 6px 16px rgba(46,188,204,0.35)",
 };
 
+const mobileOutlineBtnStyle: React.CSSProperties = {
+  background: "none",
+  border: "1.5px solid var(--divider)",
+  color: "var(--text)",
+  fontWeight: 700,
+  fontSize: "0.85rem",
+  padding: "12px 16px",
+  borderRadius: 11,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  textAlign: "center",
+};
+
 const PostOffersScreen: React.FC = () => {
   const isDark = useTheme();
   const { postId } = useParams<{ postId: string }>();
@@ -413,7 +560,11 @@ const PostOffersScreen: React.FC = () => {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [isLoadingApplicants, setIsLoadingApplicants] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("all");
-  const [openCounterId, setOpenCounterId] = useState<number | null>(null);
+  const [counterApplicant, setCounterApplicant] = useState<Applicant | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    type: "accept" | "reject" | "cancelCounter" | "undoDecline";
+    applicant: Applicant;
+  } | null>(null);
 
   useEffect(() => {
     if (!postId) return;
@@ -496,12 +647,34 @@ const PostOffersScreen: React.FC = () => {
     return true;
   });
 
-  const updateApplicant = (id: number, patch: Partial<Applicant>) => {
-    setApplicants((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  const handleConfirmedAction = () => {
+    if (!confirmState) return;
+    setConfirmState(null);
+    notifyActionUnavailable();
   };
 
   return (
-    <div className="page-enter" style={{ padding: "36px 40px 64px", maxWidth: 1200, margin: "0 auto" }}>
+    <div className="page-enter po-page" style={{ padding: "36px 40px 64px", maxWidth: 1200, margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 720px) {
+          .po-page { padding: 20px 16px 40px !important; }
+          .po-title { font-size: 1.35rem !important; }
+
+          .po-tabs {
+            width: 100% !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+          .po-tabs::-webkit-scrollbar { display: none; }
+          .po-tabs button { padding: 9px 14px !important; font-size: 0.8rem !important; }
+
+          .po-card-desktop { display: none !important; }
+          .po-card-mobile { display: flex !important; }
+        }
+      `}</style>
+
       <Breadcrumbs
         items={[
           { label: sb.myPost, to: ROUTES.APP.MY_POST },
@@ -524,6 +697,7 @@ const PostOffersScreen: React.FC = () => {
         />
       ) : (
         <motion.h1
+          className="po-title"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
@@ -536,7 +710,7 @@ const PostOffersScreen: React.FC = () => {
         {po.subtitle}
       </p>
 
-      <div style={{ display: "flex", gap: 6, background: "var(--input-bg)", padding: 5, borderRadius: 14, width: "fit-content", marginBottom: 28, flexWrap: "wrap" }}>
+      <div className="po-tabs" style={{ display: "flex", gap: 6, background: "var(--input-bg)", padding: 5, borderRadius: 14, width: "fit-content", marginBottom: 28, flexWrap: "wrap" }}>
         {tabDefs.map((tab) => (
           <button
             key={tab.key}
@@ -553,6 +727,7 @@ const PostOffersScreen: React.FC = () => {
               background: "transparent",
               color: activeTab === tab.key ? "var(--text)" : "var(--text-secondary)",
               whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
             {activeTab === tab.key && (
@@ -617,21 +792,11 @@ const PostOffersScreen: React.FC = () => {
                 applicant={a}
                 index={i}
                 po={po}
-                isCounterFormOpen={openCounterId === a.id}
-                onAccept={notifyActionUnavailable}
-                onReject={notifyActionUnavailable}
-                onUndoDecline={notifyActionUnavailable}
-                onOpenCounter={() => {
-                  setOpenCounterId(a.id);
-                  updateApplicant(a.id, { counterDraft: String(Math.max(0, a.bid - 150)) });
-                }}
-                onCancelDraft={() => setOpenCounterId(null)}
-                onCounterDraftChange={(v) => updateApplicant(a.id, { counterDraft: v })}
-                onSubmitCounter={() => {
-                  setOpenCounterId(null);
-                  notifyActionUnavailable();
-                }}
-                onCancelCounter={notifyActionUnavailable}
+                onAccept={() => setConfirmState({ type: "accept", applicant: a })}
+                onReject={() => setConfirmState({ type: "reject", applicant: a })}
+                onUndoDecline={() => setConfirmState({ type: "undoDecline", applicant: a })}
+                onOpenCounter={() => setCounterApplicant(a)}
+                onCancelCounter={() => setConfirmState({ type: "cancelCounter", applicant: a })}
               />
             ))
           )}
@@ -639,6 +804,45 @@ const PostOffersScreen: React.FC = () => {
       </AnimatePresence>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
+
+      {confirmState && (() => {
+        const copyByType = {
+          accept: { ...po.confirmAccept, variant: "success" as const },
+          reject: { ...po.confirmReject, variant: "warning" as const },
+          cancelCounter: { ...po.confirmCancelCounter, variant: "warning" as const },
+          undoDecline: { ...po.confirmUndoDecline, variant: "feature" as const },
+        };
+        const copy = copyByType[confirmState.type];
+        return (
+          <CustomizableModal
+            isOpen
+            variant={copy.variant}
+            title={copy.title}
+            subtitle={copy.message
+              .replace("{name}", confirmState.applicant.name)
+              .replace("{bid}", String(confirmState.applicant.bid))}
+            confirmText={copy.confirm}
+            cancelText={po.cancel}
+            onConfirm={handleConfirmedAction}
+            onClose={() => setConfirmState(null)}
+          />
+        );
+      })()}
+
+      <ClientCounterModal
+        key={counterApplicant?.id ?? "none"}
+        isOpen={!!counterApplicant}
+        applicant={{
+          name: counterApplicant?.name ?? "",
+          avatarUrl: counterApplicant?.avatar,
+          originalBid: counterApplicant?.bid ?? 0,
+        }}
+        onClose={() => setCounterApplicant(null)}
+        onSubmit={() => {
+          setCounterApplicant(null);
+          notifyActionUnavailable();
+        }}
+      />
     </div>
   );
 };

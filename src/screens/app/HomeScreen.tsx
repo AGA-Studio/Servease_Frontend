@@ -314,6 +314,7 @@ const PostCard = ({
       }}
     >
       <div
+        className="hs-post-header"
         style={{
           display: "flex",
           alignItems: "flex-start",
@@ -322,15 +323,18 @@ const PostCard = ({
           flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
           <PostIcon icon={post.icon} accentColor={post.accentColor} />
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontWeight: 700,
                 fontSize: "0.95rem",
                 color: "var(--text)",
                 marginBottom: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {post.title}
@@ -342,21 +346,33 @@ const PostCard = ({
                 gap: 6,
                 fontSize: "0.78rem",
                 color: "var(--text-secondary)",
+                minWidth: 0,
               }}
             >
               {post.location && (
                 <>
-                  <MapPin size={11} />
-                  {post.location}
-                  <span style={{ opacity: 0.4 }}>•</span>
+                  <MapPin size={11} style={{ flexShrink: 0 }} />
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      minWidth: 0,
+                    }}
+                  >
+                    {post.location}
+                  </span>
+                  <span style={{ opacity: 0.4, flexShrink: 0 }}>•</span>
                 </>
               )}
-              <Clock size={11} />
-              Posted {post.postedAgo}
+              <Clock size={11} style={{ flexShrink: 0 }} />
+              <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>Posted {post.postedAgo}</span>
             </div>
           </div>
         </div>
-        <StatusBadge status={post.status} />
+        <span className="hs-post-status">
+          <StatusBadge status={post.status} />
+        </span>
       </div>
 
       <p
@@ -372,6 +388,7 @@ const PostCard = ({
       </p>
 
       <div
+        className="hs-post-footer"
         style={{
           display: "flex",
           alignItems: "center",
@@ -380,7 +397,7 @@ const PostCard = ({
           gap: 8,
         }}
       >
-        <div>
+        <div className="hs-post-footer-left">
           {post.avatarCount && post.status === "receiving" && (
             <AvatarStack count={post.avatarCount + 3} />
           )}
@@ -438,7 +455,9 @@ const KpiCard = ({
       display: "flex",
       alignItems: "center",
       gap: 16,
-      flex: "1 1 180px",
+      width: "100%",
+      height: "100%",
+      boxSizing: "border-box",
     }}
   >
     <div
@@ -722,14 +741,17 @@ const HomeScreen: React.FC = () => {
       box-sizing: border-box;
     }
 
-    /* KPI cards: horizontal row, evenly spaced, centered content */
+    /* KPI cards: horizontal row, evenly spaced, all equal height regardless of content */
     .hs-kpi-row {
       gap: 10px;
       flex-wrap: nowrap;
+      align-items: stretch;
+    }
+    .hs-kpi-item {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
     }
     .hs-kpi-card {
-      flex: 1 1 0 !important;
-      min-width: 0;
       padding: 14px 10px !important;
       flex-direction: column;
       align-items: center;
@@ -761,12 +783,17 @@ const HomeScreen: React.FC = () => {
       overflow-y: visible;
       scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch;
-      margin: 0 -16px;
-      padding: 4px 16px 10px;
+      margin: 0;
+      padding: 4px 0 10px;
     }
+    /* An overflow:auto container's trailing padding isn't reliably included
+       in the scrollable extent when the child is a flex row (WebKit quirk) —
+       put the inset on the scrolled content itself so both edges are
+       respected and the last card never clips. */
     .hs-posts-grid {
       flex-direction: row;
       gap: 12px;
+      padding: 0 8px;
     }
     .hs-post-card {
       scroll-snap-align: start;
@@ -779,12 +806,22 @@ const HomeScreen: React.FC = () => {
       width: 34px !important;
       height: 34px !important;
     }
+    /* Mobile post cards show only the essentials — description and
+       avatar stack are hidden; "View Details" is the way to see the rest. */
     .hs-post-desc {
-      margin: 8px 0 !important;
-      display: -webkit-box;
-      -webkit-line-clamp: 1;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      display: none !important;
+    }
+    /* Status badge drops to its own row instead of squeezing next to the title */
+    .hs-post-status {
+      flex-basis: 100% !important;
+      display: flex !important;
+      margin-top: 6px !important;
+    }
+    .hs-post-footer-left {
+      display: none !important;
+    }
+    .hs-post-footer {
+      justify-content: flex-end !important;
     }
 
     /* Recent activity: compact panel, must fit viewport width exactly */
@@ -973,7 +1010,7 @@ const HomeScreen: React.FC = () => {
                 transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               >
                 {[0, 1, 2].map((i) => (
-                  <div key={i} style={{ flex: "1 1 180px" }}>
+                  <div key={i} className="hs-kpi-item" style={{ flex: "1 1 180px" }}>
                     <SkeletonLoader isDark={isDark} variant="kpi" />
                   </div>
                 ))}
@@ -987,7 +1024,7 @@ const HomeScreen: React.FC = () => {
                 initial="hidden"
                 animate="visible"
               >
-                <motion.div variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                <motion.div className="hs-kpi-item" variants={itemEnter} style={{ flex: "1 1 180px" }}>
                   <KpiCard
                     icon={<FileText size={22} color="#2EBCCC" />}
                     label={h.kpis.activeRequest}
@@ -995,7 +1032,7 @@ const HomeScreen: React.FC = () => {
                     iconBg="rgba(46,188,204,0.15)"
                   />
                 </motion.div>
-                <motion.div variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                <motion.div className="hs-kpi-item" variants={itemEnter} style={{ flex: "1 1 180px" }}>
                   <KpiCard
                     icon={<Users size={22} color="#4AA825" />}
                     label={h.kpis.totalHired}
@@ -1003,7 +1040,7 @@ const HomeScreen: React.FC = () => {
                     iconBg="rgba(74,168,37,0.15)"
                   />
                 </motion.div>
-                <motion.div variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                <motion.div className="hs-kpi-item" variants={itemEnter} style={{ flex: "1 1 180px" }}>
                   <KpiCard
                     icon={<Star size={22} color="#FFB200" fill="#FFB200" />}
                     label={h.kpis.averageRating}

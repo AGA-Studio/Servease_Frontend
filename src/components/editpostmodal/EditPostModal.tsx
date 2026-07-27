@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
-import ConfirmModal from "../confirmmodal/ConfirmModal";
+import CustomizableModal from "../modal/CustomizableModal";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import {
   editServicio,
@@ -385,13 +385,13 @@ const EditPostModal: React.FC<Props> = ({
         )}
       </AnimatePresence>
 
-      <ConfirmModal
+      <CustomizableModal
         isOpen={isConfirmOpen}
-        isDark={isDark}
+        variant="feature"
         title={mp.editModal.confirmTitle}
-        message={mp.editModal.confirmMessage}
-        confirmLabel={mp.editModal.confirmSave}
-        cancelLabel={mp.editModal.confirmCancel}
+        subtitle={mp.editModal.confirmMessage}
+        confirmText={mp.editModal.confirmSave}
+        cancelText={mp.editModal.confirmCancel}
         onConfirm={handleConfirmSave}
         onClose={() => setIsConfirmOpen(false)}
       />

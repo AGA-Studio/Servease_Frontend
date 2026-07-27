@@ -30,6 +30,7 @@ import { ApiError } from "../../api/apiClient";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import TwoFactorSetupModal from "../../components/mfa/TwoFactorSetupModal";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 
 type Tab = "account" | "appearance" | "privacy" | "legal";
 
@@ -62,6 +63,8 @@ const SettingsScreen: React.FC = () => {
   const [saved, setSaved] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   const [email, setEmail] = useState(user?.email ?? "");
@@ -74,6 +77,7 @@ const SettingsScreen: React.FC = () => {
   }, []);
 
   const handleRequestPasswordReset = async () => {
+    setShowResetConfirm(false);
     setSendingReset(true);
     try {
       await requestPasswordReset();
@@ -100,6 +104,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleSave = () => {
+    setShowSaveConfirm(false);
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
@@ -371,7 +376,7 @@ const SettingsScreen: React.FC = () => {
                       </p>
                     </div>
                     <button
-                      onClick={handleRequestPasswordReset}
+                      onClick={() => setShowResetConfirm(true)}
                       disabled={sendingReset}
                       onMouseDown={press}
                       onMouseUp={release}
@@ -451,7 +456,7 @@ const SettingsScreen: React.FC = () => {
 
               {/* Save button */}
               <button
-                onClick={handleSave}
+                onClick={() => setShowSaveConfirm(true)}
                 disabled={saving}
                 onMouseDown={press}
                 onMouseUp={release}
@@ -902,6 +907,26 @@ const SettingsScreen: React.FC = () => {
           }}
         />
       )}
+
+      <CustomizableModal
+        isOpen={showSaveConfirm}
+        variant="feature"
+        title={s.account.confirmSave.title}
+        subtitle={s.account.confirmSave.message}
+        confirmText={s.account.confirmSave.confirm}
+        onConfirm={handleSave}
+        onClose={() => setShowSaveConfirm(false)}
+      />
+
+      <CustomizableModal
+        isOpen={showResetConfirm}
+        variant="feature"
+        title={s.account.confirmPasswordReset.title}
+        subtitle={s.account.confirmPasswordReset.message}
+        confirmText={s.account.confirmPasswordReset.confirm}
+        onConfirm={handleRequestPasswordReset}
+        onClose={() => setShowResetConfirm(false)}
+      />
     </div>
   );
 };

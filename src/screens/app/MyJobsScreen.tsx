@@ -20,6 +20,9 @@ import { MOCK_JOBS, type MyJob, type ProposalStatus } from "../../data/mockJobs"
 import type { JobDetails, JobClient } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import EmptyState from "../../components/emptystate/EmptyState";
+import RatingModal from "../../components/ratingmodal/RatingModal";
+import { useAuth } from "../../context/AuthContext";
+import { setPendingClientRating } from "../../utils/pendingRatings";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -323,11 +326,13 @@ const AnimatedJobCard = ({
   index,
   isDark,
   onViewDetails,
+  onMarkCompleted,
 }: {
   job: MyJob;
   index: number;
   isDark: boolean;
   onViewDetails: (job: MyJob) => void;
+  onMarkCompleted: (job: MyJob) => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
@@ -465,34 +470,69 @@ const AnimatedJobCard = ({
           />
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onViewDetails(job)}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            borderRadius: 10,
-            border: "none",
-            background: "#2EBCCC",
-            color: "#ffffff",
-            fontWeight: 700,
-            fontSize: "0.875rem",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            letterSpacing: "0.01em",
-            transition: "background 160ms ease-out",
-            marginTop: "auto",
-          }}
-          onHoverStart={(e) => {
-            (e.target as HTMLButtonElement).style.background = "#239aaa";
-          }}
-          onHoverEnd={(e) => {
-            (e.target as HTMLButtonElement).style.background = "#2EBCCC";
-          }}
-        >
-          {d.actions.viewDetails}
-        </motion.button>
+        <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onViewDetails(job)}
+            style={{
+              flex: 1,
+              padding: "10px 0",
+              borderRadius: 10,
+              border: `1.5px solid ${isDark ? "#273570" : "#e5e7eb"}`,
+              background: "transparent",
+              color: "var(--text)",
+              fontWeight: 700,
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              letterSpacing: "0.01em",
+              transition: "border-color 160ms ease-out, color 160ms ease-out",
+            }}
+            onHoverStart={(e) => {
+              (e.target as HTMLButtonElement).style.borderColor = "#2EBCCC";
+              (e.target as HTMLButtonElement).style.color = "#2EBCCC";
+            }}
+            onHoverEnd={(e) => {
+              (e.target as HTMLButtonElement).style.borderColor = isDark
+                ? "#273570"
+                : "#e5e7eb";
+              (e.target as HTMLButtonElement).style.color = "var(--text)";
+            }}
+          >
+            {d.actions.viewDetails}
+          </motion.button>
+
+          {job.proposalStatus === "accepted" && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onMarkCompleted(job)}
+              style={{
+                flex: 1,
+                padding: "10px 0",
+                borderRadius: 10,
+                border: "none",
+                background: "#2EBCCC",
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "0.875rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "0.01em",
+                transition: "background 160ms ease-out",
+              }}
+              onHoverStart={(e) => {
+                (e.target as HTMLButtonElement).style.background = "#239aaa";
+              }}
+              onHoverEnd={(e) => {
+                (e.target as HTMLButtonElement).style.background = "#2EBCCC";
+              }}
+            >
+              {d.actions.markCompleted}
+            </motion.button>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -608,6 +648,7 @@ const MyJobsScreen: React.FC = () => {
   const { t } = useI18n();
   const d = t("myjobsscreen");
   const { toasts, addToast, removeToast } = useToast();
+  const { user, profile } = useAuth();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -615,6 +656,10 @@ const MyJobsScreen: React.FC = () => {
 
   const [selectedJob, setSelectedJob] = useState<MyJob | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  const [completingJob, setCompletingJob] = useState<MyJob | null>(null);
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -672,6 +717,41 @@ const MyJobsScreen: React.FC = () => {
       addToast("success", d.actions.cancelSuccess);
     },
     [addToast, d],
+  );
+
+  const handleMarkCompletedClick = useCallback((job: MyJob) => {
+    setCompletingJob(job);
+    setIsRatingOpen(true);
+  }, []);
+
+  const handleRatingSubmit = useCallback(
+    async () => {
+      if (!completingJob) return;
+      setIsSubmittingRating(true);
+      try {
+        setJobs((prev) => prev.filter((j) => j.id !== completingJob.id));
+
+        const providerName = user
+          ? `${user.firstName} ${user.lastnameP}`.trim()
+          : "Provider";
+        setPendingClientRating({
+          jobId: completingJob.id,
+          jobTitle: completingJob.title,
+          provider: {
+            name: providerName,
+            avatarUrl: profile?.url_foto_perfil ?? undefined,
+            rating: 5,
+            reviewsCount: 0,
+          },
+        });
+
+        addToast("success", d.actions.completeSuccess);
+      } finally {
+        setIsSubmittingRating(false);
+        setCompletingJob(null);
+      }
+    },
+    [completingJob, user, profile, addToast, d],
   );
 
   const clearFilters = () => {
@@ -1034,6 +1114,7 @@ const MyJobsScreen: React.FC = () => {
                     index={i}
                     isDark={isDark}
                     onViewDetails={handleViewDetails}
+                    onMarkCompleted={handleMarkCompletedClick}
                   />
                 ))}
               </motion.div>
@@ -1070,6 +1151,21 @@ const MyJobsScreen: React.FC = () => {
           selectedJob ? () => handleCancelProposal(selectedJob) : undefined
         }
       />
+
+      {completingJob && (
+        <RatingModal
+          isOpen={isRatingOpen}
+          onClose={() => setIsRatingOpen(false)}
+          provider={{
+            name: mapMyJobToDetails(completingJob).client.name,
+            avatarUrl: mapMyJobToDetails(completingJob).client.avatar,
+            rating: mapMyJobToDetails(completingJob).client.rating,
+            reviewsCount: mapMyJobToDetails(completingJob).client.reviewCount,
+          }}
+          onSubmit={handleRatingSubmit}
+          isSubmitting={isSubmittingRating}
+        />
+      )}
     </>
   );
 };
