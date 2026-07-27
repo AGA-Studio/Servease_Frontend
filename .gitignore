@@ -33,3 +33,6 @@ opencode.json
 .agents/
 .claude/
 CLAUDE.md
+
+# Supabase
+supabase/.temp/
