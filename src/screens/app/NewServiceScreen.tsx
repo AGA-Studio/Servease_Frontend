@@ -28,6 +28,7 @@ import { ApiError } from "../../api/apiClient";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import { createServicio, uploadServiceImage } from "../../api/servicioApi";
 import { invalidateCached } from "../../lib/dataCache";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 import {
   getApproxLocation,
   isWithinTijuana,
@@ -683,6 +684,7 @@ const NewServiceScreen: React.FC = () => {
   const [categoryClosing, setCategoryClosing] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [photoToRemove, setPhotoToRemove] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
   const currencyRef = useRef<HTMLDivElement>(null);
@@ -791,6 +793,12 @@ const NewServiceScreen: React.FC = () => {
       ...prev,
       photos: prev.photos.filter((_, idx) => idx !== i),
     }));
+
+  const confirmRemovePhoto = () => {
+    if (photoToRemove === null) return;
+    removePhoto(photoToRemove);
+    setPhotoToRemove(null);
+  };
 
   const debouncedLocationQuery = useDebounce(form.location, 180);
 
@@ -1762,7 +1770,7 @@ const NewServiceScreen: React.FC = () => {
                         className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         style={{ background: "rgba(0,0,0,0.55)" }}
                       >
-                        <DeletePhotoButton onDelete={() => removePhoto(i)} />
+                        <DeletePhotoButton onDelete={() => setPhotoToRemove(i)} />
                       </div>
                     </motion.div>
                   ))}
@@ -2036,6 +2044,16 @@ const NewServiceScreen: React.FC = () => {
         toasts={toasts}
         onRemove={removeToast}
         theme={isDark ? "dark" : "light"}
+      />
+
+      <CustomizableModal
+        isOpen={photoToRemove !== null}
+        variant="warning"
+        title={ns.photos.confirmRemove.title}
+        subtitle={ns.photos.confirmRemove.message}
+        confirmText={ns.photos.confirmRemove.confirm}
+        onConfirm={confirmRemovePhoto}
+        onClose={() => setPhotoToRemove(null)}
       />
     </>
   );

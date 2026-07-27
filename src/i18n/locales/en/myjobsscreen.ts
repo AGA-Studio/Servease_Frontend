@@ -19,6 +19,8 @@ export const myjobsscreen = {
   actions: {
     viewDetails: "View Details",
     cancelSuccess: "Application cancelled successfully.",
+    markCompleted: "Mark as Completed",
+    completeSuccess: "Service completed! Thanks for your rating.",
   },
   pagination: {
     page: "Page",

@@ -50,6 +50,11 @@ export const newservice = {
     errorType: "Tipo de archivo inválido",
     errorSize: "El archivo supera 5MB",
     addMoreHint: "Arrastra o haz clic para agregar más fotos (máx 6)",
+    confirmRemove: {
+      title: "Eliminar Foto",
+      message: "¿Quitar esta foto del servicio?",
+      confirm: "Eliminar",
+    },
   },
   actions: {
     postService: "Publicar Servicio",

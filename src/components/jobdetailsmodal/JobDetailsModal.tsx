@@ -1,7 +1,7 @@
 // Modal that shows full job details: images, description, client card, map and apply action.
 
 import { useEffect, useMemo, useState } from "react";
-import ConfirmModal from "../confirmmodal/ConfirmModal";
+import CustomizableModal from "../modal/CustomizableModal";
 import {
   MapPin,
   Calendar,
@@ -1161,13 +1161,13 @@ const JobDetailsModal: React.FC<Props> = ({
       </AnimatePresence>
 
       {job && (
-        <ConfirmModal
+        <CustomizableModal
           isOpen={isConfirmOpen}
-          isDark={isDark}
+          variant="warning"
           title={d.cancelProposalConfirm}
-          message={d.cancelProposalMessage.replace("{title}", job.title)}
-          confirmLabel={d.cancelProposal}
-          cancelLabel={d.keepApplication}
+          subtitle={d.cancelProposalMessage.replace("{title}", job.title)}
+          confirmText={d.cancelProposal}
+          cancelText={d.keepApplication}
           onConfirm={() => {
             setIsConfirmOpen(false);
             onCancelProposal?.();
