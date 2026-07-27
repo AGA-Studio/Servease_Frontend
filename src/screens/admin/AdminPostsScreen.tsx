@@ -5,7 +5,7 @@ import type { AdminOutletContext } from "../../layouts/AdminLayout";
 import { MOCK_POSTS, type MockPost, type PostStatus } from "../../data/adminMockData";
 import { AdminTopbar, StatusBadge, adminAnimationStyles } from "../../components/admin/AdminUI";
 import { useAdminTheme } from "../../components/admin/useAdminTheme";
-import AdminConfirmModal from "../../components/admin/AdminConfirmModal";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 import { useI18n } from "../../i18n";
 
 const STATUS_FILTERS: (PostStatus | "all")[] = ["all", "active", "flagged", "closed"];
@@ -153,14 +153,13 @@ const AdminPostsScreen: React.FC = () => {
         </div>
       </div>
 
-      <AdminConfirmModal
+      <CustomizableModal
         isOpen={!!pendingPost}
-        isDark={isDark}
-        tone={pendingPost?.status === "closed" ? "positive" : "danger"}
+        variant={pendingPost?.status === "closed" ? "success" : "warning"}
         title={pendingCopy?.title ?? ""}
-        message={pendingPost ? `${pendingCopy?.prefix} "${pendingPost.title}"${pendingCopy?.suffix}` : ""}
-        confirmLabel={pendingCopy?.action ?? ""}
-        cancelLabel={confirm.cancel}
+        subtitle={pendingPost ? `${pendingCopy?.prefix} "${pendingPost.title}"${pendingCopy?.suffix}` : ""}
+        confirmText={pendingCopy?.action ?? ""}
+        cancelText={confirm.cancel}
         onClose={() => setPendingPost(null)}
         onConfirm={confirmToggleVisibility}
       />

@@ -21,6 +21,16 @@ export const settings = {
     changePasswordSent: "Te enviamos un correo con las instrucciones para restablecer tu contraseña.",
     save: "Guardar cambios",
     saving: "Guardando...",
+    confirmSave: {
+      title: "Guardar Cambios",
+      message: "¿Guardar los cambios realizados a tu cuenta?",
+      confirm: "Guardar",
+    },
+    confirmPasswordReset: {
+      title: "Restablecer Contraseña",
+      message: "Te enviaremos un correo con instrucciones para restablecer tu contraseña. ¿Continuar?",
+      confirm: "Enviar Correo",
+    },
     role: "Tipo de cuenta",
     roleClient: "Cliente",
     roleProvider: "Proveedor",

@@ -17,6 +17,10 @@ import { confirmemailscreen } from "./confirmemailscreen";
 import { resetpasswordscreen } from "./resetpasswordscreen";
 import { mfasetupmodal } from "./mfasetupmodal";
 import { mfachallengemodal } from "./mfachallengemodal";
+import { customizablemodal } from "./customizablemodal";
+import { clientcountermodal } from "./clientcountermodal";
+import { ratingmodal } from "./ratingmodal";
+import { messagesscreen } from "./messagesscreen";
 export const en = {
   auth,
   common,
@@ -37,4 +41,8 @@ export const en = {
   resetpasswordscreen,
   mfasetupmodal,
   mfachallengemodal,
+  customizablemodal,
+  clientcountermodal,
+  ratingmodal,
+  messagesscreen,
 };

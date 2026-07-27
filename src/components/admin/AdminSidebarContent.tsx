@@ -7,7 +7,7 @@ import { useI18n, type Locale } from "../../i18n";
 import { ROUTES } from "../../router/routes";
 import { ADMIN_NAV_ITEMS } from "./AdminNavItems";
 import AdminNavLink from "./AdminNavLink";
-import LogoutModal from "../sidebar/LogoutModal";
+import CustomizableModal from "../modal/CustomizableModal";
 import ServeaseLogoDark from "../../assets/Servease-Icono-Modo-Oscuro.svg";
 import ServeaseLogo from "../../assets/Servease-Icono.svg";
 import { animateThemeChange } from "../../theme/animateThemeChange";
@@ -214,9 +214,13 @@ const AdminSidebarContent: React.FC<Props> = ({ isDark, onNavClick }) => {
         </div>
       </div>
 
-      <LogoutModal
+      <CustomizableModal
         isOpen={showLogoutModal}
-        isDark={isDark}
+        variant="warning"
+        title={t("auth").logoutModal.title}
+        subtitle={t("auth").logoutModal.message}
+        confirmText={t("auth").logoutModal.confirm}
+        cancelText={t("auth").logoutModal.cancel}
         onClose={() => setShowLogoutModal(false)}
         onConfirm={handleLogoutConfirm}
       />

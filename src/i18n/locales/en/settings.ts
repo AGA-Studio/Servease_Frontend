@@ -21,6 +21,16 @@ export const settings = {
     changePasswordSent: "We sent you an email with instructions to reset your password.",
     save: "Save changes",
     saving: "Saving...",
+    confirmSave: {
+      title: "Save Changes",
+      message: "Save the changes made to your account?",
+      confirm: "Save",
+    },
+    confirmPasswordReset: {
+      title: "Reset Password",
+      message: "We'll send you an email with instructions to reset your password. Continue?",
+      confirm: "Send Email",
+    },
     role: "Account type",
     roleClient: "Client",
     roleProvider: "Provider",

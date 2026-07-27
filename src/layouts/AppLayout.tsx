@@ -9,6 +9,13 @@ import ServeaseLogoDark from "../assets/Servease-Icono-Modo-Oscuro.svg";
 import ServeaseLogo from "../assets/Servease-Icono.svg";
 import { useI18n } from "../i18n";
 import { ROUTES } from "../router/routes";
+import { useAuth } from "../context/AuthContext";
+import RatingModal from "../components/ratingmodal/RatingModal";
+import {
+  getPendingClientRating,
+  clearPendingClientRating,
+  type PendingClientRating,
+} from "../utils/pendingRatings";
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(
@@ -31,6 +38,17 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
   const { t } = useI18n();
   const sidebar = t("sidebar");
+  const { user } = useAuth();
+
+  const [pendingRating] = useState<PendingClientRating | null>(() =>
+    getPendingClientRating(),
+  );
+  const [isRatingOpen, setIsRatingOpen] = useState(pendingRating !== null);
+
+  const handleRatingSubmit = () => {
+    clearPendingClientRating();
+    setIsRatingOpen(false);
+  };
 
   const bg     = isDark ? "#1B244C" : "#F6F8F8";
   const border = isDark ? "#273570" : "#CCCCCC";
@@ -95,6 +113,15 @@ const AppLayout: React.FC = () => {
           </main>
         </div>
       </div>
+
+      {pendingRating && user?.role === "client" && (
+        <RatingModal
+          isOpen={isRatingOpen}
+          onClose={() => setIsRatingOpen(false)}
+          provider={pendingRating.provider}
+          onSubmit={handleRatingSubmit}
+        />
+      )}
     </>
   );
 };

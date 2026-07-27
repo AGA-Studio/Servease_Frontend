@@ -32,6 +32,11 @@ export const profile = {
       bioLabel: "Bio (optional)",
       save: "Save Changes",
       cancel: "Cancel",
+      confirmSave: {
+        title: "Save Changes",
+        message: "Save the changes to your personal information?",
+        confirm: "Save",
+      },
       validation: {
         nameRequired: "First name can't be empty.",
         nameUnsafe: "The first name contains characters that aren't allowed (< or >).",

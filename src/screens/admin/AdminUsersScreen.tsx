@@ -5,7 +5,7 @@ import type { AdminOutletContext } from "../../layouts/AdminLayout";
 import { MOCK_USERS, type MockUser, type UserStatus } from "../../data/adminMockData";
 import { AdminTopbar, StatusBadge, adminAnimationStyles } from "../../components/admin/AdminUI";
 import { useAdminTheme } from "../../components/admin/useAdminTheme";
-import AdminConfirmModal from "../../components/admin/AdminConfirmModal";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 import { useI18n } from "../../i18n";
 
 const ROLE_FILTERS = ["all", "client", "provider", "admin"] as const;
@@ -185,14 +185,13 @@ const AdminUsersScreen: React.FC = () => {
         </div>
       </div>
 
-      <AdminConfirmModal
+      <CustomizableModal
         isOpen={!!pendingUser}
-        isDark={isDark}
-        tone={pendingUser?.status === "suspended" ? "positive" : "danger"}
+        variant={pendingUser?.status === "suspended" ? "success" : "warning"}
         title={pendingCopy?.title ?? ""}
-        message={pendingUser ? `${pendingCopy?.prefix} ${pendingUser.name}${pendingCopy?.suffix}` : ""}
-        confirmLabel={pendingCopy?.action ?? ""}
-        cancelLabel={confirm.cancel}
+        subtitle={pendingUser ? `${pendingCopy?.prefix} ${pendingUser.name}${pendingCopy?.suffix}` : ""}
+        confirmText={pendingCopy?.action ?? ""}
+        cancelText={confirm.cancel}
         onClose={() => setPendingUser(null)}
         onConfirm={confirmToggleSuspend}
       />

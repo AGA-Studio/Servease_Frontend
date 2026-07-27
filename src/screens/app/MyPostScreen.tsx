@@ -43,7 +43,7 @@ import {
 } from "../../utils/servicio";
 import { getApproxLocation } from "../../utils/location";
 import { ApiError } from "../../api/apiClient";
-import ConfirmModal from "../../components/confirmmodal/ConfirmModal";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 import EmptyState from "../../components/emptystate/EmptyState";
 import EditPostModal from "../../components/editpostmodal/EditPostModal";
 import { useCachedResource } from "../../hooks/useCachedResource";
@@ -1655,13 +1655,14 @@ const MyPostScreen: React.FC = () => {
         }
       />
 
-      <ConfirmModal
+      <CustomizableModal
         isOpen={isDeleteConfirmOpen}
-        isDark={isDark}
+        variant="warning"
         title={mp.deleteConfirm.title}
-        message={mp.deleteConfirm.message}
-        confirmLabel={isDeleting ? mp.pagination.loading : mp.deleteConfirm.confirm}
-        cancelLabel={mp.deleteConfirm.cancel}
+        subtitle={mp.deleteConfirm.message}
+        confirmText={mp.deleteConfirm.confirm}
+        cancelText={mp.deleteConfirm.cancel}
+        isSubmitting={isDeleting}
         onConfirm={handleConfirmDelete}
         onClose={() => setIsDeleteConfirmOpen(false)}
       />
