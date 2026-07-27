@@ -10,9 +10,9 @@ export interface BreadcrumbItem {
 
 interface BreadcrumbsProps {
   items: BreadcrumbItem[];
-  /** Where the back button navigates. Defaults to browser history back. */
+
   backTo?: string;
-  /** Accessible label for the back button. */
+
   backLabel?: string;
 }
 

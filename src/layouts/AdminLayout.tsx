@@ -1,4 +1,4 @@
-// Admin shell: fixed sidebar with the 4 admin sections only, mobile header, and page outlet.
+
 
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";

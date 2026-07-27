@@ -1,4 +1,4 @@
-// User card button at the bottom of the sidebar with an animated dropdown for profile, settings, and logout.
+
 
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";

@@ -844,7 +844,6 @@ const Pagination = ({
   );
 };
 
-
 const MyPostScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const navigate = useNavigate();
@@ -855,11 +854,6 @@ const MyPostScreen: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id;
 
-  // NewServiceScreen navega acá justo después de addToast(); su propio
-  // ToastContainer se desmonta antes de poder pintar el toast, así que la
-  // señal de éxito viaja por navigation state y se muestra desde acá.
-  // El ref evita que StrictMode (que en desarrollo vuelve a ejecutar este
-  // efecto una vez al montar) dispare el toast dos veces.
   const justCreatedHandledRef = useRef(false);
   useEffect(() => {
     if (justCreatedHandledRef.current) return;
@@ -868,7 +862,7 @@ const MyPostScreen: React.FC = () => {
     justCreatedHandledRef.current = true;
     addToast("success", mp.success.created);
     navigate(location.pathname, { replace: true, state: null });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const [search, setSearch] = useState("");
@@ -920,9 +914,6 @@ const MyPostScreen: React.FC = () => {
       : mp.errors.fetchFailed
     : null;
 
-  // Conteo de aplicantes por publicación: se resuelve por separado (no
-  // bloquea el grid) y se cachea por id de servicio para no repetir el
-  // fan-out de N requests cada vez que se vuelve a esta pantalla.
   const [applicantCounts, setApplicantCounts] = useState<
     Record<string, number>
   >({});
@@ -1046,9 +1037,7 @@ const MyPostScreen: React.FC = () => {
           (s) => String(s.id_servicio) !== deleteTarget.id,
         ),
       );
-      // Home muestra "últimas publicaciones" en otra forma/cache — no vale
-      // la pena parchearla desde acá, solo invalidarla para que se
-      // refresque sola la próxima vez que se visite.
+
       if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
       addToast("success", mp.success.deleted);
     } catch (error) {
@@ -1112,7 +1101,6 @@ const MyPostScreen: React.FC = () => {
 
   const hasActiveFilters =
     search !== "" || statusFilter !== "all" || categoryFilter !== "all";
-
 
   const statusOptions = [
     { value: "all", label: mp.filters.allStatuses },

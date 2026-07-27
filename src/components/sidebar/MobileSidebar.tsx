@@ -1,4 +1,4 @@
-// Mobile sidebar drawer with backdrop overlay, slide-in animation, and body scroll lock when open.
+
 
 import { useEffect } from "react";
 import { X } from "lucide-react";

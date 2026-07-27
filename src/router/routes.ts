@@ -1,4 +1,4 @@
-// Central route path constants used across the application.
+
 
 export const ROUTES = {
   AUTH: "/auth",
@@ -26,6 +26,5 @@ export const ROUTES = {
   },
 } as const;
 
-// Builds a concrete path to the post-offers screen for a given post id.
 export const buildPostOffersPath = (postId: string): string =>
   `/app/my-post/${postId}`;

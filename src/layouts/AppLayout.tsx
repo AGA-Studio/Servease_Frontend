@@ -1,4 +1,4 @@
-// Main application shell. Composes the desktop sidebar, mobile sidebar, mobile header, and the page outlet.
+
 
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";

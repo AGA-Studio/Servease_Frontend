@@ -456,7 +456,7 @@ const ProviderProfileScreen: React.FC = () => {
         }
       `}</style>
 
-      {/* Hero card */}
+      {}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -662,7 +662,7 @@ const ProviderProfileScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Stats row */}
+          {}
           <div
             style={{
               display: "grid",
@@ -770,7 +770,7 @@ const ProviderProfileScreen: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Two column body */}
+      {}
       <div
         style={{
           display: "grid",
@@ -786,9 +786,9 @@ const ProviderProfileScreen: React.FC = () => {
           }
         `}</style>
 
-        {/* Sidebar: About + Services */}
+        {}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {/* About card */}
+          {}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -920,7 +920,7 @@ const ProviderProfileScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Availability card */}
+          {}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -965,7 +965,7 @@ const ProviderProfileScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Services card */}
+          {}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1018,9 +1018,9 @@ const ProviderProfileScreen: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Main: Portfolio + Reviews */}
+        {}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {/* Portfolio */}
+          {}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1066,7 +1066,7 @@ const ProviderProfileScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Reviews */}
+          {}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

@@ -1,4 +1,4 @@
-// Custom notifications popover built from scratch in Servease style
+
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";

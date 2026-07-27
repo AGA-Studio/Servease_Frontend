@@ -1,5 +1,4 @@
-// Empty state genérico y reutilizable: ícono + mensaje + acción opcional.
-// Mismo estilo/animación en toda la app (fade + translateY, ease-out).
+
 
 import { motion } from "motion/react";
 

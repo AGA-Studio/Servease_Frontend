@@ -1,4 +1,4 @@
-// Redirects unauthenticated users to the auth screen before rendering protected content.
+
 
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";

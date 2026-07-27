@@ -1,4 +1,4 @@
-// Provider job feed: filter bar, job cards, earnings summary and applied jobs sidebar.
+
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -62,9 +62,6 @@ const formatPriceRange = (range: string): string => {
   return `$${min} - $${max}`;
 };
 
-// Catálogo real (ServicioListItem) enriquecido con ubicación aproximada
-// resuelta en cliente y, si el proveedor compartió su ubicación, distancia
-// real en línea recta (nunca coordenadas exactas mostradas al usuario).
 interface FeedJob {
   id: string;
   titulo: string;
@@ -148,7 +145,6 @@ const JobCard = ({
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleApplySubmit = (_data: ApplyJobData) => {
     setIsApplyOpen(false);
     addToast("info", d.actionUnavailable);
@@ -515,8 +511,6 @@ const JobFeedScreen: React.FC = () => {
   const [jobs, setJobs] = useState<FeedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Ubicación del proveedor, en segundo plano y sin bloquear el feed, solo
-  // para calcular distancias reales — nunca se muestra ni se guarda.
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -527,7 +521,7 @@ const JobFeedScreen: React.FC = () => {
         });
       },
       () => {
-        /* sin permiso: el feed sigue funcionando, solo sin distancia */
+
       },
       { timeout: 8000, enableHighAccuracy: false },
     );
@@ -580,7 +574,7 @@ const JobFeedScreen: React.FC = () => {
       cancelled = true;
       setIsLoading(true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [filters.category, providerCoords]);
 
   const categoryOptions: FilterOption[] = [

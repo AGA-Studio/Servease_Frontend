@@ -1,4 +1,4 @@
-// Theme toggle for the sidebar: icon-only morph button when collapsed, switch control when expanded.
+
 
 import { useState } from "react";
 import { Sun, Moon } from "lucide-react";

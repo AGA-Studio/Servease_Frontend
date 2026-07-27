@@ -1,4 +1,4 @@
-// Modal that shows full job details: images, description, client card, map and apply action.
+
 
 import { useEffect, useMemo, useState } from "react";
 import CustomizableModal from "../modal/CustomizableModal";
@@ -311,7 +311,7 @@ const JobDetailsModal: React.FC<Props> = ({
       setSelectedThumb(0);
       setLoadedThumbs({});
     };
-  }, [isOpen, job?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, job?.id]);
 
   if (!job) return null;
 

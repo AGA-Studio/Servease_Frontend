@@ -1,4 +1,4 @@
-// Client home screen: greeting, KPI stats, active posts list, and recent activity feed.
+
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -564,10 +564,6 @@ const HomeScreen: React.FC = () => {
     () => fetchUltimasPublicacionesCliente(user!.id),
   );
 
-  // La cache de dataCache.ts ya recuerda los posts entre visitas; solo la
-  // ubicación aproximada (Nominatim, servicio externo) se resuelve aparte
-  // por cada post — su propia cache interna (por coordenada) hace que en
-  // visitas repetidas se resuelva casi al instante.
   const [locations, setLocations] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -603,7 +599,7 @@ const HomeScreen: React.FC = () => {
       console.error("fetchPerfilCliente failed:", kpisError);
       addToast("error", h.errors.kpisFailed);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [kpisError]);
 
   useEffect(() => {
@@ -611,7 +607,7 @@ const HomeScreen: React.FC = () => {
       console.error("fetchUltimasPublicacionesCliente failed:", postsErrorObj);
       addToast("error", h.errors.postsFailed);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [postsErrorObj]);
 
   return (
@@ -741,7 +737,6 @@ const HomeScreen: React.FC = () => {
       box-sizing: border-box;
     }
 
-    /* KPI cards: horizontal row, evenly spaced, all equal height regardless of content */
     .hs-kpi-row {
       gap: 10px;
       flex-wrap: nowrap;
@@ -777,7 +772,6 @@ const HomeScreen: React.FC = () => {
       font-size: 1.25rem !important;
     }
 
-    /* Posts: horizontal swipeable carousel instead of a stacked list */
     .hs-posts-scroll {
       overflow-x: auto;
       overflow-y: visible;
@@ -786,10 +780,6 @@ const HomeScreen: React.FC = () => {
       margin: 0;
       padding: 4px 0 10px;
     }
-    /* An overflow:auto container's trailing padding isn't reliably included
-       in the scrollable extent when the child is a flex row (WebKit quirk) —
-       put the inset on the scrolled content itself so both edges are
-       respected and the last card never clips. */
     .hs-posts-grid {
       flex-direction: row;
       gap: 12px;
@@ -806,12 +796,9 @@ const HomeScreen: React.FC = () => {
       width: 34px !important;
       height: 34px !important;
     }
-    /* Mobile post cards show only the essentials — description and
-       avatar stack are hidden; "View Details" is the way to see the rest. */
     .hs-post-desc {
       display: none !important;
     }
-    /* Status badge drops to its own row instead of squeezing next to the title */
     .hs-post-status {
       flex-basis: 100% !important;
       display: flex !important;
@@ -824,7 +811,6 @@ const HomeScreen: React.FC = () => {
       justify-content: flex-end !important;
     }
 
-    /* Recent activity: compact panel, must fit viewport width exactly */
     .hs-recent-activity-card {
       padding: 14px !important;
       width: 100%;

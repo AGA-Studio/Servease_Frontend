@@ -165,7 +165,7 @@ const SettingsScreen: React.FC = () => {
           : "linear-gradient(160deg, #f0f4f8 0%, #F6F8F8 50%, #eef2f6 100%)",
       }}
     >
-      {/* --- TOP GLASS HEADER --- */}
+      {}
       <div
         className="sticky top-0 z-20"
         style={{
@@ -178,7 +178,7 @@ const SettingsScreen: React.FC = () => {
         }}
       >
         <div className="max-w-3xl mx-auto px-5 pt-6 pb-5">
-          {/* Title row */}
+          {}
           <div className="flex items-start justify-between mb-5">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
@@ -219,7 +219,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Segment control */}
+          {}
           <div
             className="flex p-1 rounded-2xl"
             style={{
@@ -257,7 +257,7 @@ const SettingsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* --- CONTENT --- */}
+      {}
       <div className="max-w-3xl mx-auto px-5 pt-8 pb-20">
         <div
           key={activeTab}
@@ -265,10 +265,10 @@ const SettingsScreen: React.FC = () => {
             animation: `fadeUp 250ms ${easeOut}`,
           }}
         >
-          {/* ========== ACCOUNT ========== */}
+          {}
           {activeTab === "account" && (
             <div className="flex flex-col gap-6">
-              {/* Profile hero */}
+              {}
               <div
                 style={{
                   ...glassCard,
@@ -326,7 +326,7 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Account info card */}
+              {}
               <div style={glassCard}>
                 <div className="px-6 py-5 border-b" style={{ borderColor: glassBorder }}>
                   <p
@@ -409,7 +409,7 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Role card */}
+              {}
               <div style={glassCard}>
                 <div className="px-6 py-5">
                   <p
@@ -454,7 +454,7 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Save button */}
+              {}
               <button
                 onClick={() => setShowSaveConfirm(true)}
                 disabled={saving}
@@ -490,7 +490,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           )}
 
-          {/* ========== APPEARANCE ========== */}
+          {}
           {activeTab === "appearance" && (
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
@@ -613,7 +613,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           )}
 
-          {/* ========== PRIVACY ========== */}
+          {}
           {activeTab === "privacy" && (
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
@@ -770,7 +770,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           )}
 
-          {/* ========== LEGAL ========== */}
+          {}
           {activeTab === "legal" && (
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
@@ -880,7 +880,7 @@ const SettingsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* keyframes injection */}
+      {}
       <style>{`
         @keyframes fadeUp {
           from {

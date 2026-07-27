@@ -1,4 +1,4 @@
-// i18n translations (Spanish) for the New Service / Create Post form screen
+
 
 export const newservice = {
   title: "Crear Nueva Publicación de Servicio",

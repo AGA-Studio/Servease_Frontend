@@ -67,8 +67,6 @@ interface RecentPost {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-// El backend no manda un ícono por categoría, así que se cicla un set
-// decorativo por índice — mismo criterio que POST_ICONS en HomeScreen.
 const RECENT_POST_ICONS = [
   <Wrench size={18} />,
   <Sparkles size={18} />,
@@ -95,7 +93,6 @@ function servicioToRecentPost(
     status: servicioEstadoToPostStatus(servicio.estado),
   };
 }
-
 
 const TextButton = ({
   children,
@@ -346,8 +343,6 @@ const ClientProfileScreen: React.FC = () => {
     reviews: perfilCliente?.num_reviews ?? 0,
   };
 
-  // Misma key de cache que HomeScreen — si ya visitaste Home, esto carga al
-  // instante en vez de refetch.
   const { data: recentServicios, isLoading: isLoadingRecentPosts } =
     useCachedResource(
       user?.id ? `ultimas-publicaciones:${user.id}` : null,
@@ -356,8 +351,7 @@ const ClientProfileScreen: React.FC = () => {
   const recentPosts = (recentServicios ?? []).map(servicioToRecentPost);
 
   const [isReviewsOpen, setIsReviewsOpen] = useState(false);
-  // Se pide solo hasta que se abre el modal la primera vez (key null antes
-  // de eso), no en cada visita al perfil.
+
   const { data: reviews, isLoading: isLoadingReviews } = useCachedResource(
     isReviewsOpen && user?.id ? `reviews:${user.id}` : null,
     () => fetchReviewsCliente(user!.id),
@@ -392,7 +386,7 @@ const ClientProfileScreen: React.FC = () => {
         .cp-star { transition: transform 0.2s ease; }
       `}</style>
 
-      {/* Hero card */}
+      {}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -505,7 +499,7 @@ const ClientProfileScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Stats row */}
+          {}
           {isLoadingStats ? (
             <div
               style={{
@@ -579,7 +573,7 @@ const ClientProfileScreen: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Two column body */}
+      {}
       <div
         style={{
           display: "grid",
@@ -595,7 +589,7 @@ const ClientProfileScreen: React.FC = () => {
           }
         `}</style>
 
-        {/* Personal info */}
+        {}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -644,7 +638,7 @@ const ClientProfileScreen: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Recent posts */}
+        {}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

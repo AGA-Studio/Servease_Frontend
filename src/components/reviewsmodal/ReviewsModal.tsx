@@ -1,4 +1,4 @@
-// Modal con todas las reviews de un cliente (GET /api/usuarios/<id>/reviews/).
+
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -151,11 +151,6 @@ const ReviewsModal: React.FC<Props> = ({
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
-  // Portal a document.body: si el modal se queda dentro del árbol de la
-  // pantalla, cualquier ancestro con transform activo (ej. la animación de
-  // entrada de página, .page-enter) crea un containing block nuevo y
-  // "position: fixed" deja de anclarse al viewport — el modal se movería
-  // con el scroll de esa pantalla en vez de quedarse fijo.
   return createPortal(
     <AnimatePresence>
       {isOpen && (

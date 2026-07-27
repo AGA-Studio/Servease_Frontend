@@ -55,8 +55,7 @@ const sessionToUser = (session: Session): AuthUser => ({
   firstName: session.user.user_metadata?.first_name ?? "",
   lastnameP: session.user.user_metadata?.last_name_p ?? "",
   lastnameM: session.user.user_metadata?.last_name_m ?? "",
-  // El rol nunca debe salir de user_metadata: el usuario puede editarlo.
-  // Fallback siempre al menor privilegio; el rol real lo entrega el backend.
+
   role: "client",
 });
 
@@ -229,10 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       lastNameM?: string;
       photo?: File | null;
     }): Promise<string | null> => {
-      // La cuenta queda sin confirmar (estado=false) hasta que el usuario da
-      // clic en el link del correo, así que no hay sesión que iniciar aquí.
-      // La foto se manda al backend, que la sube al bucket con su propio
-      // acceso admin (no depende de que el usuario tenga sesión).
+
       const formData = new FormData();
       formData.append("email", email);
       formData.append("password", password);
@@ -258,9 +254,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     await supabase.auth.signOut();
   }, []);
 
-  // Para usar después de un PATCH exitoso (ej. editar info personal): el
-  // backend ya regresa el usuario completo actualizado, así que no hace
-  // falta un refetch — solo sincronizar el estado local con esa respuesta.
   const updateProfile = useCallback((updated: UserProfile) => {
     setProfile(updated);
     setUser((prev) =>

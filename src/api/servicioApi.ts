@@ -9,7 +9,7 @@ export interface CreateServicioPayload {
   longitud: number;
   imagenes: string[];
   id_categoria: number;
-  // Opcionales — el backend los acepta con required=False/allow_null=True.
+
   fecha_final?: string;
   id_tipo_cambio?: number;
 }
@@ -31,8 +31,6 @@ export interface ServicioResponse {
   tipo_cambio_nombre: string | null;
 }
 
-// Rama main del backend: la creación vive en /crear/ (la raíz "/api/servicios/"
-// ahora es el catálogo público GET, filtrable por categoria_id/estado).
 export async function createServicio(
   payload: CreateServicioPayload,
 ): Promise<ServicioResponse> {
@@ -41,7 +39,6 @@ export async function createServicio(
 
 export type UpdateServicioPayload = Partial<CreateServicioPayload>;
 
-// PATCH /api/servicios/<id>/editar/ — solo el dueño, y solo si estado === 'abierto'.
 export async function editServicio(
   idServicio: number | string,
   payload: UpdateServicioPayload,
@@ -51,16 +48,12 @@ export async function editServicio(
   });
 }
 
-// DELETE /api/servicios/<id>/eliminar/ — borrado lógico (estado -> 'cancelado').
-// Solo el dueño, y solo si estado === 'abierto'.
 export async function deleteServicio(
   idServicio: number | string,
 ): Promise<{ detail: string }> {
   return apiDelete<{ detail: string }>(`/api/servicios/${idServicio}/eliminar/`);
 }
 
-// GET /api/servicios/<id>/detalle/ — vista pública (cualquier autenticado),
-// no solo el dueño. Trae info completa del servicio + del cliente que lo publicó.
 export interface PostDetails {
   id_servicio: number;
   titulo: string;
@@ -90,7 +83,6 @@ export async function fetchPostDetails(
   return data;
 }
 
-// GET /api/servicios/<id>/aplicantes/ — solo el dueño del servicio (403 si no).
 export interface Aplicante {
   id_postulacion: number;
   servicio_id: number;
@@ -112,8 +104,6 @@ export async function fetchAplicantes(
   return apiGet<Aplicante[]>(`/api/servicios/${idServicio}/aplicantes/`);
 }
 
-// GET /api/servicios/ — catálogo público (AllowAny), filtrable por
-// categoria_id y estado. Usado por el feed de trabajos del proveedor.
 export interface ServicioListItem {
   id_servicio: number;
   titulo: string;
@@ -137,8 +127,6 @@ export async function fetchServiciosCatalog(filters?: {
   return apiGet<ServicioListItem[]>(`/api/servicios/${query ? `?${query}` : ""}`);
 }
 
-// Sube la imagen al bucket "service_images" (path: `user_${userId}/<archivo>`),
-// misma convención que el backend exige en CreateServicioSerializer.validate_imagenes.
 export async function uploadServiceImage(
   userId: string,
   file: File,

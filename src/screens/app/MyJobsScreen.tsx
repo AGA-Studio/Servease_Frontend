@@ -1,4 +1,4 @@
-// Provider my jobs: list of active/historical jobs with proposal status and actions.
+
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -676,7 +676,7 @@ const MyJobsScreen: React.FC = () => {
       }
     }, 900);
     return () => clearTimeout(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = jobs.filter((j) => {
     const matchSearch = j.title.toLowerCase().includes(search.toLowerCase());

@@ -1,5 +1,4 @@
-// New Service Publication form: multi-step on mobile, two-column layout on desktop.
-// Supports dark/light theme and i18n (en/es).
+
 
 import { useState, useRef, useEffect } from "react";
 import {
@@ -57,12 +56,8 @@ import { motion } from "motion/react";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-// IDs fijos de la tabla tipo_cambio en el backend (sin endpoint de listado,
-// solo 2 valores posibles — coincide con el selector MXN/USD del form).
 const TIPO_CAMBIO_IDS: Record<"MXN" | "USD", number> = { MXN: 1, USD: 2 };
 
-// Leaflet referencia sus íconos de marker vía rutas relativas que se rompen
-// con bundlers como Vite; hay que apuntarlos a los assets importados.
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
   ._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -625,8 +620,6 @@ const NewServiceScreen: React.FC = () => {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
-  // Mapa Leaflet (tiles OSM directas, sin el iframe del sitio de
-  // openstreetmap.org que trae su propia barra de "Report a problem").
   useEffect(() => {
     if (!locationCoords || !mapContainerRef.current) return;
     const center: [number, number] = [locationCoords.lat, locationCoords.lon];
@@ -670,7 +663,7 @@ const NewServiceScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const [mobileStep, setMobileStep] = useState(1);
@@ -802,10 +795,6 @@ const NewServiceScreen: React.FC = () => {
 
   const debouncedLocationQuery = useDebounce(form.location, 180);
 
-  // Autocompletado: cada vez que el usuario deja de teclear ~300ms, se
-  // buscan colonias/privadas dentro de Tijuana que coincidan. Se salta la
-  // búsqueda justo después de seleccionar una sugerencia (suppressNextSearchRef)
-  // para no reabrir el dropdown con el propio label ya elegido.
   useEffect(() => {
     if (suppressNextSearchRef.current) {
       suppressNextSearchRef.current = false;
@@ -892,9 +881,6 @@ const NewServiceScreen: React.FC = () => {
     }
   };
 
-  // Fallback para cuando el usuario presiona Enter antes de que el
-  // autocompletado tenga resultados (ej. justo al escribir): busca de una
-  // vez y toma la mejor coincidencia dentro de Tijuana.
   const resolveTypedLocation = async () => {
     const query = sanitizeText(form.location, LOCATION_MAX_LENGTH);
     if (!query) return;
@@ -976,19 +962,13 @@ const NewServiceScreen: React.FC = () => {
         id_tipo_cambio: TIPO_CAMBIO_IDS[form.currency],
       });
 
-      // Se creó una publicación nueva: invalida la cache de Home y Mis
-      // Publicaciones para ese usuario, así la próxima visita trae datos
-      // frescos en vez de la lista vieja guardada en memoria.
       if (user?.id) {
         invalidateCached(`ultimas-publicaciones:${user.id}`);
         invalidateCached(`mis-publicaciones:${user.id}`);
       }
 
       handleClearForm();
-      // El toast vive en el estado local de esta pantalla (useToast) y
-      // navigate() la desmonta de inmediato — no da tiempo a que se vea.
-      // Se manda la señal de éxito vía navigation state y My Posts la
-      // muestra al montar.
+
       navigate(ROUTES.APP.MY_POST, { state: { justCreatedPost: true } });
     } catch (error) {
       addToast(

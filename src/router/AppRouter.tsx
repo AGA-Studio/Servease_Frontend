@@ -1,4 +1,4 @@
-// Defines all application routes, protected routes, and role-based access control routing.
+
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";

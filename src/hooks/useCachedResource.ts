@@ -1,9 +1,4 @@
-// Hook de datos con cache en memoria (stale-while-revalidate simplificado):
-// si ya hay datos en cache para `key`, se muestran de inmediato (isLoading
-// nunca se prende) mientras se revalida en segundo plano; si la respuesta
-// nueva es igual a la que ya se mostraba, no se re-renderiza nada (sin
-// parpadeo). Solo se ve un estado de carga real cuando no hay nada en
-// cache todavía (primera visita, o después de invalidar).
+
 
 import { useCallback, useEffect, useState } from "react";
 import { getCached, setCached } from "../lib/dataCache";
@@ -21,9 +16,6 @@ export function useCachedResource<T>(
   const [error, setError] = useState<unknown>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  // Actualiza el estado local y la cache en el mismo paso — para usar
-  // después de mutaciones (crear/editar/eliminar) que ya conocen el
-  // resultado y no necesitan esperar una revalidación de red.
   const setData = useCallback(
     (updater: Updater<T>) => {
       setDataState((prev) => {
@@ -72,7 +64,7 @@ export function useCachedResource<T>(
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [key, reloadToken]);
 
   return { data, setData, isLoading, error, reload };

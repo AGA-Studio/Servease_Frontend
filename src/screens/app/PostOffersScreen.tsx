@@ -1,5 +1,4 @@
-// Post Offers screen: lets a Client review, accept, reject, or counter-offer
-// applications submitted by providers on one of their posted services.
+
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -41,9 +40,6 @@ interface Applicant {
   counterAmount: number | null;
 }
 
-// `estado_solicitud` es un CharField sin choices documentados en el backend;
-// mapeo heurístico por palabras clave hasta que el backend confirme los
-// valores exactos que puede tomar.
 function mapEstadoSolicitud(estado: string): ApplicantStatus {
   const e = estado.toLowerCase();
   if (e.includes("acept")) return "accepted";
@@ -66,7 +62,6 @@ function aplicanteToApplicant(a: Aplicante): Applicant {
     counterAmount: a.presupuesto_acordado ? Number(a.presupuesto_acordado) : null,
   };
 }
-
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(
@@ -135,7 +130,7 @@ const ApplicantCard = ({
 
   return (
     <>
-      {/* Desktop layout — unchanged, hidden on mobile via CSS */}
+      {}
       <motion.div
         layout
         className="po-card-desktop"
@@ -314,7 +309,7 @@ const ApplicantCard = ({
         </div>
       </motion.div>
 
-      {/* Mobile layout — dedicated design, hidden on desktop via CSS */}
+      {}
       <motion.div
         layout
         className="po-card-mobile"
@@ -599,7 +594,7 @@ const PostOffersScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [postId]);
 
   const notifyActionUnavailable = () => addToast("info", po.actionUnavailable);

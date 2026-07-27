@@ -1,4 +1,4 @@
-// Restricts route access based on user role hierarchy, redirecting unauthorized users to the dashboard.
+
 
 import { Navigate } from "react-router-dom";
 import { useAuth, type UserRole } from "../context/AuthContext";
