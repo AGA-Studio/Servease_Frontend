@@ -12,7 +12,6 @@ import {
   Lock,
   Send,
   BadgeCheck,
-  Smartphone,
   Trash2,
   Fingerprint,
   Globe,
