@@ -19,6 +19,10 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
+import { uploadProfilePhoto } from "../../api/userApi";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
+import Avatar from "../../components/avatar/Avatar";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -321,17 +325,7 @@ const ReviewRow = ({ review, index }: { review: Review; index: number }) => {
         borderTop: "1px solid var(--divider)",
       }}
     >
-      <img
-        src={review.avatar}
-        alt={review.name}
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          objectFit: "cover",
-          flex: "none",
-        }}
-      />
+      <Avatar photoUrl={review.avatar} name={review.name} size={44} style={{ flex: "none" }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -383,11 +377,29 @@ const ReviewRow = ({ review, index }: { review: Review; index: number }) => {
 
 const ProviderProfileScreen: React.FC = () => {
   const { isDark } = useTheme();
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
   const { t, locale } = useI18n();
   const p = t("profile").provider;
+  const { toasts, addToast, removeToast } = useToast();
 
   const [isAvailable, setIsAvailable] = useState(true);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user?.id) return;
+    setIsUploadingPhoto(true);
+    try {
+      const publicUrl = await uploadProfilePhoto(user.id, file);
+      if (profile) updateProfile({ ...profile, url_foto_perfil: publicUrl });
+    } catch {
+      addToast("error", p.photoUploadError);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const fullName = user
     ? `${user.firstName} ${user.lastnameP}${user.lastnameM ? ` ${user.lastnameM}` : ""}`
@@ -402,12 +414,6 @@ const ProviderProfileScreen: React.FC = () => {
 
   const languageLabel = locale === "es" ? "Español" : "English";
   const currency = locale === "es" ? "MXN" : "USD";
-
-  const avatarUrl =
-    profile?.url_foto_perfil ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      fullName || "S",
-    )}&background=2EBCCC&color=fff&size=200&bold=true`;
 
   const services = [
     { icon: <Wrench size={14} />, label: p.services.plumbing },
@@ -554,23 +560,63 @@ const ProviderProfileScreen: React.FC = () => {
             flexDirection: "column",
           }}
         >
-          <motion.img
+          <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.45, delay: 0.1, ease: EASE }}
-            src={avatarUrl}
-            alt={fullName}
             style={{
+              position: "relative",
               width: 112,
               height: 112,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "5px solid var(--sidebar-bg)",
-              boxShadow: "0 4px 16px rgba(20,30,40,.18)",
               marginTop: -52,
               zIndex: 1,
             }}
-          />
+          >
+            <Avatar
+              photoUrl={profile?.url_foto_perfil}
+              name={user?.firstName}
+              lastName={user?.lastnameP}
+              size={112}
+              style={{
+                fontSize: "2.2rem",
+                border: "5px solid var(--sidebar-bg)",
+                boxShadow: "0 4px 16px rgba(20,30,40,.18)",
+                opacity: isUploadingPhoto ? 0.5 : 1,
+              }}
+              alt={fullName}
+            />
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoChange}
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={isUploadingPhoto}
+              style={{
+                position: "absolute",
+                bottom: 2,
+                right: 2,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: "3px solid var(--sidebar-bg)",
+                background: "#2EBCCC",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: isUploadingPhoto ? "default" : "pointer",
+                fontFamily: "inherit",
+              }}
+              aria-label={p.changePhoto}
+            >
+              <Camera size={14} />
+            </button>
+          </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1107,6 +1153,7 @@ const ProviderProfileScreen: React.FC = () => {
           </motion.div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
     </div>
   );
 };

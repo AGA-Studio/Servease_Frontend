@@ -45,7 +45,7 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   return { theme, isDark: theme === "dark" };
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
 const CATEGORY_KEYS = [
