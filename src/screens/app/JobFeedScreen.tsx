@@ -13,6 +13,7 @@ import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
@@ -45,7 +46,8 @@ interface AppliedJob {
   title: string;
   status: "reviewing" | "completed" | "declined" | "closed";
   sentAgo: string;
-  price: string;
+  price: number;
+  currency: string;
 }
 
 interface JobFilters {
@@ -94,21 +96,24 @@ const APPLIED_JOBS: AppliedJob[] = [
     title: "High-Security Lock Install",
     status: "reviewing",
     sentAgo: "2 hours ago",
-    price: "$350.00",
+    price: 350,
+    currency: "MXN",
   },
   {
     id: "a2",
     title: "Office Complex Rekey",
     status: "completed",
     sentAgo: "yesterday",
-    price: "$1200.00",
+    price: 1200,
+    currency: "MXN",
   },
   {
     id: "a3",
     title: "Garage Door Fix",
     status: "declined",
     sentAgo: "3 days ago",
-    price: "$180.00",
+    price: 180,
+    currency: "MXN",
   },
 ];
 
@@ -371,6 +376,7 @@ const JobCard = ({
 
 const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("jobfeedscreen");
 
   const statusMap = {
@@ -461,7 +467,7 @@ const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
             color: "var(--text)",
           }}
         >
-          {job.price}
+          {formatMoney(job.price)}
         </span>
         <button
           style={{
@@ -493,6 +499,7 @@ const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
 const JobFeedScreen: React.FC = () => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("jobfeedscreen");
   const navigate = useNavigate();
 
@@ -852,7 +859,7 @@ const JobFeedScreen: React.FC = () => {
                     fontWeight: 800,
                   }}
                 >
-                  $840.50
+                  {formatMoney(840.5)}
                 </p>
                 <div
                   style={{
@@ -878,7 +885,7 @@ const JobFeedScreen: React.FC = () => {
                         fontWeight: 700,
                       }}
                     >
-                      $120.00
+                      {formatMoney(120)}
                     </p>
                   </div>
                   <div>
@@ -898,7 +905,7 @@ const JobFeedScreen: React.FC = () => {
                         fontWeight: 700,
                       }}
                     >
-                      $960.00
+                      {formatMoney(960)}
                     </p>
                   </div>
                 </div>

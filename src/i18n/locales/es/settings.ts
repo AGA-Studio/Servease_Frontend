@@ -48,6 +48,9 @@ export const settings = {
     language: "Idioma",
     languageEs: "Español",
     languageEn: "English",
+    currency: "Moneda",
+    currencyMXN: "MXN — Peso Mexicano",
+    currencyUSD: "USD — Dólar Estadounidense",
   },
   privacy: {
     title: "Privacidad y Seguridad",

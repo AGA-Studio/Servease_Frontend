@@ -1,10 +1,11 @@
 
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, ArrowRight, CheckCircle2, Circle, Info, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import { useCurrency } from "../../context/CurrencyContext";
 
 export interface ApplyJobData {
   option: "accept" | "counter";
@@ -70,6 +71,7 @@ const ApplyJobModal: React.FC<Props> = ({
   const { t } = useI18n();
   const d = t("applyjobmodal");
   const { isDark } = useThemeMode();
+  const { formatMoney, currency } = useCurrency();
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
   const [counterOffer, setCounterOffer] = useState<string>(
@@ -77,7 +79,13 @@ const ApplyJobModal: React.FC<Props> = ({
   );
   const [coverLetter, setCoverLetter] = useState("");
 
-  const formattedPrice = clientPrice.toFixed(2);
+  useEffect(() => {
+    if (isOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [isOpen]);
 
   const cardBg = isDark ? "#1e2d5e" : "#ffffff";
   const inputBg = isDark ? "#273570" : "#F8FAFC";
@@ -107,6 +115,8 @@ const ApplyJobModal: React.FC<Props> = ({
               ? "rgba(27,36,76,0.85)"
               : "rgba(255,255,255,0.85)",
             backdropFilter: "blur(6px)",
+            overscrollBehavior: "contain",
+            touchAction: "none",
           }}
           onClick={onClose}
         >
@@ -122,6 +132,8 @@ const ApplyJobModal: React.FC<Props> = ({
               maxWidth: 520,
               maxHeight: "90vh",
               overflowY: "auto",
+              overscrollBehavior: "contain",
+              touchAction: "auto",
               background: cardBg,
               borderRadius: 16,
               display: "flex",
@@ -321,7 +333,7 @@ const ApplyJobModal: React.FC<Props> = ({
                             option === "accept" ? "#2EBCCC" : textSecondary,
                         }}
                       >
-                        {d.options.submitAt} ${formattedPrice}
+                        {d.options.submitAt} {formatMoney(clientPrice)}
                       </p>
                     </div>
                   </motion.button>
@@ -395,7 +407,16 @@ const ApplyJobModal: React.FC<Props> = ({
                   </motion.button>
                 </div>
 
+                <AnimatePresence>
+                {option === "counter" && (
                 <motion.div
+                  initial={{ opacity: 0, scaleY: 0.95 }}
+                  animate={{ opacity: 1, scaleY: 1 }}
+                  exit={{ opacity: 0, scaleY: 0.95 }}
+                  transition={{ duration: 0.18, ease: EASE }}
+                  style={{ transformOrigin: "top center" }}
+                >
+                <div
                   style={{
                     background: inputBg,
                     borderRadius: 12,
@@ -437,7 +458,7 @@ const ApplyJobModal: React.FC<Props> = ({
                       type="number"
                       value={counterOffer}
                       onChange={(e) => setCounterOffer(e.target.value)}
-                      disabled={option === "accept" || isSubmitting}
+                      disabled={isSubmitting}
                       style={{
                         flex: 1,
                         border: "none",
@@ -447,7 +468,7 @@ const ApplyJobModal: React.FC<Props> = ({
                         color: text,
                         fontFamily: "inherit",
                         background: "transparent",
-                        cursor: option === "accept" || isSubmitting ? "not-allowed" : "auto",
+                        cursor: isSubmitting ? "not-allowed" : "auto",
                         MozAppearance: "textfield",
                         WebkitAppearance: "none",
                         margin: 0,
@@ -460,7 +481,7 @@ const ApplyJobModal: React.FC<Props> = ({
                         fontWeight: 600,
                       }}
                     >
-                      {d.counterOffer.currency}
+                      {currency}
                     </span>
                   </div>
                   <motion.p
@@ -479,7 +500,10 @@ const ApplyJobModal: React.FC<Props> = ({
                     <Info size={12} />
                     {d.counterOffer.feeNotice}
                   </motion.p>
+                </div>
                 </motion.div>
+                )}
+                </AnimatePresence>
               </motion.div>
 
               <motion.div variants={itemVariants}>

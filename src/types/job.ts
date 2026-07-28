@@ -17,6 +17,7 @@ export interface JobDetails {
   postedAgo: string;
   fecha_final?: string | null;
   price: number;
+  currency?: string;
   priceRange: string;
   description: string;
   mainImage: string;

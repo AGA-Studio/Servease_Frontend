@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useCurrency } from "../../context/CurrencyContext";
 import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
 
@@ -385,6 +386,7 @@ const ProviderProfileScreen: React.FC = () => {
   const { isDark } = useTheme();
   const { user, profile } = useAuth();
   const { t, locale } = useI18n();
+  const { formatMoney } = useCurrency();
   const p = t("profile").provider;
 
   const [isAvailable, setIsAvailable] = useState(true);
@@ -401,7 +403,6 @@ const ProviderProfileScreen: React.FC = () => {
     : "—";
 
   const languageLabel = locale === "es" ? "Español" : "English";
-  const currency = locale === "es" ? "MXN" : "USD";
 
   const avatarUrl =
     profile?.url_foto_perfil ||
@@ -701,7 +702,7 @@ const ProviderProfileScreen: React.FC = () => {
                   color: "var(--text)",
                 }}
               >
-                ${MOCK_STATS.totalEarnings.toLocaleString()} {currency}
+                {formatMoney(MOCK_STATS.totalEarnings)}
               </div>
             </StatCard>
 
@@ -891,7 +892,7 @@ const ProviderProfileScreen: React.FC = () => {
                     fontSize: "0.85rem",
                   }}
                 >
-                  $450 {currency}
+                  {formatMoney(450)}
                 </span>
               </div>
               <div

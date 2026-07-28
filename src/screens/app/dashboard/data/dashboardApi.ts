@@ -7,6 +7,12 @@ import type {
   CategoryBreakdown,
 } from "../../../../types/dashboard";
 import type { JobClient } from "../../../../types/job";
+import {
+  fetchServiciosCatalog,
+  type ServicioListItem,
+} from "../../../../api/servicioApi";
+import { timeAgo } from "../../../../utils/servicio";
+import { getApproxLocation } from "../../../../utils/location";
 
 const MOCK_CLIENT: JobClient = {
   name: "Maria Cazares",
@@ -17,6 +23,33 @@ const MOCK_CLIENT: JobClient = {
   memberSince: "Sep. 2025",
   jobsPosted: 8,
 };
+
+async function mapCatalogItemToDashboardJob(
+  item: ServicioListItem,
+): Promise<DashboardJob> {
+  const location = await getApproxLocation(item.latitud, item.longitud);
+  const price = Number(item.precio_inicial);
+  const formattedPrice = `$${price.toLocaleString()}`;
+
+  return {
+    id: String(item.id_servicio),
+    title: item.titulo,
+    location,
+    postedAgo: timeAgo(item.fecha),
+    description: "",
+    budget: formattedPrice,
+    priceRange: formattedPrice,
+    price,
+    currency: "MXN",
+    proposalCount: 0,
+    category: item.categoria_nombre,
+    when: "",
+    urgency: "",
+    mainImage: item.imagenes[0] ?? "",
+    thumbnails: item.imagenes,
+    client: MOCK_CLIENT,
+  };
+}
 
 export const MOCK_ACTIVITIES: DashboardActivity[] = [
   {
@@ -60,93 +93,6 @@ export const MOCK_ACTIVITIES: DashboardActivity[] = [
     content: " sent you a message about 'Garden Landscaping'.",
     highlight: "Mike R.",
     dotColor: "#2EBCCC",
-  },
-];
-
-export const MOCK_AVAILABLE_JOBS: DashboardJob[] = [
-  {
-    id: "1",
-    title: "Emergency Plumber Needed",
-    location: "El Refugio, Tijuana",
-    postedAgo: "2h ago",
-    description:
-      "Looking for a licensed plumber to fix a burst pipe in the kitchen. Needs to be done immediately.",
-    budget: "$350 - $500",
-    priceRange: "$350 - $500",
-    price: 425,
-    proposalCount: 5,
-    category: "Plumbing",
-    when: "Today",
-    urgency: "ASAP",
-    mainImage:
-      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80",
-    thumbnails: [
-      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=200&q=80",
-      "https://images.unsplash.com/photo-1558002038-1055907df827?w=200&q=80",
-    ],
-    client: MOCK_CLIENT,
-  },
-  {
-    id: "2",
-    title: "Electrical Wiring Installation",
-    location: "Centro, Tijuana",
-    postedAgo: "5h ago",
-    description:
-      "Need a certified electrician to install wiring for a new office space. Approximately 2000 sq ft.",
-    budget: "$800 - $1,200",
-    priceRange: "$800 - $1,200",
-    price: 1000,
-    proposalCount: 3,
-    category: "Electrical",
-    when: "Tomorrow",
-    urgency: "Flexible",
-    mainImage:
-      "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&q=80",
-    thumbnails: [
-      "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=200&q=80",
-    ],
-    client: MOCK_CLIENT,
-  },
-  {
-    id: "3",
-    title: "Garden Landscaping",
-    location: "Playas, Tijuana",
-    postedAgo: "1d ago",
-    description:
-      "Looking for a landscaper to redesign and maintain a residential garden.",
-    budget: "$500 - $700",
-    priceRange: "$500 - $700",
-    price: 600,
-    proposalCount: 8,
-    category: "Gardening",
-    when: "This week",
-    urgency: "Flexible",
-    mainImage:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
-    thumbnails: [
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&q=80",
-    ],
-    client: MOCK_CLIENT,
-  },
-  {
-    id: "4",
-    title: "AC Repair & Maintenance",
-    location: "Otay, Tijuana",
-    postedAgo: "2d ago",
-    description: "Central AC unit not cooling properly. Need diagnosis and repair.",
-    budget: "$200 - $400",
-    priceRange: "$200 - $400",
-    price: 300,
-    proposalCount: 2,
-    category: "HVAC",
-    when: "Today",
-    urgency: "ASAP",
-    mainImage:
-      "https://images.unsplash.com/photo-1558002038-1055907df827?w=800&q=80",
-    thumbnails: [
-      "https://images.unsplash.com/photo-1558002038-1055907df827?w=200&q=80",
-    ],
-    client: MOCK_CLIENT,
   },
 ];
 
@@ -220,12 +166,18 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
   kpis: MOCK_KPIS,
   earnings: MOCK_EARNINGS,
   jobsByCategory: MOCK_JOBS_BY_CATEGORY,
-  availableJobs: MOCK_AVAILABLE_JOBS,
+  availableJobs: [],
   recentActivity: MOCK_ACTIVITIES,
 };
 
 export async function fetchDashboardData(): Promise<DashboardData> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_DASHBOARD_DATA), 800);
-  });
+  const catalogItems = await fetchServiciosCatalog({ estado: "abierto" });
+  const availableJobs = await Promise.all(
+    catalogItems.map(mapCatalogItemToDashboardJob),
+  );
+
+  return {
+    ...MOCK_DASHBOARD_DATA,
+    availableJobs,
+  };
 }

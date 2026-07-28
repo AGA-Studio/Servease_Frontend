@@ -1,6 +1,7 @@
 
 
 import { useEffect, useMemo, useState } from "react";
+import { useCurrency } from "../../context/CurrencyContext";
 import CustomizableModal from "../modal/CustomizableModal";
 import {
   MapPin,
@@ -279,6 +280,7 @@ const JobDetailsModal: React.FC<Props> = ({
 }) => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("postdetailsscreen");
   const mp = t("myposts");
   const [selectedThumb, setSelectedThumb] = useState(0);
@@ -553,7 +555,7 @@ const JobDetailsModal: React.FC<Props> = ({
                         color: "var(--text)",
                       }}
                     >
-                      ${job.price.toFixed(2)}
+                      {formatMoney(job.price)}
                     </p>
                   </motion.div>
                   <motion.button

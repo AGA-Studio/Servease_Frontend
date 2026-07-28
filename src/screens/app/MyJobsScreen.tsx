@@ -209,6 +209,7 @@ const mapMyJobToDetails = (job: MyJob): JobDetails => {
     urgency: rich.urgency,
     postedAgo: `${job.postedAgo}`,
     price: job.budget,
+    currency: job.currency,
     priceRange: `$${job.budget.toLocaleString()} ${job.currency}`,
     description: rich.description,
     mainImage: job.imageUrl ?? "",
