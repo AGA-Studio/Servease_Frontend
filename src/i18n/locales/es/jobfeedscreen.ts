@@ -48,4 +48,11 @@ export const jobfeedscreen = {
     asap: "Urgente",
     flexible: "Flexible",
   },
+  pagination: {
+    page: "Página",
+    of: "de",
+    previous: "Anterior",
+    next: "Siguiente",
+    goToPage: "Ir a página",
+  },
 };

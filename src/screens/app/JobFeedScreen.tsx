@@ -1,12 +1,14 @@
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   MapPin,
   ArrowRight,
   Navigation,
   Briefcase,
   Send,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import EmptyState from "../../components/emptystate/EmptyState";
 import { motion } from "motion/react";
@@ -116,6 +118,88 @@ const APPLIED_JOBS: AppliedJob[] = [
     currency: "MXN",
   },
 ];
+
+const PAGE_SIZE = 10;
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+
+const getPageList = (page: number, totalPages: number): (number | "...")[] => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1]);
+  const sorted = Array.from(pages)
+    .filter((p) => p >= 1 && p <= totalPages)
+    .sort((a, b) => a - b);
+
+  const result: (number | "...")[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push("...");
+    result.push(p);
+  });
+  return result;
+};
+
+const Pagination = ({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (p: number) => void;
+}) => {
+  const { t } = useI18n();
+  const d = t("jobfeedscreen");
+  const pages = getPageList(page, totalPages);
+
+  return (
+    <nav className="jf-pagination" aria-label="Pagination">
+      <button
+        className="jf-page-arrow"
+        onClick={() => onChange(page - 1)}
+        disabled={page === 1}
+        aria-label={d.pagination.previous}
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {pages.map((p, i) =>
+        p === "..." ? (
+          <span key={`ellipsis-${i}`} className="jf-page-ellipsis">
+            &hellip;
+          </span>
+        ) : (
+          <button
+            key={p}
+            className="jf-page-num"
+            data-active={p === page}
+            onClick={() => onChange(p)}
+            aria-label={`${d.pagination.goToPage} ${p}`}
+            aria-current={p === page ? "page" : undefined}
+          >
+            {p === page && (
+              <motion.span
+                layoutId="jf-page-active-bg"
+                className="jf-page-active-bg"
+                transition={{ type: "spring", duration: 0.45, bounce: 0.18 }}
+              />
+            )}
+            <span className="jf-page-num-label">{p}</span>
+          </button>
+        ),
+      )}
+
+      <button
+        className="jf-page-arrow"
+        onClick={() => onChange(page + 1)}
+        disabled={page === totalPages}
+        aria-label={d.pagination.next}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </nav>
+  );
+};
 
 const JobCard = ({
   job,
@@ -517,6 +601,8 @@ const JobFeedScreen: React.FC = () => {
   );
   const [jobs, setJobs] = useState<FeedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -607,6 +693,7 @@ const JobFeedScreen: React.FC = () => {
 
   const handleFilterChange = (key: keyof JobFilters) => (value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
   };
 
   const visibleJobs = useMemo(() => {
@@ -625,6 +712,22 @@ const JobFeedScreen: React.FC = () => {
       return true;
     });
   }, [jobs, filters.distance, filters.priceRange]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = visibleJobs.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
+  const handlePageChange = useCallback(
+    (p: number) => {
+      if (p < 1 || p > totalPages || p === safePage) return;
+      setPage(p);
+      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [totalPages, safePage],
+  );
 
   return (
     <>
@@ -669,6 +772,96 @@ const JobFeedScreen: React.FC = () => {
             width: 100% !important;
             height: 160px !important;
           }
+        }
+        .jf-pagination-bar {
+          padding: 12px 0;
+          border-top: 1px solid var(--divider);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+        .jf-pagination {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .jf-page-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          border: 1.5px solid ${isDark ? "#273570" : "#e5e7eb"};
+          background: transparent;
+          color: var(--text);
+          cursor: pointer;
+          transition: transform 120ms ${EASE_OUT}, border-color 160ms ease, color 160ms ease, background 160ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-page-arrow:not(:disabled):hover {
+            border-color: #2EBCCC;
+            color: #2EBCCC;
+            background: ${isDark ? "rgba(46,188,204,0.07)" : "rgba(46,188,204,0.05)"};
+          }
+        }
+        .jf-page-arrow:active:not(:disabled) {
+          transform: scale(0.93);
+        }
+        .jf-page-arrow:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .jf-page-num {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 34px;
+          height: 34px;
+          padding: 0 4px;
+          border-radius: 9px;
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: color 160ms ease, transform 120ms ${EASE_OUT};
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-page-num:not([data-active="true"]):hover {
+            color: #2EBCCC;
+          }
+        }
+        .jf-page-num:active {
+          transform: scale(0.93);
+        }
+        .jf-page-num[data-active="true"] {
+          color: #ffffff;
+        }
+        .jf-page-num-label {
+          position: relative;
+          z-index: 1;
+        }
+        .jf-page-active-bg {
+          position: absolute;
+          inset: 0;
+          border-radius: 9px;
+          background: #2EBCCC;
+          box-shadow: 0 3px 10px rgba(46,188,204,0.35);
+        }
+        .jf-page-ellipsis {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 24px;
+          height: 34px;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          user-select: none;
         }
       `}</style>
 
@@ -743,6 +936,7 @@ const JobFeedScreen: React.FC = () => {
 
         <div
           className="jf-content"
+          ref={contentRef}
           style={{
             flex: 1,
             overflowY: "auto",
@@ -816,7 +1010,7 @@ const JobFeedScreen: React.FC = () => {
                   />
                 </div>
               ) : (
-                visibleJobs.map((job) => (
+                paginated.map((job) => (
                   <JobCard key={job.id} job={job} addToast={addToast} />
                 ))
               )}
@@ -979,6 +1173,19 @@ const JobFeedScreen: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {!isLoading && totalPages > 1 && (
+            <div className="jf-pagination-bar">
+              <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: 0 }}>
+                {d.pagination.page} {safePage} {d.pagination.of} {totalPages}
+              </p>
+              <Pagination
+                page={safePage}
+                totalPages={totalPages}
+                onChange={handlePageChange}
+              />
+            </div>
+          )}
         </div>
       </div>
 
