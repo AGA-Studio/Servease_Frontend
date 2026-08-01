@@ -21,6 +21,10 @@ import { customizablemodal } from "./customizablemodal";
 import { clientcountermodal } from "./clientcountermodal";
 import { ratingmodal } from "./ratingmodal";
 import { messagesscreen } from "./messagesscreen";
+import { completeservicemodal } from "./completeservicemodal";
+import { paymentwaitingmodal } from "./paymentwaitingmodal";
+import { cardpaymentmodal } from "./cardpaymentmodal";
+import { clientratingmodal } from "./clientratingmodal";
 export const en = {
   auth,
   common,
@@ -45,4 +49,8 @@ export const en = {
   clientcountermodal,
   ratingmodal,
   messagesscreen,
+  completeservicemodal,
+  paymentwaitingmodal,
+  cardpaymentmodal,
+  clientratingmodal,
 };

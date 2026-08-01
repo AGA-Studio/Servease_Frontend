@@ -59,8 +59,16 @@ export const postoffers = {
     message: "Restore {name}'s application back to pending?",
     confirm: "Yes, Restore",
   },
+  success: {
+    accepted: "You accepted {name}. You can now start coordinating the service.",
+    rejected: "You rejected {name}'s proposal.",
+    undone: "{name}'s application was restored to pending.",
+  },
   errors: {
     postFailed: "Couldn't load the post. Please try again later.",
     applicantsFailed: "Couldn't load applicants. Please try again later.",
+    acceptFailed: "Couldn't accept the application. Please try again.",
+    rejectFailed: "Couldn't reject the application. Please try again.",
+    undoFailed: "Couldn't undo the rejection. Please try again.",
   },
 };

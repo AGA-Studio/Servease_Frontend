@@ -104,6 +104,176 @@ export async function fetchAplicantes(
   return apiGet<Aplicante[]>(`/api/servicios/${idServicio}/aplicantes/`);
 }
 
+export interface PendienteCalificar {
+  id_servicio: number;
+  titulo: string;
+  proveedor_nombre: string;
+  proveedor_foto: string | null;
+}
+
+export async function fetchPendienteCalificar(): Promise<PendienteCalificar | null> {
+  return apiGet<PendienteCalificar | null>("/api/servicios/pendiente-calificar/");
+}
+
+export async function acceptPostulacion(
+  idPostulacion: number | string,
+): Promise<{ detail: string }> {
+  return apiPatch<{ detail: string }>(
+    `/api/servicios/postulaciones/${idPostulacion}/aceptar/`,
+    {},
+  );
+}
+
+export async function rejectPostulacion(
+  idPostulacion: number | string,
+): Promise<{ detail: string }> {
+  return apiPatch<{ detail: string }>(
+    `/api/servicios/postulaciones/${idPostulacion}/rechazar/`,
+    {},
+  );
+}
+
+export async function undoRejectPostulacion(
+  idPostulacion: number | string,
+): Promise<{ detail: string }> {
+  return apiPatch<{ detail: string }>(
+    `/api/servicios/postulaciones/${idPostulacion}/deshacer-rechazo/`,
+    {},
+  );
+}
+
+export async function cancelPostulacion(
+  idPostulacion: number | string,
+): Promise<{ detail: string }> {
+  return apiPatch<{ detail: string }>(
+    `/api/servicios/postulaciones/${idPostulacion}/cancelar/`,
+    {},
+  );
+}
+
+export interface MiTrabajo {
+  id_postulacion: number;
+  id_servicio: number;
+  titulo: string;
+  categoria_nombre: string;
+  imagenes: string[];
+  estado: "pendiente" | "aceptada";
+  servicio_estado: string;
+  fecha: string;
+  precio_propuesto: string;
+  precio_acordado: string;
+  moneda: string;
+}
+
+export async function fetchMisTrabajos(): Promise<MiTrabajo[]> {
+  return apiGet<MiTrabajo[]>("/api/servicios/mis-trabajos/");
+}
+
+export interface IniciarPagoResponse {
+  id_transaccion: number;
+  monto: string;
+  estado: string;
+  client_secret: string;
+}
+
+export async function iniciarPago(
+  idServicio: number | string,
+): Promise<IniciarPagoResponse> {
+  return apiPost<IniciarPagoResponse>(
+    `/api/servicios/${idServicio}/pago/iniciar/`,
+    {},
+  );
+}
+
+export interface PagoEstado {
+  id_transaccion: number;
+  estado: string;
+}
+
+export async function fetchPagoEstado(
+  idServicio: number | string,
+): Promise<PagoEstado | null> {
+  return apiGet<PagoEstado | null>(`/api/servicios/${idServicio}/pago/estado/`);
+}
+
+export interface PagoEnCursoProveedor {
+  id_servicio: number;
+  id_transaccion: number;
+  estado: string;
+}
+
+export async function fetchPagoEnCursoProveedor(): Promise<PagoEnCursoProveedor | null> {
+  return apiGet<PagoEnCursoProveedor | null>(
+    "/api/servicios/pago/en-curso-proveedor/",
+  );
+}
+
+export async function cancelarPago(
+  idTransaccion: number | string,
+): Promise<{ detail: string }> {
+  return apiPost<{ detail: string }>(
+    `/api/servicios/pago/${idTransaccion}/cancelar/`,
+    {},
+  );
+}
+
+export interface PagoPendienteResponse {
+  id_transaccion: number;
+  monto: string;
+  client_secret: string;
+}
+
+export async function fetchPagoPendiente(
+  idServicio: number | string,
+): Promise<PagoPendienteResponse> {
+  return apiGet<PagoPendienteResponse>(
+    `/api/servicios/${idServicio}/pago/pendiente/`,
+  );
+}
+
+export interface PagoPendienteClienteResponse {
+  id_servicio: number;
+  titulo: string;
+  id_transaccion: number;
+  monto: string;
+  client_secret: string;
+}
+
+export async function fetchPagoPendienteCliente(): Promise<PagoPendienteClienteResponse | null> {
+  return apiGet<PagoPendienteClienteResponse | null>(
+    "/api/servicios/pago/pendiente-cliente/",
+  );
+}
+
+export interface CompletarServicioPayload {
+  metodo_pago: "efectivo" | "tarjeta";
+  puntuacion: number;
+  comentario?: string;
+}
+
+export async function completarServicio(
+  idServicio: number | string,
+  payload: CompletarServicioPayload,
+): Promise<{ detail: string }> {
+  return apiPost<{ detail: string }>(`/api/servicios/${idServicio}/completar/`, {
+    ...payload,
+  });
+}
+
+export interface CalificarServicioPayload {
+  puntuacion: number;
+  comentario?: string;
+}
+
+export async function calificarServicio(
+  idServicio: number | string,
+  payload: CalificarServicioPayload,
+): Promise<{ detail: string }> {
+  return apiPost<{ detail: string }>(`/api/servicios/${idServicio}/calificar/`, {
+    ...payload,
+  });
+}
+
 export interface ServicioListItem {
   id_servicio: number;
   titulo: string;

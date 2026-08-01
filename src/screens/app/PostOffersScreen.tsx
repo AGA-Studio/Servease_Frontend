@@ -17,11 +17,15 @@ import CustomizableModal from "../../components/modal/CustomizableModal";
 import ClientCounterModal from "../../components/counteroffermodal/ClientCounterModal";
 import Avatar from "../../components/avatar/Avatar";
 import {
+  acceptPostulacion,
   fetchAplicantes,
   fetchPostDetails,
+  rejectPostulacion,
+  undoRejectPostulacion,
   type Aplicante,
   type PostDetails,
 } from "../../api/servicioApi";
+import { ApiError } from "../../api/apiClient";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -137,6 +141,7 @@ const ApplicantCard = ({
         className="po-card-desktop"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: cardOpacity, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2, ease: EASE } }}
         transition={{ duration: 0.4, delay: index * 0.06, ease: EASE }}
         style={{
           display: "grid",
@@ -311,6 +316,7 @@ const ApplicantCard = ({
         className="po-card-mobile"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: cardOpacity, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2, ease: EASE } }}
         transition={{ duration: 0.4, delay: index * 0.06, ease: EASE }}
         style={{
           display: "none",
@@ -550,6 +556,7 @@ const PostOffersScreen: React.FC = () => {
     type: "accept" | "reject" | "cancelCounter" | "undoDecline";
     applicant: Applicant;
   } | null>(null);
+  const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
 
   useEffect(() => {
     if (!postId) return;
@@ -632,10 +639,58 @@ const PostOffersScreen: React.FC = () => {
     return true;
   });
 
-  const handleConfirmedAction = () => {
+  const handleConfirmedAction = async () => {
     if (!confirmState) return;
-    setConfirmState(null);
-    notifyActionUnavailable();
+    const { type, applicant } = confirmState;
+
+    if (type === "cancelCounter") {
+      setConfirmState(null);
+      notifyActionUnavailable();
+      return;
+    }
+
+    setIsConfirmSubmitting(true);
+    try {
+      if (type === "accept") {
+        await acceptPostulacion(applicant.id);
+        setApplicants((prev) =>
+          prev.map((a) => {
+            if (a.id === applicant.id) return { ...a, status: "accepted" as const };
+            if (a.status === "new" || a.status === "countered") {
+              return { ...a, status: "declined" as const };
+            }
+            return a;
+          }),
+        );
+        addToast("success", po.success.accepted.replace("{name}", applicant.name));
+      } else if (type === "reject") {
+        await rejectPostulacion(applicant.id);
+        setApplicants((prev) =>
+          prev.map((a) => (a.id === applicant.id ? { ...a, status: "declined" as const } : a)),
+        );
+        addToast("success", po.success.rejected.replace("{name}", applicant.name));
+      } else {
+        await undoRejectPostulacion(applicant.id);
+        setApplicants((prev) =>
+          prev.map((a) => (a.id === applicant.id ? { ...a, status: "new" as const } : a)),
+        );
+        addToast("success", po.success.undone.replace("{name}", applicant.name));
+      }
+    } catch (error) {
+      console.error(`postulacion ${type} failed:`, error);
+      const fallback =
+        type === "accept"
+          ? po.errors.acceptFailed
+          : type === "reject"
+            ? po.errors.rejectFailed
+            : po.errors.undoFailed;
+      const isFriendlyDetail =
+        error instanceof ApiError && !/^Request failed: \d+$/.test(error.message);
+      addToast("error", isFriendlyDetail ? (error as ApiError).message : fallback);
+    } finally {
+      setIsConfirmSubmitting(false);
+      setConfirmState(null);
+    }
   };
 
   return (
@@ -771,19 +826,21 @@ const PostOffersScreen: React.FC = () => {
               subtitle={po.emptySubtitle}
             />
           ) : (
-            filtered.map((a, i) => (
-              <ApplicantCard
-                key={a.id}
-                applicant={a}
-                index={i}
-                po={po}
-                onAccept={() => setConfirmState({ type: "accept", applicant: a })}
-                onReject={() => setConfirmState({ type: "reject", applicant: a })}
-                onUndoDecline={() => setConfirmState({ type: "undoDecline", applicant: a })}
-                onOpenCounter={() => setCounterApplicant(a)}
-                onCancelCounter={() => setConfirmState({ type: "cancelCounter", applicant: a })}
-              />
-            ))
+            <AnimatePresence mode="popLayout" initial={false}>
+              {filtered.map((a, i) => (
+                <ApplicantCard
+                  key={a.id}
+                  applicant={a}
+                  index={i}
+                  po={po}
+                  onAccept={() => setConfirmState({ type: "accept", applicant: a })}
+                  onReject={() => setConfirmState({ type: "reject", applicant: a })}
+                  onUndoDecline={() => setConfirmState({ type: "undoDecline", applicant: a })}
+                  onOpenCounter={() => setCounterApplicant(a)}
+                  onCancelCounter={() => setConfirmState({ type: "cancelCounter", applicant: a })}
+                />
+              ))}
+            </AnimatePresence>
           )}
         </motion.div>
       </AnimatePresence>
@@ -808,8 +865,9 @@ const PostOffersScreen: React.FC = () => {
               .replace("{bid}", String(confirmState.applicant.bid))}
             confirmText={copy.confirm}
             cancelText={po.cancel}
+            isSubmitting={isConfirmSubmitting}
             onConfirm={handleConfirmedAction}
-            onClose={() => setConfirmState(null)}
+            onClose={() => !isConfirmSubmitting && setConfirmState(null)}
           />
         );
       })()}
