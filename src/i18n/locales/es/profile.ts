@@ -2,6 +2,8 @@ export const profile = {
   client: {
     editProfile: "Editar Perfil",
     verifiedClient: "Cliente Verificado",
+    changePhoto: "Cambiar foto de perfil",
+    photoUploadError: "No se pudo actualizar la foto de perfil.",
     stats: {
       postedJobs: "Trabajos Publicados",
       overallRating: "Calificación General",
@@ -67,6 +69,8 @@ export const profile = {
   provider: {
     editProfile: "Editar Perfil",
     verifiedProvider: "Proveedor Verificado",
+    changePhoto: "Cambiar foto de perfil",
+    photoUploadError: "No se pudo actualizar la foto de perfil.",
     availability: "Disponibilidad",
     availableForWork: "Disponible para trabajar",
     currentlyUnavailable: "No disponible",

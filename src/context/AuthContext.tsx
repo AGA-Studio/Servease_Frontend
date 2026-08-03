@@ -85,8 +85,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         role: userProfile.rol,
       });
     } else {
-      setUser(sessionToUser(session));
-      setProfile(null);
+      // Profile fetch failed (network blip, backend restart, etc). Keep whatever
+      // user/profile we already had rather than downgrading to a fallback with
+      // role "client" — that fallback previously bounced providers/admins out
+      // of their own screens on transient failures during a background token
+      // refresh, which looked like a random logout.
+      setUser((prev) => prev ?? sessionToUser(session));
     }
   }, []);
 
@@ -112,7 +116,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // The access token renews itself silently every ~hour (or on tab focus)
+      // and every API call fetches a fresh session anyway — there's no need
+      // to re-run the MFA gate or refetch the whole profile on every renewal.
+      // Doing so here previously caused spurious "logouts": any transient
+      // failure of that refetch reset the signed-in user's role/profile.
+      if (event === "TOKEN_REFRESHED") return;
+
       if (session) {
         resolveSession(session).finally(() => setIsLoading(false));
       } else {

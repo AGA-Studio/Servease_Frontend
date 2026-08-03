@@ -15,6 +15,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import CustomizableModal from "../../components/modal/CustomizableModal";
 import ClientCounterModal from "../../components/counteroffermodal/ClientCounterModal";
+import Avatar from "../../components/avatar/Avatar";
 import {
   fetchAplicantes,
   fetchPostDetails,
@@ -149,16 +150,11 @@ const ApplicantCard = ({
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <img
-            src={a.avatar}
-            alt={a.name}
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              objectFit: "cover",
-              boxShadow: "0 0 0 3px var(--sidebar-bg), 0 0 0 4px var(--divider)",
-            }}
+          <Avatar
+            photoUrl={a.avatar}
+            name={a.name}
+            size={64}
+            style={{ boxShadow: "0 0 0 3px var(--sidebar-bg), 0 0 0 4px var(--divider)" }}
           />
           <div style={{ fontSize: "1.03rem", fontWeight: 700, color: "var(--text)", marginTop: 4 }}>
             {a.name}
@@ -328,17 +324,11 @@ const ApplicantCard = ({
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <img
-            src={a.avatar}
-            alt={a.name}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              objectFit: "cover",
-              boxShadow: "0 0 0 2px var(--sidebar-bg), 0 0 0 3px #2EBCCC",
-              flexShrink: 0,
-            }}
+          <Avatar
+            photoUrl={a.avatar}
+            name={a.name}
+            size={48}
+            style={{ boxShadow: "0 0 0 2px var(--sidebar-bg), 0 0 0 3px #2EBCCC" }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

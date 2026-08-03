@@ -13,6 +13,7 @@ import {
   Zap,
   Lightbulb,
   Triangle,
+  Camera,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -27,11 +28,13 @@ import {
   fetchPerfilCliente,
   fetchReviewsCliente,
   fetchUltimasPublicacionesCliente,
+  uploadProfilePhoto,
   type ServicioCliente,
 } from "../../api/userApi";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
 import { timeAgo, mapEstadoToStatus } from "../../utils/servicio";
 import ReviewsModal from "../../components/reviewsmodal/ReviewsModal";
+import Avatar from "../../components/avatar/Avatar";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -368,9 +371,23 @@ const ClientProfileScreen: React.FC = () => {
       })
     : "—";
 
-  const avatarUrl =
-    profile?.url_foto_perfil ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName || "S")}&background=2EBCCC&color=fff&size=200&bold=true`;
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user?.id) return;
+    setIsUploadingPhoto(true);
+    try {
+      const publicUrl = await uploadProfilePhoto(user.id, file);
+      if (profile) updateProfile({ ...profile, url_foto_perfil: publicUrl });
+    } catch {
+      addToast("error", p.photoUploadError);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const statusLabels: Record<PostStatus, string> = {
     completed: p.status.completed,
@@ -465,23 +482,63 @@ const ClientProfileScreen: React.FC = () => {
         </div>
 
         <div style={{ padding: "0 36px 32px", display: "flex", flexDirection: "column" }}>
-          <motion.img
+          <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.45, delay: 0.1, ease: EASE }}
-            src={avatarUrl}
-            alt={fullName}
             style={{
+              position: "relative",
               width: 112,
               height: 112,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: "5px solid var(--sidebar-bg)",
-              boxShadow: "0 4px 16px rgba(20,30,40,.18)",
               marginTop: -52,
               zIndex: 1,
             }}
-          />
+          >
+            <Avatar
+              photoUrl={profile?.url_foto_perfil}
+              name={user?.firstName}
+              lastName={user?.lastnameP}
+              size={112}
+              style={{
+                fontSize: "2.2rem",
+                border: "5px solid var(--sidebar-bg)",
+                boxShadow: "0 4px 16px rgba(20,30,40,.18)",
+                opacity: isUploadingPhoto ? 0.5 : 1,
+              }}
+              alt={fullName}
+            />
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoChange}
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={isUploadingPhoto}
+              style={{
+                position: "absolute",
+                bottom: 2,
+                right: 2,
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: "3px solid var(--sidebar-bg)",
+                background: "#2EBCCC",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: isUploadingPhoto ? "default" : "pointer",
+                fontFamily: "inherit",
+              }}
+              aria-label={p.changePhoto ?? "Cambiar foto de perfil"}
+            >
+              <Camera size={14} />
+            </button>
+          </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}

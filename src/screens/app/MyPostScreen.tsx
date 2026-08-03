@@ -363,6 +363,7 @@ const AnimatedCard = ({
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
   const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -402,18 +403,25 @@ const AnimatedCard = ({
         style={{ position: "relative", height: 180, overflow: "hidden" }}
       >
         {post.imageUrl && !imgError ? (
-          <img
-            src={post.imageUrl}
-            alt={post.title}
-            onError={() => setImgError(true)}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              transition: "transform 0.4s ease",
-              transform: hovered ? "scale(1.04)" : "scale(1)",
-            }}
-          />
+          <>
+            {!imgLoaded && (
+              <div className="mp-skeleton" style={{ position: "absolute", inset: 0 }} />
+            )}
+            <img
+              src={post.imageUrl}
+              alt={post.title}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                transition: "transform 0.4s ease, opacity 0.25s ease",
+                transform: hovered ? "scale(1.04)" : "scale(1)",
+                opacity: imgLoaded ? 1 : 0,
+              }}
+            />
+          </>
         ) : (
           <div
             style={{

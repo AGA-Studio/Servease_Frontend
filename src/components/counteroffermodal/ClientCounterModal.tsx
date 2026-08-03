@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Send, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import Avatar from "../avatar/Avatar";
 
 export interface ClientCounterData {
   newBid: number;
@@ -155,11 +156,7 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <img
-                  src={applicant.avatarUrl || "https://i.pravatar.cc/150?img=47"}
-                  alt={applicant.name}
-                  style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                />
+                <Avatar photoUrl={applicant.avatarUrl} name={applicant.name} size={40} />
                 <div>
                   <p style={{ margin: 0, fontSize: "0.65rem", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", color: textSecondary }}>
                     {d.applicant}
