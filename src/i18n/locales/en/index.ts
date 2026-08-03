@@ -25,6 +25,7 @@ import { completeservicemodal } from "./completeservicemodal";
 import { paymentwaitingmodal } from "./paymentwaitingmodal";
 import { cardpaymentmodal } from "./cardpaymentmodal";
 import { clientratingmodal } from "./clientratingmodal";
+import { notfoundscreen } from "./notfoundscreen";
 export const en = {
   auth,
   common,
@@ -53,4 +54,5 @@ export const en = {
   paymentwaitingmodal,
   cardpaymentmodal,
   clientratingmodal,
+  notfoundscreen,
 };
