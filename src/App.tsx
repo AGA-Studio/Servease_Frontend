@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { AvailabilityProvider } from "./context/AvailabilityContext";
+import { WorkAreasProvider } from "./context/WorkAreasContext";
 import AppRouter from "./router/AppRouter";
 import { useAuth } from "./context/AuthContext";
 import "./App.css";
@@ -24,7 +25,9 @@ function App() {
   return (
     <AuthProvider>
       <AvailabilityProvider>
-        <AppRouterWithGuard />
+        <WorkAreasProvider>
+          <AppRouterWithGuard />
+        </WorkAreasProvider>
       </AvailabilityProvider>
     </AuthProvider>
   );

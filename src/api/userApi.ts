@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "./apiClient";
+import { apiGet, apiPatch, apiPost, apiPut } from "./apiClient";
 import { supabase } from "../lib/supabase";
 import type { UserRole } from "../context/AuthContext";
 import type { ServicioListItem } from "./servicioApi";
@@ -102,6 +102,21 @@ export async function fetchDisponibilidad(): Promise<boolean> {
 
 export async function updateDisponibilidad(disponible: boolean): Promise<void> {
   await apiPatch<void>("/api/usuarios/disponibilidad/", { disponible });
+}
+
+export interface AreaTrabajo {
+  id_categoria: number;
+  nombre: string;
+}
+
+export async function fetchAreasTrabajo(): Promise<AreaTrabajo[]> {
+  return apiGet<AreaTrabajo[]>("/api/usuarios/areas-trabajo/");
+}
+
+export async function updateAreasTrabajo(
+  categorias: number[],
+): Promise<AreaTrabajo[]> {
+  return apiPut<AreaTrabajo[]>("/api/usuarios/areas-trabajo/", { categorias });
 }
 
 export interface PerfilCliente {

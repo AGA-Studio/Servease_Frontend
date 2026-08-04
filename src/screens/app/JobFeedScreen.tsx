@@ -17,6 +17,7 @@ import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useCurrency } from "../../context/CurrencyContext";
 import { useAvailability } from "../../context/AvailabilityContext";
+import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
@@ -29,7 +30,6 @@ import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
-import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import {
   fetchPostDetails,
   fetchServiciosCatalog,
@@ -589,6 +589,7 @@ const JobFeedScreen: React.FC = () => {
   const p = t("profile").provider;
   const navigate = useNavigate();
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
+  const { areas } = useWorkAreas();
 
   const { toasts, addToast, removeToast } = useToast();
 
@@ -598,7 +599,6 @@ const JobFeedScreen: React.FC = () => {
     priceRange: "",
   });
 
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [providerCoords, setProviderCoords] = useState<ApproxCoords | null>(
     null,
   );
@@ -624,36 +624,55 @@ const JobFeedScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchCategorias()
-      .then(setCategorias)
-      .catch((error) => console.error("fetchCategorias failed:", error));
-  }, []);
-
-  useEffect(() => {
-    const categoriaId = filters.category ? Number(filters.category) : undefined;
     let cancelled = false;
 
-    fetchServiciosCatalog({ categoriaId, estado: "abierto" })
-      .then(async (items) => {
-        if (cancelled) return;
-        const feedJobs = items.map(servicioToFeedJob);
-        const locations = await Promise.all(
-          items.map((item) => getApproxLocation(item.latitud, item.longitud)),
+    const fetchAndProcess = async (categoriaId?: number) => {
+      return fetchServiciosCatalog({ categoriaId, estado: "abierto" });
+    };
+
+    const run = async () => {
+      let allItems: ServicioListItem[] = [];
+
+      if (filters.category) {
+        allItems = await fetchAndProcess(Number(filters.category));
+      } else if (areas.length > 0) {
+        const results = await Promise.all(
+          areas.map((a) => fetchAndProcess(a.id_categoria)),
         );
-        if (cancelled) return;
-        setJobs(
-          feedJobs.map((job, i) => ({
-            ...job,
-            location: locations[i],
-            distanceKm: providerCoords
-              ? distanceKm(providerCoords, {
-                  lat: Number(items[i].latitud),
-                  lon: Number(items[i].longitud),
-                })
-              : null,
-          })),
-        );
-      })
+        const seen = new Set<number>();
+        for (const items of results) {
+          for (const item of items) {
+            if (!seen.has(item.id_servicio)) {
+              seen.add(item.id_servicio);
+              allItems.push(item);
+            }
+          }
+        }
+      } else {
+        allItems = await fetchAndProcess();
+      }
+
+      if (cancelled) return;
+      const feedJobs = allItems.map(servicioToFeedJob);
+      const locations = await Promise.all(
+        allItems.map((item) => getApproxLocation(item.latitud, item.longitud)),
+      );
+      if (cancelled) return;
+      setJobs(
+        feedJobs.map((job, i) => ({
+          ...job,
+          location: locations[i],
+          distanceKm: providerCoords
+            ? distanceKm(providerCoords, {
+                lat: Number(allItems[i].latitud),
+                lon: Number(allItems[i].longitud),
+              })
+            : null,
+        })),
+      );
+    };
+
+    run()
       .catch((error) => {
         if (cancelled) return;
         console.error("fetchServiciosCatalog failed:", error);
@@ -671,13 +690,13 @@ const JobFeedScreen: React.FC = () => {
       setIsLoading(true);
     };
 
-  }, [filters.category, providerCoords]);
+  }, [filters.category, providerCoords, areas]);
 
   const categoryOptions: FilterOption[] = [
     { value: "", label: d.filters.allCategories },
-    ...categorias.map((c) => ({
-      value: String(c.id_categoria),
-      label: c.nombre,
+    ...areas.map((a) => ({
+      value: String(a.id_categoria),
+      label: a.nombre,
     })),
   ];
 

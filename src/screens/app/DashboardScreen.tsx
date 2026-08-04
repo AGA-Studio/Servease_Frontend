@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
 import { useAvailability } from "../../context/AvailabilityContext";
+import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { useDashboardData } from "./dashboard/hooks/useDashboardData";
@@ -38,7 +39,11 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 
 const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
-  const { data, status, error, refresh } = useDashboardData();
+  const { areas } = useWorkAreas();
+  const workAreaIds = areas.map((a) => a.id_categoria);
+  const { data, status, error, refresh } = useDashboardData(
+    workAreaIds.length > 0 ? workAreaIds : undefined,
+  );
   const { disponible, setDisponible } = useAvailability();
   const { toasts, addToast, removeToast } = useToast();
   const { t } = useI18n();

@@ -11,7 +11,7 @@ interface UseDashboardDataReturn {
   refresh: () => void;
 }
 
-export function useDashboardData(): UseDashboardDataReturn {
+export function useDashboardData(workAreaIds?: number[]): UseDashboardDataReturn {
   const [state, setState] = useState<{
     data: DashboardData | null;
     status: FetchStatus;
@@ -33,7 +33,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     const load = async () => {
       setState((prev) => ({ ...prev, status: "loading", error: null }));
       try {
-        const result = await fetchDashboardData();
+        const result = await fetchDashboardData(workAreaIds);
         if (cancelled) return;
         const isEmpty =
           result.availableJobs.length === 0 &&
@@ -59,7 +59,7 @@ export function useDashboardData(): UseDashboardDataReturn {
     return () => {
       cancelled = true;
     };
-  }, [refreshToken]);
+  }, [refreshToken, workAreaIds]);
 
   return {
     data: state.data,

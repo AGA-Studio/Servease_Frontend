@@ -19,12 +19,14 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useCurrency } from "../../context/CurrencyContext";
 import { useAvailability } from "../../context/AvailabilityContext";
+import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
 import { uploadProfilePhoto } from "../../api/userApi";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import Avatar from "../../components/avatar/Avatar";
+import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -386,7 +388,10 @@ const ProviderProfileScreen: React.FC = () => {
   const { toasts, addToast, removeToast } = useToast();
 
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
+  const { areas, isLoading: isAreasLoading } = useWorkAreas();
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [showEditAreasModal, setShowEditAreasModal] = useState(false);
+  const [areasModalKey, setAreasModalKey] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvailabilityChange = async (next: boolean) => {
@@ -425,12 +430,21 @@ const ProviderProfileScreen: React.FC = () => {
 
   const languageLabel = locale === "es" ? "Español" : "English";
 
-  const services = [
-    { icon: <Wrench size={14} />, label: p.services.plumbing },
-    { icon: <Zap size={14} />, label: p.services.electrical },
-    { icon: <Paintbrush size={14} />, label: p.services.painting },
-    { icon: <Hammer size={14} />, label: p.services.carpentry },
-  ];
+  const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
+    Plomería: <Wrench size={14} />,
+    Plumbing: <Wrench size={14} />,
+    Electricidad: <Zap size={14} />,
+    Electrical: <Zap size={14} />,
+    Pintura: <Paintbrush size={14} />,
+    Painting: <Paintbrush size={14} />,
+    "Carpintería": <Hammer size={14} />,
+    Carpentry: <Hammer size={14} />,
+  };
+
+  const services = areas.map((area) => ({
+    icon: CATEGORY_ICON_MAP[area.nombre] ?? <Briefcase size={14} />,
+    label: area.nombre,
+  }));
 
   return (
     <div
@@ -1038,40 +1052,82 @@ const ProviderProfileScreen: React.FC = () => {
           >
             <div
               style={{
-                fontSize: "1.02rem",
-                fontWeight: 800,
-                color: "var(--text)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
                 marginBottom: 16,
               }}
             >
-              {p.about.services}
+              <div
+                style={{
+                  fontSize: "1.02rem",
+                  fontWeight: 800,
+                  color: "var(--text)",
+                }}
+              >
+                {p.workAreas.title}
+              </div>
+              <motion.button
+                className="pp-btn-ghost"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { setAreasModalKey((k) => k + 1); setShowEditAreasModal(true); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  border: "none",
+                  background: isDark
+                    ? "rgba(46,188,204,0.15)"
+                    : "rgba(46,188,204,0.1)",
+                  color: "#2EBCCC",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <Pencil size={13} />
+                {p.workAreas.edit}
+              </motion.button>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {services.map((service, i) => (
-                <motion.div
-                  key={service.label}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2, delay: 0.45 + i * 0.05, ease: EASE }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 14px",
-                    borderRadius: 999,
-                    background: isDark
-                      ? "rgba(46,188,204,0.12)"
-                      : "rgba(46,188,204,0.08)",
-                    color: "#2EBCCC",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  {service.icon}
-                  {service.label}
-                </motion.div>
-              ))}
-            </div>
+            {isAreasLoading ? (
+              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                ...
+              </div>
+            ) : services.length === 0 ? (
+              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                {p.workAreas.empty}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {services.map((service, i) => (
+                  <motion.div
+                    key={service.label}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: 0.05 + i * 0.05, ease: EASE }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 14px",
+                      borderRadius: 999,
+                      background: isDark
+                        ? "rgba(46,188,204,0.12)"
+                        : "rgba(46,188,204,0.08)",
+                      color: "#2EBCCC",
+                      fontSize: "0.8rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {service.icon}
+                    {service.label}
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
 
@@ -1165,6 +1221,11 @@ const ProviderProfileScreen: React.FC = () => {
         </div>
       </div>
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
+      <EditAreasModal
+        key={areasModalKey}
+        isOpen={showEditAreasModal}
+        onClose={() => setShowEditAreasModal(false)}
+      />
     </div>
   );
 };

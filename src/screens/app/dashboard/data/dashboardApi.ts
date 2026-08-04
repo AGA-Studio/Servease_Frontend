@@ -245,10 +245,29 @@ export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
   { name: "HVAC", value: 10, color: "#4AA825" },
 ];
 
-export async function fetchDashboardData(): Promise<DashboardData> {
+export async function fetchDashboardData(
+  workAreaIds?: number[],
+): Promise<DashboardData> {
   let catalogItems: ServicioListItem[] = [];
   try {
-    catalogItems = await fetchServiciosCatalog({ estado: "abierto" });
+    if (workAreaIds && workAreaIds.length > 0) {
+      const results = await Promise.all(
+        workAreaIds.map((id) =>
+          fetchServiciosCatalog({ categoriaId: id, estado: "abierto" }),
+        ),
+      );
+      const seen = new Set<number>();
+      for (const items of results) {
+        for (const item of items) {
+          if (!seen.has(item.id_servicio)) {
+            seen.add(item.id_servicio);
+            catalogItems.push(item);
+          }
+        }
+      }
+    } else {
+      catalogItems = await fetchServiciosCatalog({ estado: "abierto" });
+    }
   } catch (err) {
     console.error("fetchServiciosCatalog failed:", err);
   }

@@ -111,5 +111,24 @@ export const profile = {
       painting: "Painting",
       carpentry: "Carpentry",
     },
+    workAreas: {
+      title: "Work Areas",
+      empty: "You haven't set up your work areas yet.",
+      edit: "Edit",
+      editModal: {
+        title: "Edit Work Areas",
+        subtitle: "Select the categories you work in.",
+        save: "Save",
+        cancel: "Cancel",
+        confirmSave: {
+          title: "Save Work Areas",
+          message: "Save changes to your work areas?",
+          confirm: "Save",
+        },
+      },
+      loadFailed: "Could not load your work areas.",
+      updateFailed: "Could not save your work areas. Please try again.",
+      updateSuccess: "Work areas updated successfully.",
+    },
   },
 };
