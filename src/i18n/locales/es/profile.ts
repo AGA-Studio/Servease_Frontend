@@ -74,6 +74,12 @@ export const profile = {
     availability: "Disponibilidad",
     availableForWork: "Disponible para trabajar",
     currentlyUnavailable: "No disponible",
+    availabilityLoadFailed: "No se pudo cargar tu disponibilidad.",
+    availabilityUpdateFailed:
+      "No se pudo actualizar tu disponibilidad. Intenta de nuevo.",
+    unavailableTitle: "No disponible para trabajar",
+    unavailableSubtitle: "Activa tu disponibilidad para ver trabajos nuevos.",
+    unavailableActivate: "Activar disponibilidad",
     stats: {
       completedJobs: "Trabajos Completados",
       totalEarnings: "Ganancias Totales",

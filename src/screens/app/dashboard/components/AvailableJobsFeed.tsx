@@ -11,6 +11,8 @@ interface AvailableJobsFeedProps {
   jobs: DashboardJob[] | undefined;
   isLoading: boolean;
   isDark: boolean;
+  disponible: boolean;
+  onActivate: () => void;
 }
 
 const EmptyJobsState = ({ isDark }: { isDark: boolean }) => {
@@ -34,9 +36,10 @@ const EmptyJobsState = ({ isDark }: { isDark: boolean }) => {
   );
 };
 
-export const AvailableJobsFeed = ({ jobs, isLoading, isDark }: AvailableJobsFeedProps) => {
+export const AvailableJobsFeed = ({ jobs, isLoading, isDark, disponible, onActivate }: AvailableJobsFeedProps) => {
   const { t } = useI18n();
   const d = t("dashboardscreen");
+  const p = t("profile").provider;
   const navigate = useNavigate();
 
   return (
@@ -88,7 +91,18 @@ export const AvailableJobsFeed = ({ jobs, isLoading, isDark }: AvailableJobsFeed
 
       <div className="ds-jobs-scroll">
         <div className="ds-jobs-grid">
-          {isLoading ? (
+          {!disponible ? (
+            <EmptyState
+              icon={<Briefcase size={32} color="#2EBCCC" />}
+              isDark={isDark}
+              title={p.unavailableTitle}
+              subtitle={p.unavailableSubtitle}
+              action={{
+                label: p.unavailableActivate,
+                onClick: onActivate,
+              }}
+            />
+          ) : isLoading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
             ))

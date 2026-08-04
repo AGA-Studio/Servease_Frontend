@@ -93,6 +93,17 @@ export async function requestPasswordReset(): Promise<void> {
   await apiPost<void>("/api/usuarios/settings/password-reset/", {});
 }
 
+export async function fetchDisponibilidad(): Promise<boolean> {
+  const data = await apiGet<{ disponible: boolean }>(
+    "/api/usuarios/disponibilidad/",
+  );
+  return data.disponible;
+}
+
+export async function updateDisponibilidad(disponible: boolean): Promise<void> {
+  await apiPatch<void>("/api/usuarios/disponibilidad/", { disponible });
+}
+
 export interface PerfilCliente {
   id_usuario: string;
   nombre: string;

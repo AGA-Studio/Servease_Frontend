@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useCurrency } from "../../context/CurrencyContext";
+import { useAvailability } from "../../context/AvailabilityContext";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
@@ -585,7 +586,9 @@ const JobFeedScreen: React.FC = () => {
   const { t } = useI18n();
   const { formatMoney } = useCurrency();
   const d = t("jobfeedscreen");
+  const p = t("profile").provider;
   const navigate = useNavigate();
+  const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
 
   const { toasts, addToast, removeToast } = useToast();
 
@@ -923,13 +926,15 @@ const JobFeedScreen: React.FC = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: 20,
-                background: "rgba(74,168,37,0.15)",
-                color: "#4AA825",
+                background: disponible
+                  ? "rgba(74,168,37,0.15)"
+                  : "rgba(255,0,0,0.08)",
+                color: disponible ? "#4AA825" : "#FF0000",
                 fontWeight: 700,
                 fontSize: "0.78rem",
               }}
             >
-              {d.availableForWork}
+              {disponible ? d.availableForWork : p.currentlyUnavailable}
             </span>
           </div>
         </div>
@@ -944,84 +949,108 @@ const JobFeedScreen: React.FC = () => {
             background: "var(--main-bg)",
           }}
         >
-          <div
-            className="jf-filter-bar"
-            style={{
-              background: "var(--card-bg)",
-              borderRadius: 16,
-              border: "1px solid var(--divider)",
-              padding: 20,
-              marginBottom: 24,
-            }}
-          >
+          {!disponible && !isAvailabilityLoading ? (
             <div
-              className="jf-filter-grid"
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                gap: 16,
+                background: "var(--card-bg)",
+                borderRadius: 16,
+                border: "1px solid var(--divider)",
               }}
             >
-              <FilterSelect
-                label={d.filters.category}
-                value={filters.category}
-                options={categoryOptions}
-                placeholder={d.filters.allCategories}
-                onChange={handleFilterChange("category")}
-              />
-              {providerCoords && (
-                <FilterSelect
-                  label={d.filters.distance}
-                  value={filters.distance}
-                  options={distanceOptions}
-                  placeholder={d.filters.anyDistance ?? d.filters.allCategories}
-                  onChange={handleFilterChange("distance")}
-                />
-              )}
-              <FilterSelect
-                label={d.filters.priceRange}
-                value={filters.priceRange}
-                options={priceRangeOptions}
-                placeholder={d.filters.anyPrice}
-                onChange={handleFilterChange("priceRange")}
+              <EmptyState
+                icon={<Briefcase size={32} color="#2EBCCC" />}
+                isDark={isDark}
+                title={p.unavailableTitle}
+                subtitle={p.unavailableSubtitle}
+                action={{
+                  label: p.unavailableActivate,
+                  onClick: () =>
+                    setDisponible(true).catch(() =>
+                      addToast("error", p.availabilityUpdateFailed),
+                    ),
+                }}
               />
             </div>
-          </div>
-
-          <div className="jf-main-grid">
-            <div className="jf-jobs-list">
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
-                ))
-              ) : visibleJobs.length === 0 ? (
+          ) : (
+            <>
+              <div
+                className="jf-filter-bar"
+                style={{
+                  background: "var(--card-bg)",
+                  borderRadius: 16,
+                  border: "1px solid var(--divider)",
+                  padding: 20,
+                  marginBottom: 24,
+                }}
+              >
                 <div
+                  className="jf-filter-grid"
                   style={{
-                    background: "var(--card-bg)",
-                    borderRadius: 16,
-                    border: "1px solid var(--divider)",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 16,
                   }}
                 >
-                  <EmptyState
-                    icon={<Briefcase size={32} color="#2EBCCC" />}
-                    isDark={isDark}
-                    title={d.empty}
-                    subtitle={d.emptySubtitle}
+                  <FilterSelect
+                    label={d.filters.category}
+                    value={filters.category}
+                    options={categoryOptions}
+                    placeholder={d.filters.allCategories}
+                    onChange={handleFilterChange("category")}
+                  />
+                  {providerCoords && (
+                    <FilterSelect
+                      label={d.filters.distance}
+                      value={filters.distance}
+                      options={distanceOptions}
+                      placeholder={d.filters.anyDistance ?? d.filters.allCategories}
+                      onChange={handleFilterChange("distance")}
+                    />
+                  )}
+                  <FilterSelect
+                    label={d.filters.priceRange}
+                    value={filters.priceRange}
+                    options={priceRangeOptions}
+                    placeholder={d.filters.anyPrice}
+                    onChange={handleFilterChange("priceRange")}
                   />
                 </div>
-              ) : (
-                paginated.map((job) => (
-                  <JobCard key={job.id} job={job} addToast={addToast} />
-                ))
-              )}
-            </div>
+              </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <div
-                style={{
-                  background: "#1B244C",
-                  borderRadius: 16,
-                  padding: 20,
+              <div className="jf-main-grid">
+                <div className="jf-jobs-list">
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
+                    ))
+                  ) : visibleJobs.length === 0 ? (
+                    <div
+                      style={{
+                        background: "var(--card-bg)",
+                        borderRadius: 16,
+                        border: "1px solid var(--divider)",
+                      }}
+                    >
+                      <EmptyState
+                        icon={<Briefcase size={32} color="#2EBCCC" />}
+                        isDark={isDark}
+                        title={d.empty}
+                        subtitle={d.emptySubtitle}
+                      />
+                    </div>
+                  ) : (
+                    paginated.map((job) => (
+                      <JobCard key={job.id} job={job} addToast={addToast} />
+                    ))
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div
+                    style={{
+                      background: "#1B244C",
+                      borderRadius: 16,
+                      padding: 20,
                   color: "#fff",
                 }}
               >
@@ -1185,6 +1214,8 @@ const JobFeedScreen: React.FC = () => {
                 onChange={handlePageChange}
               />
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

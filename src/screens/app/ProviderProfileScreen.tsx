@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useCurrency } from "../../context/CurrencyContext";
+import { useAvailability } from "../../context/AvailabilityContext";
 import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
 import { uploadProfilePhoto } from "../../api/userApi";
@@ -384,9 +385,17 @@ const ProviderProfileScreen: React.FC = () => {
   const p = t("profile").provider;
   const { toasts, addToast, removeToast } = useToast();
 
-  const [isAvailable, setIsAvailable] = useState(true);
+  const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvailabilityChange = async (next: boolean) => {
+    try {
+      await setDisponible(next);
+    } catch {
+      addToast("error", p.availabilityUpdateFailed);
+    }
+  };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -662,15 +671,15 @@ const ProviderProfileScreen: React.FC = () => {
                   gap: 4,
                   padding: "4px 10px",
                   borderRadius: 20,
-                  background: isAvailable
+                  background: disponible
                     ? "rgba(74,168,37,0.12)"
                     : "rgba(255,0,0,0.08)",
-                  color: isAvailable ? "#4AA825" : "#FF0000",
+                  color: disponible ? "#4AA825" : "#FF0000",
                   fontSize: "0.75rem",
                   fontWeight: 700,
                 }}
               >
-                {isAvailable ? (
+                {disponible ? (
                   <>
                     <Check size={12} /> {p.availableForWork}
                   </>
@@ -1000,13 +1009,14 @@ const ProviderProfileScreen: React.FC = () => {
               }}
             >
               <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                {isAvailable ? p.availableForWork : p.currentlyUnavailable}
+                {disponible ? p.availableForWork : p.currentlyUnavailable}
               </span>
               <input
                 type="checkbox"
                 className="pp-toggle"
-                checked={isAvailable}
-                onChange={(e) => setIsAvailable(e.target.checked)}
+                checked={disponible}
+                disabled={isAvailabilityLoading}
+                onChange={(e) => handleAvailabilityChange(e.target.checked)}
                 aria-label={p.availability}
               />
             </div>
