@@ -18,6 +18,7 @@ import ClientCounterModal from "../../components/counteroffermodal/ClientCounter
 import Avatar from "../../components/avatar/Avatar";
 import {
   acceptPostulacion,
+  crearOferta,
   fetchAplicantes,
   fetchPostDetails,
   rejectPostulacion,
@@ -43,13 +44,15 @@ interface Applicant {
   bid: number;
   status: ApplicantStatus;
   counterAmount: number | null;
+  lastOfferBy: "you" | "provider" | null;
+  previousOfferAmount: number | null;
 }
 
-function mapEstadoSolicitud(estado: string): ApplicantStatus {
+function mapEstadoSolicitud(estado: string, hasOferta: boolean): ApplicantStatus {
   const e = estado.toLowerCase();
   if (e.includes("acept")) return "accepted";
   if (e.includes("rechaz") || e.includes("declin")) return "declined";
-  if (e.includes("contra")) return "countered";
+  if (hasOferta || e.includes("contra")) return "countered";
   return "new";
 }
 
@@ -63,8 +66,10 @@ function aplicanteToApplicant(a: Aplicante): Applicant {
     jobs: a.trabajos_completados,
     message: a.mensaje_proveedor,
     bid: Number(a.precio_propuesto),
-    status: mapEstadoSolicitud(a.estado_solicitud),
+    status: mapEstadoSolicitud(a.estado_solicitud, !!a.ultima_oferta),
     counterAmount: a.presupuesto_acordado ? Number(a.presupuesto_acordado) : null,
+    lastOfferBy: a.ultima_oferta ? (a.ultima_oferta.emisor === "cliente" ? "you" : "provider") : null,
+    previousOfferAmount: a.penultima_oferta_monto ? Number(a.penultima_oferta_monto) : null,
   };
 }
 
@@ -251,13 +256,13 @@ const ApplicantCard = ({
               <div style={{ display: "flex", gap: 26 }}>
                 <div>
                   <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
-                    {po.originalBid}
+                    {po.previousBid}
                   </div>
-                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.bid}</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.previousOfferAmount ?? a.bid}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
-                    {po.yourCounter}
+                    {po.lastOffer.label} · {a.lastOfferBy === "provider" ? a.name.split(" ")[0] : po.lastOffer.you}
                   </div>
                   <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
                 </div>
@@ -429,13 +434,13 @@ const ApplicantCard = ({
             <div style={{ display: "flex", gap: 20 }}>
               <div>
                 <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
-                  {po.originalBid}
+                  {po.previousBid}
                 </div>
-                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.bid}</div>
+                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.previousOfferAmount ?? a.bid}</div>
               </div>
               <div>
                 <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
-                  {po.yourCounter}
+                  {po.lastOffer.label} · {a.lastOfferBy === "provider" ? a.name.split(" ")[0] : po.lastOffer.you}
                 </div>
                 <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
               </div>
@@ -552,6 +557,8 @@ const PostOffersScreen: React.FC = () => {
   const [isLoadingApplicants, setIsLoadingApplicants] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [counterApplicant, setCounterApplicant] = useState<Applicant | null>(null);
+  const [isCounterSubmitting, setIsCounterSubmitting] = useState(false);
+  const [counterError, setCounterError] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<{
     type: "accept" | "reject" | "cancelCounter" | "undoDecline";
     applicant: Applicant;
@@ -595,6 +602,41 @@ const PostOffersScreen: React.FC = () => {
   }, [postId]);
 
   const notifyActionUnavailable = () => addToast("info", po.actionUnavailable);
+
+  const handleSendCounter = async (data: { newBid: number; message: string }) => {
+    if (!counterApplicant) return;
+    setIsCounterSubmitting(true);
+    setCounterError(null);
+    try {
+      await crearOferta({
+        id_postulacion: counterApplicant.id,
+        monto: data.newBid,
+        comentario: data.message || undefined,
+      });
+      setApplicants((prev) =>
+        prev.map((a) =>
+          a.id === counterApplicant.id
+            ? {
+                ...a,
+                status: "countered" as const,
+                counterAmount: data.newBid,
+                lastOfferBy: "you" as const,
+                previousOfferAmount: a.counterAmount ?? a.bid,
+              }
+            : a,
+        ),
+      );
+      addToast("success", po.success.countered.replace("{name}", counterApplicant.name));
+      setCounterApplicant(null);
+    } catch (error) {
+      console.error("crearOferta failed:", error);
+      const isFriendlyDetail =
+        error instanceof ApiError && !/^Request failed: \d+$/.test(error.message);
+      setCounterError(isFriendlyDetail ? (error as ApiError).message : po.errors.counterFailed);
+    } finally {
+      setIsCounterSubmitting(false);
+    }
+  };
 
   if (!isLoadingPost && !post) {
     return (
@@ -836,7 +878,10 @@ const PostOffersScreen: React.FC = () => {
                   onAccept={() => setConfirmState({ type: "accept", applicant: a })}
                   onReject={() => setConfirmState({ type: "reject", applicant: a })}
                   onUndoDecline={() => setConfirmState({ type: "undoDecline", applicant: a })}
-                  onOpenCounter={() => setCounterApplicant(a)}
+                  onOpenCounter={() => {
+                    setCounterError(null);
+                    setCounterApplicant(a);
+                  }}
                   onCancelCounter={() => setConfirmState({ type: "cancelCounter", applicant: a })}
                 />
               ))}
@@ -880,11 +925,14 @@ const PostOffersScreen: React.FC = () => {
           avatarUrl: counterApplicant?.avatar,
           originalBid: counterApplicant?.bid ?? 0,
         }}
-        onClose={() => setCounterApplicant(null)}
-        onSubmit={() => {
+        isSubmitting={isCounterSubmitting}
+        errorMessage={counterError}
+        onClose={() => {
+          if (isCounterSubmitting) return;
+          setCounterError(null);
           setCounterApplicant(null);
-          notifyActionUnavailable();
         }}
+        onSubmit={handleSendCounter}
       />
     </div>
   );

@@ -24,6 +24,7 @@ export const postoffers = {
   cancel: "Cancelar",
   sendCounter: "Enviar Contraoferta",
   originalBid: "Oferta Original",
+  previousBid: "Oferta Anterior",
   yourCounter: "Tu Contraoferta",
   cancelCounter: "Cancelar Contraoferta",
   waitingForResponse: "Esperando Respuesta",
@@ -63,6 +64,7 @@ export const postoffers = {
     accepted: "Aceptaste a {name}. Ya pueden comenzar a coordinar el servicio.",
     rejected: "Rechazaste la propuesta de {name}.",
     undone: "Restauraste la aplicación de {name} como pendiente.",
+    countered: "Enviaste tu contraoferta a {name}.",
   },
   errors: {
     postFailed: "No se pudo cargar la publicación. Intenta de nuevo más tarde.",
@@ -71,5 +73,10 @@ export const postoffers = {
     acceptFailed: "No se pudo aceptar la aplicación. Intenta de nuevo.",
     rejectFailed: "No se pudo rechazar la aplicación. Intenta de nuevo.",
     undoFailed: "No se pudo deshacer el rechazo. Intenta de nuevo.",
+    counterFailed: "No se pudo enviar la contraoferta. Intenta de nuevo.",
+  },
+  lastOffer: {
+    you: "Tú",
+    label: "Última contraoferta",
   },
 };

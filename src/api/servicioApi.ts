@@ -83,6 +83,13 @@ export async function fetchPostDetails(
   return data;
 }
 
+export interface UltimaOferta {
+  monto: string;
+  fecha: string;
+  comentario: string | null;
+  emisor: "cliente" | "proveedor";
+}
+
 export interface Aplicante {
   id_postulacion: number;
   servicio_id: number;
@@ -96,12 +103,36 @@ export interface Aplicante {
   rating: number;
   num_reviews: number;
   trabajos_completados: number;
+  ultima_oferta: UltimaOferta | null;
+  penultima_oferta_monto: string | null;
 }
 
 export async function fetchAplicantes(
   idServicio: number | string,
 ): Promise<Aplicante[]> {
   return apiGet<Aplicante[]>(`/api/servicios/${idServicio}/aplicantes/`);
+}
+
+export interface CrearOfertaPayload {
+  id_postulacion: number | string;
+  monto: number;
+  comentario?: string;
+}
+
+export interface OfertaResponse {
+  id_oferta: number;
+  monto: string;
+  comentario: string | null;
+  fecha: string;
+  postulacion_id: number;
+}
+
+export async function crearOferta(
+  payload: CrearOfertaPayload,
+): Promise<OfertaResponse> {
+  return apiPost<OfertaResponse>("/api/servicios/ofertas/crear/", {
+    ...payload,
+  });
 }
 
 export interface PendienteCalificar {

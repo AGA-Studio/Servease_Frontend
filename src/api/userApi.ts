@@ -148,6 +148,24 @@ export async function fetchUltimasPublicacionesCliente(
   );
 }
 
+export interface HomeCliente {
+  id_servicio: number;
+  titulo: string;
+  descripcion: string;
+  categoria: string;
+  latitud: string | null;
+  longitud: string | null;
+  fecha: string;
+  tiempo_transcurrido: string;
+  estado: string;
+  cliente_id: string;
+  fotos_proveedores_aplicantes: string[];
+}
+
+export async function fetchHomeCliente(userId: string): Promise<HomeCliente[]> {
+  return apiGet<HomeCliente[]>(`/api/usuarios/${userId}/home/`);
+}
+
 export interface MisPublicacionesResponse {
   count: number;
   next: string | null;

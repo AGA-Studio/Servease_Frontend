@@ -36,6 +36,7 @@ export const homescreen = {
   errors: {
     kpisFailed: "No se pudieron cargar tus estadísticas. Intenta de nuevo más tarde.",
     postsFailed: "No se pudieron cargar tus publicaciones. Intenta de nuevo más tarde.",
+    detailsFailed: "No se pudo cargar el detalle de la publicación. Intenta de nuevo.",
   },
   empty: {
     postsTitle: "Aún no tienes publicaciones",
