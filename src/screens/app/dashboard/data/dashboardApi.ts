@@ -246,7 +246,12 @@ export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
 ];
 
 export async function fetchDashboardData(): Promise<DashboardData> {
-  const catalogItems = await fetchServiciosCatalog({ estado: "abierto" });
+  let catalogItems: ServicioListItem[] = [];
+  try {
+    catalogItems = await fetchServiciosCatalog({ estado: "abierto" });
+  } catch (err) {
+    console.error("fetchServiciosCatalog failed:", err);
+  }
   const availableJobs = await Promise.all(
     catalogItems.map(mapCatalogItemToDashboardJob),
   );
