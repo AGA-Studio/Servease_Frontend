@@ -36,6 +36,7 @@ import {
   type ServicioListItem,
 } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
+import { fetchProviderEarningsSummary } from "../../api/providerApi";
 import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
 import {
   distanceKm,
@@ -605,6 +606,11 @@ const JobFeedScreen: React.FC = () => {
   const [jobs, setJobs] = useState<FeedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [earningsSummary, setEarningsSummary] = useState<{
+    thisWeek: number;
+    pending: number;
+    projected: number;
+  } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -621,6 +627,12 @@ const JobFeedScreen: React.FC = () => {
       },
       { timeout: 8000, enableHighAccuracy: false },
     );
+  }, []);
+
+  useEffect(() => {
+    fetchProviderEarningsSummary()
+      .then(setEarningsSummary)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1101,7 +1113,7 @@ const JobFeedScreen: React.FC = () => {
                     fontWeight: 800,
                   }}
                 >
-                  {formatMoney(840.5)}
+                  {formatMoney(earningsSummary?.thisWeek ?? 0)}
                 </p>
                 <div
                   style={{
@@ -1127,7 +1139,7 @@ const JobFeedScreen: React.FC = () => {
                         fontWeight: 700,
                       }}
                     >
-                      {formatMoney(120)}
+                      {formatMoney(earningsSummary?.pending ?? 0)}
                     </p>
                   </div>
                   <div>
@@ -1147,7 +1159,7 @@ const JobFeedScreen: React.FC = () => {
                         fontWeight: 700,
                       }}
                     >
-                      {formatMoney(960)}
+                      {formatMoney(earningsSummary?.projected ?? 0)}
                     </p>
                   </div>
                 </div>

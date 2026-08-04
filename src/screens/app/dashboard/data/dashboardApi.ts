@@ -12,10 +12,11 @@ import {
   type ServicioListItem,
 } from "../../../../api/servicioApi";
 import {
-  fetchProviderKpis,
+  fetchDashboardProveedor,
   fetchProviderEarnings,
   fetchProviderActivity,
   type ProviderActivityItem,
+  type ProviderKpisResponse,
 } from "../../../../api/providerApi";
 import { timeAgo } from "../../../../utils/servicio";
 import { getApproxLocation } from "../../../../utils/location";
@@ -99,7 +100,7 @@ function mapProviderActivityToDashboard(activities: ProviderActivityItem[]): Das
 }
 
 function mapProviderKpisToKpiData(
-  kpis: Awaited<ReturnType<typeof fetchProviderKpis>>,
+  kpis: ProviderKpisResponse,
 ): KpiData[] {
   return [
     {
@@ -191,44 +192,6 @@ export const MOCK_ACTIVITIES: DashboardActivity[] = [
   },
 ];
 
-export const MOCK_KPIS: KpiData[] = [
-  {
-    key: "activeJobs",
-    label: "Active Jobs",
-    value: 5,
-    iconName: "briefcase",
-    iconColor: "#2EBCCC",
-    iconBg: "rgba(46,188,204,0.15)",
-    trend: { value: 12, label: "vs last month", isPositive: true },
-  },
-  {
-    key: "completedJobs",
-    label: "Completed",
-    value: 24,
-    iconName: "checkCircle",
-    iconColor: "#4AA825",
-    iconBg: "rgba(74,168,37,0.15)",
-    trend: { value: 8, label: "vs last month", isPositive: true },
-  },
-  {
-    key: "earnings",
-    label: "Earnings",
-    value: "$3,450",
-    iconName: "dollarSign",
-    iconColor: "#FFB200",
-    iconBg: "rgba(255,178,0,0.15)",
-    trend: { value: 15, label: "vs last month", isPositive: true },
-  },
-  {
-    key: "averageRating",
-    label: "Rating",
-    value: "4.8",
-    iconName: "star",
-    iconColor: "#FFB200",
-    iconBg: "rgba(255,178,0,0.15)",
-  },
-];
-
 export const MOCK_EARNINGS: EarningsPoint[] = [
   { month: "Feb", earnings: 2100 },
   { month: "Mar", earnings: 2800 },
@@ -246,6 +209,7 @@ export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
 ];
 
 export async function fetchDashboardData(
+  userId: string,
   workAreaIds?: number[],
 ): Promise<DashboardData> {
   let catalogItems: ServicioListItem[] = [];
@@ -278,7 +242,7 @@ export async function fetchDashboardData(
   const jobsByCategory = deriveJobsByCategory(catalogItems);
 
   const results = await Promise.allSettled([
-    fetchProviderKpis(),
+    fetchDashboardProveedor(userId),
     fetchProviderEarnings(),
     fetchProviderActivity(),
   ]);
@@ -288,7 +252,7 @@ export async function fetchDashboardData(
   const kpis =
     kpisResult.status === "fulfilled"
       ? mapProviderKpisToKpiData(kpisResult.value)
-      : MOCK_KPIS;
+      : [];
 
   const earnings =
     earningsResult.status === "fulfilled"

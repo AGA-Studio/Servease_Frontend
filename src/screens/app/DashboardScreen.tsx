@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
+import { useAuth } from "../../context/AuthContext";
 import { useAvailability } from "../../context/AvailabilityContext";
 import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useToast } from "../../components/Toast/useToast";
@@ -39,9 +40,11 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 
 const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
+  const { user } = useAuth();
   const { areas } = useWorkAreas();
   const workAreaIds = areas.map((a) => a.id_categoria);
   const { data, status, error, refresh } = useDashboardData(
+    user?.id,
     workAreaIds.length > 0 ? workAreaIds : undefined,
   );
   const { disponible, setDisponible } = useAvailability();
