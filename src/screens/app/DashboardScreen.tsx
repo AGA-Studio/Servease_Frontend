@@ -42,13 +42,13 @@ const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
   const { user } = useAuth();
   const { areas } = useWorkAreas();
-  const workAreaIds = useMemo(
-    () => areas.map((a) => a.id_categoria),
+  const areaNames = useMemo(
+    () => areas.map((a) => a.nombre),
     [areas],
   );
   const { data, status, error, refresh } = useDashboardData(
     user?.id,
-    workAreaIds.length > 0 ? workAreaIds : undefined,
+    areaNames.length > 0 ? areaNames : undefined,
   );
   const { disponible, setDisponible } = useAvailability();
   const { toasts, addToast, removeToast } = useToast();

@@ -10,6 +10,8 @@ import {
 import type { EarningsPoint } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { useCurrency } from "../../../../context/CurrencyContext";
+import EmptyState from "../../../../components/emptystate/EmptyState";
+import { BarChart3 } from "lucide-react";
 
 interface EarningsChartProps {
   data: EarningsPoint[] | undefined;
@@ -56,6 +58,14 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
         </span>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
+        {!data || data.length === 0 ? (
+          <EmptyState
+            icon={<BarChart3 size={22} color="#2EBCCC" />}
+            isDark={isDark}
+            title={d.empty.categories.title}
+            subtitle={d.empty.categories.description}
+          />
+        ) : (
         <ResponsiveContainer width="100%" height="100%" minHeight={200}>
           <AreaChart
             data={data}
@@ -115,6 +125,7 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
             />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

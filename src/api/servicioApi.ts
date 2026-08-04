@@ -116,10 +116,31 @@ export interface ServicioListItem {
   categoria_nombre: string;
 }
 
+const CATALOG_TTL_MS = 30_000;
+
+const catalogCache = new Map<string, { items: ServicioListItem[]; at: number }>();
+const catalogInFlight = new Map<string, Promise<ServicioListItem[]>>();
+
+const catalogKey = (filters?: { categoriaId?: number; estado?: string }): string =>
+  `${filters?.categoriaId ?? "all"}|${filters?.estado ?? "all"}`;
+
+const copyItems = (items: ServicioListItem[]): ServicioListItem[] =>
+  items.map((item) => ({ ...item }));
+
 export async function fetchServiciosCatalog(filters?: {
   categoriaId?: number;
   estado?: string;
 }): Promise<ServicioListItem[]> {
+  const key = catalogKey(filters);
+
+  const cached = catalogCache.get(key);
+  if (cached && Date.now() - cached.at < CATALOG_TTL_MS) {
+    return copyItems(cached.items);
+  }
+
+  const existing = catalogInFlight.get(key);
+  if (existing) return existing.then(copyItems);
+
   const params = new URLSearchParams();
   if (filters?.categoriaId) params.set("categoria_id", String(filters.categoriaId));
   const estado = filters?.estado;
@@ -128,22 +149,34 @@ export async function fetchServiciosCatalog(filters?: {
   const url = (p: URLSearchParams) =>
     `/api/servicios/${p.toString() ? `?${p}` : ""}`;
 
-  try {
-    return await apiGet<ServicioListItem[]>(url(params));
-  } catch (err) {
-    if (estado && err instanceof ApiError && err.status === 400) {
-      params.delete("estado");
-      const items = await apiGet<ServicioListItem[]>(url(params));
-      return items.filter((item) => {
-        const raw = item as unknown as {
-          estado?: string;
-          estado_descripcion?: string;
-        };
-        return (raw.estado_descripcion ?? raw.estado) === estado;
-      });
+  const promise = (async () => {
+    try {
+      return await apiGet<ServicioListItem[]>(url(params));
+    } catch (err) {
+      if (estado && err instanceof ApiError && err.status === 400) {
+        params.delete("estado");
+        const items = await apiGet<ServicioListItem[]>(url(params));
+        return items.filter((item) => {
+          const raw = item as unknown as {
+            estado?: string;
+            estado_descripcion?: string;
+          };
+          return (raw.estado_descripcion ?? raw.estado) === estado;
+        });
+      }
+      throw err;
     }
+  })().then((items) => {
+    catalogCache.set(key, { items, at: Date.now() });
+    catalogInFlight.delete(key);
+    return items;
+  }).catch((err) => {
+    catalogInFlight.delete(key);
     throw err;
-  }
+  });
+
+  catalogInFlight.set(key, promise);
+  return promise.then(copyItems);
 }
 
 export async function uploadServiceImage(

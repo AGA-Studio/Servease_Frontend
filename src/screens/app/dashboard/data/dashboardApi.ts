@@ -1,9 +1,7 @@
 import type {
   DashboardData,
   DashboardJob,
-  DashboardActivity,
   KpiData,
-  EarningsPoint,
   CategoryBreakdown,
 } from "../../../../types/dashboard";
 import type { JobClient } from "../../../../types/job";
@@ -13,9 +11,6 @@ import {
 } from "../../../../api/servicioApi";
 import {
   fetchDashboardProveedor,
-  fetchProviderEarnings,
-  fetchProviderActivity,
-  type ProviderActivityItem,
   type ProviderKpisResponse,
 } from "../../../../api/providerApi";
 import { timeAgo } from "../../../../utils/servicio";
@@ -87,18 +82,6 @@ function deriveJobsByCategory(items: ServicioListItem[]): CategoryBreakdown[] {
     .sort((a, b) => b.value - a.value);
 }
 
-function mapProviderActivityToDashboard(activities: ProviderActivityItem[]): DashboardActivity[] {
-  return activities.map((a) => ({
-    id: a.id,
-    type: a.type,
-    timeAgo: a.timeAgo,
-    content: a.content,
-    highlight: a.highlight,
-    extra: a.extra,
-    dotColor: a.dotColor,
-  }));
-}
-
 function mapProviderKpisToKpiData(
   kpis: ProviderKpisResponse,
 ): KpiData[] {
@@ -147,91 +130,17 @@ function mapProviderKpisToKpiData(
   ];
 }
 
-export const MOCK_ACTIVITIES: DashboardActivity[] = [
-  {
-    id: "1",
-    type: "applied",
-    timeAgo: "30 mins ago",
-    content: " you a proposal for 'Emergency Plumber Needed'.",
-    highlight: "You submitted",
-    extra: "Budget: $450",
-    dotColor: "#2EBCCC",
-  },
-  {
-    id: "2",
-    type: "hired",
-    timeAgo: "2 hours ago",
-    content: " accepted your proposal for 'Office Cleaning'.",
-    highlight: "Sara J.",
-    dotColor: "#4AA825",
-  },
-  {
-    id: "3",
-    type: "completed",
-    timeAgo: "5 hours ago",
-    content: " successfully completed.",
-    highlight: "'Electrical Repair'",
-    dotColor: "#4AA825",
-  },
-  {
-    id: "4",
-    type: "payment",
-    timeAgo: "Yesterday",
-    content: "Payment received: ",
-    highlight: "$350",
-    extra: "From: 'Lock Installation'",
-    dotColor: "#FFB200",
-  },
-  {
-    id: "5",
-    type: "message",
-    timeAgo: "2 days ago",
-    content: " sent you a message about 'Garden Landscaping'.",
-    highlight: "Mike R.",
-    dotColor: "#2EBCCC",
-  },
-];
-
-export const MOCK_EARNINGS: EarningsPoint[] = [
-  { month: "Feb", earnings: 2100 },
-  { month: "Mar", earnings: 2800 },
-  { month: "Apr", earnings: 2450 },
-  { month: "May", earnings: 3200 },
-  { month: "Jun", earnings: 2900 },
-  { month: "Jul", earnings: 3450 },
-];
-
-export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
-  { name: "Plumbing", value: 40, color: "#2EBCCC" },
-  { name: "Electrical", value: 30, color: "#FFB200" },
-  { name: "Gardening", value: 20, color: "#0432FF" },
-  { name: "HVAC", value: 10, color: "#4AA825" },
-];
-
 export async function fetchDashboardData(
   userId: string,
-  workAreaIds?: number[],
+  areaNames?: string[],
 ): Promise<DashboardData> {
   let catalogItems: ServicioListItem[] = [];
   try {
-    if (workAreaIds && workAreaIds.length > 0) {
-      const results = await Promise.all(
-        workAreaIds.map((id) =>
-          fetchServiciosCatalog({ categoriaId: id, estado: "abierto" }),
-        ),
-      );
-      const seen = new Set<number>();
-      for (const items of results) {
-        for (const item of items) {
-          if (!seen.has(item.id_servicio)) {
-            seen.add(item.id_servicio);
-            catalogItems.push(item);
-          }
-        }
-      }
-    } else {
-      catalogItems = await fetchServiciosCatalog({ estado: "abierto" });
-    }
+    const all = await fetchServiciosCatalog({ estado: "abierto" });
+    catalogItems =
+      areaNames && areaNames.length > 0
+        ? all.filter((item) => areaNames.includes(item.categoria_nombre))
+        : all;
   } catch (err) {
     console.error("fetchServiciosCatalog failed:", err);
   }
@@ -241,34 +150,18 @@ export async function fetchDashboardData(
 
   const jobsByCategory = deriveJobsByCategory(catalogItems);
 
-  const results = await Promise.allSettled([
-    fetchDashboardProveedor(userId),
-    fetchProviderEarnings(),
-    fetchProviderActivity(),
-  ]);
-
-  const [kpisResult, earningsResult, activityResult] = results;
-
-  const kpis =
-    kpisResult.status === "fulfilled"
-      ? mapProviderKpisToKpiData(kpisResult.value)
-      : [];
-
-  const earnings =
-    earningsResult.status === "fulfilled"
-      ? earningsResult.value.map((p) => ({ month: p.month, earnings: p.earnings }))
-      : MOCK_EARNINGS;
-
-  const recentActivity =
-    activityResult.status === "fulfilled"
-      ? mapProviderActivityToDashboard(activityResult.value)
-      : MOCK_ACTIVITIES;
+  let kpis: KpiData[] = [];
+  try {
+    kpis = mapProviderKpisToKpiData(await fetchDashboardProveedor(userId));
+  } catch (err) {
+    console.error("fetchDashboardProveedor failed:", err);
+  }
 
   return {
     kpis,
-    earnings,
-    jobsByCategory: jobsByCategory.length ? jobsByCategory : MOCK_JOBS_BY_CATEGORY,
+    earnings: [],
+    jobsByCategory,
     availableJobs,
-    recentActivity,
+    recentActivity: [],
   };
 }

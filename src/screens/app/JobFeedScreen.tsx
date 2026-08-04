@@ -23,9 +23,7 @@ import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
 import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
-import ApplyJobModal, {
-  type ApplyJobData,
-} from "../../components/applyjobmodal/ApplyJobModal";
+import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
 import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
@@ -236,7 +234,7 @@ const JobCard = ({
     }
   };
 
-  const handleApplySubmit = (_data: ApplyJobData) => {
+  const handleApplySubmit = () => {
     setIsApplyOpen(false);
     addToast("info", d.actionUnavailable);
   };
@@ -638,30 +636,21 @@ const JobFeedScreen: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
 
-    const fetchAndProcess = async (categoriaId?: number) => {
-      return fetchServiciosCatalog({ categoriaId, estado: "abierto" });
-    };
-
     const run = async () => {
-      let allItems: ServicioListItem[] = [];
+      let allItems: ServicioListItem[];
 
       if (filters.category) {
-        allItems = await fetchAndProcess(Number(filters.category));
-      } else if (areas.length > 0) {
-        const results = await Promise.all(
-          areas.map((a) => fetchAndProcess(a.id_categoria)),
-        );
-        const seen = new Set<number>();
-        for (const items of results) {
-          for (const item of items) {
-            if (!seen.has(item.id_servicio)) {
-              seen.add(item.id_servicio);
-              allItems.push(item);
-            }
-          }
-        }
+        allItems = await fetchServiciosCatalog({
+          categoriaId: Number(filters.category),
+          estado: "abierto",
+        });
       } else {
-        allItems = [];
+        const all = await fetchServiciosCatalog({ estado: "abierto" });
+        const areaNames = areas.map((a) => a.nombre);
+        allItems =
+          areaNames.length > 0
+            ? all.filter((item) => areaNames.includes(item.categoria_nombre))
+            : all;
       }
 
       if (cancelled) return;
@@ -674,12 +663,6 @@ const JobFeedScreen: React.FC = () => {
         feedJobs.map((job, i) => ({
           ...job,
           location: locations[i],
-          distanceKm: providerCoords
-            ? distanceKm(providerCoords, {
-                lat: Number(allItems[i].latitud),
-                lon: Number(allItems[i].longitud),
-              })
-            : null,
         })),
       );
     };
@@ -702,7 +685,17 @@ const JobFeedScreen: React.FC = () => {
       setIsLoading(true);
     };
 
-  }, [filters.category, providerCoords, areas]);
+  }, [filters.category, areas]);
+
+  const jobsWithDistance = useMemo(() => {
+    if (!providerCoords) return jobs;
+    return jobs.map((job) => {
+      const lat = Number(job.raw.latitud);
+      const lon = Number(job.raw.longitud);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return job;
+      return { ...job, distanceKm: distanceKm(providerCoords, { lat, lon }) };
+    });
+  }, [jobs, providerCoords]);
 
   const categoryOptions: FilterOption[] = [
     { value: "", label: d.filters.allCategories },
@@ -731,7 +724,7 @@ const JobFeedScreen: React.FC = () => {
   };
 
   const visibleJobs = useMemo(() => {
-    return jobs.filter((job) => {
+    return jobsWithDistance.filter((job) => {
       if (filters.distance && job.distanceKm !== null) {
         if (job.distanceKm > Number(filters.distance)) return false;
       }
@@ -745,7 +738,7 @@ const JobFeedScreen: React.FC = () => {
       }
       return true;
     });
-  }, [jobs, filters.distance, filters.priceRange]);
+  }, [jobsWithDistance, filters.distance, filters.priceRange]);
 
   const totalPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
