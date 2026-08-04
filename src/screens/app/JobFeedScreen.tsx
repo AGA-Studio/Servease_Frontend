@@ -649,7 +649,7 @@ const JobFeedScreen: React.FC = () => {
           }
         }
       } else {
-        allItems = await fetchAndProcess();
+        allItems = [];
       }
 
       if (cancelled) return;
@@ -1053,8 +1053,8 @@ const JobFeedScreen: React.FC = () => {
                       <EmptyState
                         icon={<Briefcase size={32} color="#2EBCCC" />}
                         isDark={isDark}
-                        title={d.empty}
-                        subtitle={d.emptySubtitle}
+                        title={areas.length === 0 && !filters.category ? d.noAreasTitle : d.empty}
+                        subtitle={areas.length === 0 && !filters.category ? d.noAreasSubtitle : d.emptySubtitle}
                       />
                     </div>
                   ) : (

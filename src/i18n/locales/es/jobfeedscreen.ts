@@ -25,6 +25,8 @@ export const jobfeedscreen = {
   },
   empty: "No hay trabajos disponibles con estos filtros.",
   emptySubtitle: "Intenta ajustar los filtros o vuelve más tarde.",
+  noAreasTitle: "Configura tus áreas de trabajo",
+  noAreasSubtitle: "Agrega tus categorías en tu perfil para ver trabajos relevantes.",
   noAppliedJobs: "Aún no has aplicado a ningún trabajo.",
   actionUnavailable: "Aplicar a servicios todavía no está disponible.",
   errors: {
