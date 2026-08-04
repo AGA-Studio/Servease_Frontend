@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
@@ -42,7 +42,10 @@ const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
   const { user } = useAuth();
   const { areas } = useWorkAreas();
-  const workAreaIds = areas.map((a) => a.id_categoria);
+  const workAreaIds = useMemo(
+    () => areas.map((a) => a.id_categoria),
+    [areas],
+  );
   const { data, status, error, refresh } = useDashboardData(
     user?.id,
     workAreaIds.length > 0 ? workAreaIds : undefined,
