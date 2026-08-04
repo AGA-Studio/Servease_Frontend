@@ -1,4 +1,4 @@
-// Animated trash icon: lid lifts on hover, full delete animation on click
+
 
 import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
 import { motion, useAnimation } from "framer-motion";

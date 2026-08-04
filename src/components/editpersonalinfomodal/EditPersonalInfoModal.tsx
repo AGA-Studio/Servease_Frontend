@@ -1,5 +1,4 @@
-// Modal para editar la información personal del cliente (PATCH
-// /api/usuarios/auth/personal-info/): nombre, apellidos, celular y bio.
+
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -153,11 +152,6 @@ const EditPersonalInfoModal: React.FC<Props> = ({
     margin: "4px 0 0",
   };
 
-  // Portal a document.body: si el modal se queda dentro del árbol de la
-  // pantalla, cualquier ancestro con transform activo (ej. la animación de
-  // entrada de página, .page-enter) crea un containing block nuevo y
-  // "position: fixed" deja de anclarse al viewport — el modal se movería
-  // con el scroll de esa pantalla en vez de quedarse fijo.
   return createPortal(
     <AnimatePresence>
       {isOpen && (

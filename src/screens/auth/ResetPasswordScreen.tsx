@@ -17,11 +17,6 @@ type Status = "waitingLink" | "form" | "submitting" | "success" | "error";
 const EASE = [0.23, 1, 0.32, 1] as const;
 const MAX_PASSWORD_LENGTH = 72;
 
-// El link de recuperación de Supabase cae aquí y, al procesarlo, el SDK
-// abre una sesión temporal (evento PASSWORD_RECOVERY) que solo sirve para
-// llamar updateUser({ password }) — no es un login real. El token viaja en
-// el fragmento de la URL (#access_token=...), nunca en query string, así
-// que no queda expuesto en logs de servidor ni en el header Referer.
 const ResetPasswordScreen: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -45,8 +40,6 @@ const ResetPasswordScreen: React.FC = () => {
       if (event === "PASSWORD_RECOVERY") setStatus("form");
     });
 
-    // Si el SDK ya procesó el link antes de montar este listener, no hay
-    // segundo evento — confirmamos con la sesión actual.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setStatus((prev) => (prev === "waitingLink" ? "form" : prev));
     });
@@ -63,11 +56,9 @@ const ResetPasswordScreen: React.FC = () => {
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
-  // Enlace inválido/expirado: nos aseguramos de no dejar una sesión de
-  // recuperación colgada en el navegador si es que llegó a abrirse alguna.
   useEffect(() => {
     if (status === "error") {
       supabase.auth.signOut().catch(() => {});
@@ -76,7 +67,7 @@ const ResetPasswordScreen: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (status === "submitting") return; // evita doble submit (doble clic, doble Enter)
+    if (status === "submitting") return;
 
     if (password.length < 8) {
       setErrorMessage(r.form.tooShort);
@@ -97,8 +88,6 @@ const ResetPasswordScreen: React.FC = () => {
       return;
     }
 
-    // Cierra la sesión temporal de recuperación — no debe quedar activa
-    // después de que la contraseña se actualizó.
     await supabase.auth.signOut();
     setPassword("");
     setConfirmPassword("");

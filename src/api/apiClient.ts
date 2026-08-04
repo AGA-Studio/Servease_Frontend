@@ -124,7 +124,6 @@ export async function apiDelete<T>(path: string): Promise<T> {
   return data as T;
 }
 
-/** For public, unauthenticated endpoints (e.g. confirm-email). */
 export async function apiPostPublic<T>(
   path: string,
   body: Record<string, unknown>,
@@ -144,9 +143,6 @@ export async function apiPostPublic<T>(
   return data as T;
 }
 
-/** For public, unauthenticated endpoints that may include a file (e.g.
- * signup with an optional profile photo). Don't set Content-Type manually —
- * the browser needs to add the multipart boundary itself. */
 export async function apiPostFormPublic<T>(
   path: string,
   body: FormData,

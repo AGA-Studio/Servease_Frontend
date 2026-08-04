@@ -1,4 +1,4 @@
-// User card button at the bottom of the sidebar with an animated dropdown for profile, settings, and logout.
+
 
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
 import { useI18n } from "../../i18n";
 import CustomizableModal from "../modal/CustomizableModal";
+import Avatar from "../avatar/Avatar";
 
 interface Props {
   isCollapsed: boolean;
@@ -117,20 +118,14 @@ const UserMenu: React.FC<Props> = ({ isCollapsed, isDark, onExpand }) => {
         onMouseLeave={(e) => (e.currentTarget.style.background = cardBg)}
       >
         <div className="flex items-center gap-[10px] min-w-0">
-          <div
-            className="w-9 h-9 rounded-full shrink-0 overflow-hidden flex items-center justify-center text-white font-extrabold text-[0.85rem]"
-            style={{ background: "linear-gradient(135deg, #2EBCCC, #1B244C)" }}
-          >
-            {profile?.url_foto_perfil ? (
-              <img
-                src={profile.url_foto_perfil}
-                alt={user?.firstName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              (user?.firstName?.[0]?.toUpperCase() ?? "U")
-            )}
-          </div>
+          <Avatar
+            photoUrl={profile?.url_foto_perfil}
+            name={user?.firstName}
+            lastName={(user as any)?.lastnameP}
+            size={36}
+            className="shrink-0"
+            style={{ fontSize: "0.85rem", fontWeight: 800 }}
+          />
           {!isCollapsed && (
             <div className="text-left min-w-0">
               <p

@@ -28,7 +28,7 @@ export const JobCard = ({ job }: JobCardProps) => {
   const jobDetails = job;
 
   const handleApplySubmit = (data: ApplyJobData) => {
-    // TODO: replace with API call to submit proposal
+
     console.log("Submit proposal:", { jobId: job.id, ...data });
     setIsApplyOpen(false);
   };

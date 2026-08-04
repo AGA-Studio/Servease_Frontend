@@ -224,10 +224,6 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
   recentActivity: MOCK_ACTIVITIES,
 };
 
-/**
- * Simulates an async fetch to Supabase. Swap this import for the real API call
- * when backend tables are ready.
- */
 export async function fetchDashboardData(): Promise<DashboardData> {
   return new Promise((resolve) => {
     setTimeout(() => resolve(MOCK_DASHBOARD_DATA), 800);

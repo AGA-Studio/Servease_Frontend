@@ -1,4 +1,4 @@
-// Modal for providers to submit a proposal / counter-offer for a job.
+
 
 import { useState } from "react";
 import { X, ArrowRight, CheckCircle2, Circle, Info, Loader2 } from "lucide-react";

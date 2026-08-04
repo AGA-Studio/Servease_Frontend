@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Star, ArrowRight, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import Avatar from "../avatar/Avatar";
 
 export interface RatingData {
   rating: number;
@@ -160,11 +161,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <img
-                  src={provider.avatarUrl || "https://i.pravatar.cc/150?img=47"}
-                  alt={provider.name}
-                  style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                />
+                <Avatar photoUrl={provider.avatarUrl} name={provider.name} size={48} />
                 <div>
                   <h4 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: text }}>{provider.name}</h4>
                   {provider.profession && (

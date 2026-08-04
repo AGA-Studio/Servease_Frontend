@@ -1,4 +1,4 @@
-// Shared sidebar content rendered in both desktop and mobile sidebars: logo with hamburger toggle, navigation links, and user menu.
+
 
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n";

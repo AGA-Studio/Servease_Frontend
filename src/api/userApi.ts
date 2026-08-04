@@ -70,9 +70,6 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
   }
 }
 
-// PATCH /api/usuarios/auth/personal-info/ — solo rol cliente. Todos los
-// campos son opcionales (partial update); el backend regresa el usuario
-// completo actualizado.
 export interface UpdatePersonalInfoPayload {
   nombre?: string;
   segundo_nombre?: string;
@@ -92,9 +89,6 @@ export async function updatePersonalInfo(
   return mapUsuarioResponse(data);
 }
 
-// POST /api/usuarios/settings/password-reset/ — dispara el correo de
-// restablecimiento (Supabase Auth "recover") a la cuenta del usuario logueado.
-// El backend usa request.user.correo, no recibe body.
 export async function requestPasswordReset(): Promise<void> {
   await apiPost<void>("/api/usuarios/settings/password-reset/", {});
 }
@@ -115,8 +109,6 @@ export async function fetchPerfilCliente(
   return apiGet<PerfilCliente>(`/api/usuarios/${userId}/perfil-cliente/`);
 }
 
-// GET /api/usuarios/<id>/reviews/ — reviews recibidas por el cliente, más
-// recientes primero (orden ya viene del backend).
 export interface ReviewCliente {
   id_calificacion: number;
   cliente_id: string;
@@ -156,10 +148,24 @@ export async function fetchUltimasPublicacionesCliente(
   );
 }
 
-// GET /api/usuarios/<id>/mis-publicaciones/ — todas las publicaciones del
-// cliente, paginadas (DRF PageNumberPagination) y filtrables por estado y
-// categoria_id. Reemplaza a ultimas-publicaciones (limitada a 5) en la
-// pantalla de Mis Publicaciones.
+export interface HomeCliente {
+  id_servicio: number;
+  titulo: string;
+  descripcion: string;
+  categoria: string;
+  latitud: string | null;
+  longitud: string | null;
+  fecha: string;
+  tiempo_transcurrido: string;
+  estado: string;
+  cliente_id: string;
+  fotos_proveedores_aplicantes: string[];
+}
+
+export async function fetchHomeCliente(userId: string): Promise<HomeCliente[]> {
+  return apiGet<HomeCliente[]>(`/api/usuarios/${userId}/home/`);
+}
+
 export interface MisPublicacionesResponse {
   count: number;
   next: string | null;
@@ -179,9 +185,6 @@ export async function fetchMisPublicaciones(
   );
 }
 
-// Sube la foto al bucket "profile_photos" (path: `user_${userId}/avatar.<ext>`,
-// misma convención que ya existe en el bucket) y guarda la URL pública en el
-// registro del usuario vía el backend.
 export async function uploadProfilePhoto(
   userId: string,
   file: File,

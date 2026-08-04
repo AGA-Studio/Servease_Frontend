@@ -1,5 +1,4 @@
-// Reactive theme hook: reflects the current data-theme attribute and updates live when it changes,
-// instead of reading localStorage once at mount (which left screens stuck on the previous theme).
+
 
 import { useEffect, useState } from "react";
 import type { ThemeMode } from "./theme";
