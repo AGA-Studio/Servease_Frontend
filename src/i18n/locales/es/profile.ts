@@ -74,6 +74,12 @@ export const profile = {
     availability: "Disponibilidad",
     availableForWork: "Disponible para trabajar",
     currentlyUnavailable: "No disponible",
+    availabilityLoadFailed: "No se pudo cargar tu disponibilidad.",
+    availabilityUpdateFailed:
+      "No se pudo actualizar tu disponibilidad. Intenta de nuevo.",
+    unavailableTitle: "No disponible para trabajar",
+    unavailableSubtitle: "Activa tu disponibilidad para ver trabajos nuevos.",
+    unavailableActivate: "Activar disponibilidad",
     stats: {
       completedJobs: "Trabajos Completados",
       totalEarnings: "Ganancias Totales",
@@ -105,6 +111,25 @@ export const profile = {
       electrical: "Electricidad",
       painting: "Pintura",
       carpentry: "Carpintería",
+    },
+    workAreas: {
+      title: "Áreas de Trabajo",
+      empty: "Aún no has configurado tus áreas de trabajo.",
+      edit: "Editar",
+      editModal: {
+        title: "Editar Áreas de Trabajo",
+        subtitle: "Selecciona las categorías en las que trabajas.",
+        save: "Guardar",
+        cancel: "Cancelar",
+        confirmSave: {
+          title: "Guardar Áreas de Trabajo",
+          message: "¿Guardar los cambios a tus áreas de trabajo?",
+          confirm: "Guardar",
+        },
+      },
+      loadFailed: "No se pudieron cargar tus áreas de trabajo.",
+      updateFailed: "No se pudieron guardar tus áreas de trabajo. Intenta de nuevo.",
+      updateSuccess: "Áreas de trabajo actualizadas correctamente.",
     },
   },
 };

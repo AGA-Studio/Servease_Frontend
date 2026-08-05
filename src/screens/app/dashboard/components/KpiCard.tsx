@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Briefcase, CheckCircle, DollarSign, Star, TrendingUp, TrendingDown } from "lucide-react";
 import type { KpiData } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
+import { useCurrency } from "../../../../context/CurrencyContext";
 
 const ICONS = {
   briefcase: Briefcase,
@@ -19,7 +20,13 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
   const [hovered, setHovered] = useState(false);
   const Icon = ICONS[data.iconName];
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("dashboardscreen");
+
+  const formattedValue =
+    data.key === "earnings" && typeof data.value === "number"
+      ? formatMoney(data.value)
+      : data.value;
 
   return (
     <div
@@ -81,7 +88,7 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
               lineHeight: 1,
             }}
           >
-            {data.value}
+            {formattedValue}
           </div>
           {data.trend && (
             <div

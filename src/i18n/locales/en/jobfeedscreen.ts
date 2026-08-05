@@ -25,6 +25,8 @@ export const jobfeedscreen = {
   },
   empty: "No available jobs match these filters.",
   emptySubtitle: "Try adjusting your filters or check back later.",
+  noAreasTitle: "Set up your work areas",
+  noAreasSubtitle: "Add your categories in your profile to see relevant jobs.",
   noAppliedJobs: "You haven't applied to any jobs yet.",
   actionUnavailable: "Applying to services isn't available yet.",
   errors: {
@@ -47,5 +49,12 @@ export const jobfeedscreen = {
   urgency: {
     asap: "ASAP",
     flexible: "Flexible",
+  },
+  pagination: {
+    page: "Page",
+    of: "of",
+    previous: "Previous",
+    next: "Next",
+    goToPage: "Go to page",
   },
 };

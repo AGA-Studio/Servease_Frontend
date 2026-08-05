@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "./apiClient";
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from "./apiClient";
 import { supabase } from "../lib/supabase";
 
 export interface CreateServicioPayload {
@@ -323,9 +323,28 @@ export async function fetchServiciosCatalog(filters?: {
 }): Promise<ServicioListItem[]> {
   const params = new URLSearchParams();
   if (filters?.categoriaId) params.set("categoria_id", String(filters.categoriaId));
-  if (filters?.estado) params.set("estado", filters.estado);
-  const query = params.toString();
-  return apiGet<ServicioListItem[]>(`/api/servicios/${query ? `?${query}` : ""}`);
+  const estado = filters?.estado;
+  if (estado) params.set("estado", estado);
+
+  const url = (p: URLSearchParams) =>
+    `/api/servicios/${p.toString() ? `?${p}` : ""}`;
+
+  try {
+    return await apiGet<ServicioListItem[]>(url(params));
+  } catch (err) {
+    if (estado && err instanceof ApiError && err.status === 400) {
+      params.delete("estado");
+      const items = await apiGet<ServicioListItem[]>(url(params));
+      return items.filter((item) => {
+        const raw = item as unknown as {
+          estado?: string;
+          estado_descripcion?: string;
+        };
+        return (raw.estado_descripcion ?? raw.estado) === estado;
+      });
+    }
+    throw err;
+  }
 }
 
 export async function uploadServiceImage(

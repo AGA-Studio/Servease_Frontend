@@ -101,6 +101,34 @@ export async function apiPatch<T>(
   return data as T;
 }
 
+export async function apiPut<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) throw new Error("No hay sesión activa");
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(extractDetail(data, response.status), response.status);
+  }
+
+  return data as T;
+}
+
 export async function apiDelete<T>(path: string): Promise<T> {
   const {
     data: { session },

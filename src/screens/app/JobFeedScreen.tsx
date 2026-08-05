@@ -1,18 +1,23 @@
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   MapPin,
   ArrowRight,
   Navigation,
   Briefcase,
   Send,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import EmptyState from "../../components/emptystate/EmptyState";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
+import { useAvailability } from "../../context/AvailabilityContext";
+import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
@@ -25,13 +30,13 @@ import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
-import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import {
   fetchPostDetails,
   fetchServiciosCatalog,
   type ServicioListItem,
 } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
+import { fetchProviderEarningsSummary } from "../../api/providerApi";
 import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
 import {
   distanceKm,
@@ -45,7 +50,8 @@ interface AppliedJob {
   title: string;
   status: "reviewing" | "completed" | "declined" | "closed";
   sentAgo: string;
-  price: string;
+  price: number;
+  currency: string;
 }
 
 interface JobFilters {
@@ -94,23 +100,108 @@ const APPLIED_JOBS: AppliedJob[] = [
     title: "High-Security Lock Install",
     status: "reviewing",
     sentAgo: "2 hours ago",
-    price: "$350.00",
+    price: 350,
+    currency: "MXN",
   },
   {
     id: "a2",
     title: "Office Complex Rekey",
     status: "completed",
     sentAgo: "yesterday",
-    price: "$1200.00",
+    price: 1200,
+    currency: "MXN",
   },
   {
     id: "a3",
     title: "Garage Door Fix",
     status: "declined",
     sentAgo: "3 days ago",
-    price: "$180.00",
+    price: 180,
+    currency: "MXN",
   },
 ];
+
+const PAGE_SIZE = 10;
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+
+const getPageList = (page: number, totalPages: number): (number | "...")[] => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1]);
+  const sorted = Array.from(pages)
+    .filter((p) => p >= 1 && p <= totalPages)
+    .sort((a, b) => a - b);
+
+  const result: (number | "...")[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push("...");
+    result.push(p);
+  });
+  return result;
+};
+
+const Pagination = ({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (p: number) => void;
+}) => {
+  const { t } = useI18n();
+  const d = t("jobfeedscreen");
+  const pages = getPageList(page, totalPages);
+
+  return (
+    <nav className="jf-pagination" aria-label="Pagination">
+      <button
+        className="jf-page-arrow"
+        onClick={() => onChange(page - 1)}
+        disabled={page === 1}
+        aria-label={d.pagination.previous}
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {pages.map((p, i) =>
+        p === "..." ? (
+          <span key={`ellipsis-${i}`} className="jf-page-ellipsis">
+            &hellip;
+          </span>
+        ) : (
+          <button
+            key={p}
+            className="jf-page-num"
+            data-active={p === page}
+            onClick={() => onChange(p)}
+            aria-label={`${d.pagination.goToPage} ${p}`}
+            aria-current={p === page ? "page" : undefined}
+          >
+            {p === page && (
+              <motion.span
+                layoutId="jf-page-active-bg"
+                className="jf-page-active-bg"
+                transition={{ type: "spring", duration: 0.45, bounce: 0.18 }}
+              />
+            )}
+            <span className="jf-page-num-label">{p}</span>
+          </button>
+        ),
+      )}
+
+      <button
+        className="jf-page-arrow"
+        onClick={() => onChange(page + 1)}
+        disabled={page === totalPages}
+        aria-label={d.pagination.next}
+      >
+        <ChevronRight size={16} />
+      </button>
+    </nav>
+  );
+};
 
 const JobCard = ({
   job,
@@ -371,6 +462,7 @@ const JobCard = ({
 
 const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("jobfeedscreen");
 
   const statusMap = {
@@ -461,7 +553,7 @@ const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
             color: "var(--text)",
           }}
         >
-          {job.price}
+          {formatMoney(job.price)}
         </span>
         <button
           style={{
@@ -493,8 +585,12 @@ const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
 const JobFeedScreen: React.FC = () => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("jobfeedscreen");
+  const p = t("profile").provider;
   const navigate = useNavigate();
+  const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
+  const { areas } = useWorkAreas();
 
   const { toasts, addToast, removeToast } = useToast();
 
@@ -504,12 +600,18 @@ const JobFeedScreen: React.FC = () => {
     priceRange: "",
   });
 
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [providerCoords, setProviderCoords] = useState<ApproxCoords | null>(
     null,
   );
   const [jobs, setJobs] = useState<FeedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [earningsSummary, setEarningsSummary] = useState<{
+    thisWeek: number;
+    pending: number;
+    projected: number;
+  } | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -528,36 +630,61 @@ const JobFeedScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchCategorias()
-      .then(setCategorias)
-      .catch((error) => console.error("fetchCategorias failed:", error));
+    fetchProviderEarningsSummary()
+      .then(setEarningsSummary)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    const categoriaId = filters.category ? Number(filters.category) : undefined;
     let cancelled = false;
 
-    fetchServiciosCatalog({ categoriaId, estado: "abierto" })
-      .then(async (items) => {
-        if (cancelled) return;
-        const feedJobs = items.map(servicioToFeedJob);
-        const locations = await Promise.all(
-          items.map((item) => getApproxLocation(item.latitud, item.longitud)),
+    const fetchAndProcess = async (categoriaId?: number) => {
+      return fetchServiciosCatalog({ categoriaId, estado: "abierto" });
+    };
+
+    const run = async () => {
+      let allItems: ServicioListItem[] = [];
+
+      if (filters.category) {
+        allItems = await fetchAndProcess(Number(filters.category));
+      } else if (areas.length > 0) {
+        const results = await Promise.all(
+          areas.map((a) => fetchAndProcess(a.id_categoria)),
         );
-        if (cancelled) return;
-        setJobs(
-          feedJobs.map((job, i) => ({
-            ...job,
-            location: locations[i],
-            distanceKm: providerCoords
-              ? distanceKm(providerCoords, {
-                  lat: Number(items[i].latitud),
-                  lon: Number(items[i].longitud),
-                })
-              : null,
-          })),
-        );
-      })
+        const seen = new Set<number>();
+        for (const items of results) {
+          for (const item of items) {
+            if (!seen.has(item.id_servicio)) {
+              seen.add(item.id_servicio);
+              allItems.push(item);
+            }
+          }
+        }
+      } else {
+        allItems = [];
+      }
+
+      if (cancelled) return;
+      const feedJobs = allItems.map(servicioToFeedJob);
+      const locations = await Promise.all(
+        allItems.map((item) => getApproxLocation(item.latitud, item.longitud)),
+      );
+      if (cancelled) return;
+      setJobs(
+        feedJobs.map((job, i) => ({
+          ...job,
+          location: locations[i],
+          distanceKm: providerCoords
+            ? distanceKm(providerCoords, {
+                lat: Number(allItems[i].latitud),
+                lon: Number(allItems[i].longitud),
+              })
+            : null,
+        })),
+      );
+    };
+
+    run()
       .catch((error) => {
         if (cancelled) return;
         console.error("fetchServiciosCatalog failed:", error);
@@ -575,13 +702,13 @@ const JobFeedScreen: React.FC = () => {
       setIsLoading(true);
     };
 
-  }, [filters.category, providerCoords]);
+  }, [filters.category, providerCoords, areas]);
 
   const categoryOptions: FilterOption[] = [
     { value: "", label: d.filters.allCategories },
-    ...categorias.map((c) => ({
-      value: String(c.id_categoria),
-      label: c.nombre,
+    ...areas.map((a) => ({
+      value: String(a.id_categoria),
+      label: a.nombre,
     })),
   ];
 
@@ -600,6 +727,7 @@ const JobFeedScreen: React.FC = () => {
 
   const handleFilterChange = (key: keyof JobFilters) => (value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
   };
 
   const visibleJobs = useMemo(() => {
@@ -618,6 +746,22 @@ const JobFeedScreen: React.FC = () => {
       return true;
     });
   }, [jobs, filters.distance, filters.priceRange]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = visibleJobs.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
+  const handlePageChange = useCallback(
+    (p: number) => {
+      if (p < 1 || p > totalPages || p === safePage) return;
+      setPage(p);
+      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [totalPages, safePage],
+  );
 
   return (
     <>
@@ -662,6 +806,96 @@ const JobFeedScreen: React.FC = () => {
             width: 100% !important;
             height: 160px !important;
           }
+        }
+        .jf-pagination-bar {
+          padding: 12px 0;
+          border-top: 1px solid var(--divider);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+        .jf-pagination {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .jf-page-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          border: 1.5px solid ${isDark ? "#273570" : "#e5e7eb"};
+          background: transparent;
+          color: var(--text);
+          cursor: pointer;
+          transition: transform 120ms ${EASE_OUT}, border-color 160ms ease, color 160ms ease, background 160ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-page-arrow:not(:disabled):hover {
+            border-color: #2EBCCC;
+            color: #2EBCCC;
+            background: ${isDark ? "rgba(46,188,204,0.07)" : "rgba(46,188,204,0.05)"};
+          }
+        }
+        .jf-page-arrow:active:not(:disabled) {
+          transform: scale(0.93);
+        }
+        .jf-page-arrow:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .jf-page-num {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 34px;
+          height: 34px;
+          padding: 0 4px;
+          border-radius: 9px;
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          transition: color 160ms ease, transform 120ms ${EASE_OUT};
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-page-num:not([data-active="true"]):hover {
+            color: #2EBCCC;
+          }
+        }
+        .jf-page-num:active {
+          transform: scale(0.93);
+        }
+        .jf-page-num[data-active="true"] {
+          color: #ffffff;
+        }
+        .jf-page-num-label {
+          position: relative;
+          z-index: 1;
+        }
+        .jf-page-active-bg {
+          position: absolute;
+          inset: 0;
+          border-radius: 9px;
+          background: #2EBCCC;
+          box-shadow: 0 3px 10px rgba(46,188,204,0.35);
+        }
+        .jf-page-ellipsis {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 24px;
+          height: 34px;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          user-select: none;
         }
       `}</style>
 
@@ -723,19 +957,22 @@ const JobFeedScreen: React.FC = () => {
               style={{
                 padding: "6px 12px",
                 borderRadius: 20,
-                background: "rgba(74,168,37,0.15)",
-                color: "#4AA825",
+                background: disponible
+                  ? "rgba(74,168,37,0.15)"
+                  : "rgba(255,0,0,0.08)",
+                color: disponible ? "#4AA825" : "#FF0000",
                 fontWeight: 700,
                 fontSize: "0.78rem",
               }}
             >
-              {d.availableForWork}
+              {disponible ? d.availableForWork : p.currentlyUnavailable}
             </span>
           </div>
         </div>
 
         <div
           className="jf-content"
+          ref={contentRef}
           style={{
             flex: 1,
             overflowY: "auto",
@@ -743,84 +980,108 @@ const JobFeedScreen: React.FC = () => {
             background: "var(--main-bg)",
           }}
         >
-          <div
-            className="jf-filter-bar"
-            style={{
-              background: "var(--card-bg)",
-              borderRadius: 16,
-              border: "1px solid var(--divider)",
-              padding: 20,
-              marginBottom: 24,
-            }}
-          >
+          {!disponible && !isAvailabilityLoading ? (
             <div
-              className="jf-filter-grid"
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                gap: 16,
+                background: "var(--card-bg)",
+                borderRadius: 16,
+                border: "1px solid var(--divider)",
               }}
             >
-              <FilterSelect
-                label={d.filters.category}
-                value={filters.category}
-                options={categoryOptions}
-                placeholder={d.filters.allCategories}
-                onChange={handleFilterChange("category")}
-              />
-              {providerCoords && (
-                <FilterSelect
-                  label={d.filters.distance}
-                  value={filters.distance}
-                  options={distanceOptions}
-                  placeholder={d.filters.anyDistance ?? d.filters.allCategories}
-                  onChange={handleFilterChange("distance")}
-                />
-              )}
-              <FilterSelect
-                label={d.filters.priceRange}
-                value={filters.priceRange}
-                options={priceRangeOptions}
-                placeholder={d.filters.anyPrice}
-                onChange={handleFilterChange("priceRange")}
+              <EmptyState
+                icon={<Briefcase size={32} color="#2EBCCC" />}
+                isDark={isDark}
+                title={p.unavailableTitle}
+                subtitle={p.unavailableSubtitle}
+                action={{
+                  label: p.unavailableActivate,
+                  onClick: () =>
+                    setDisponible(true).catch(() =>
+                      addToast("error", p.availabilityUpdateFailed),
+                    ),
+                }}
               />
             </div>
-          </div>
-
-          <div className="jf-main-grid">
-            <div className="jf-jobs-list">
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
-                ))
-              ) : visibleJobs.length === 0 ? (
+          ) : (
+            <>
+              <div
+                className="jf-filter-bar"
+                style={{
+                  background: "var(--card-bg)",
+                  borderRadius: 16,
+                  border: "1px solid var(--divider)",
+                  padding: 20,
+                  marginBottom: 24,
+                }}
+              >
                 <div
+                  className="jf-filter-grid"
                   style={{
-                    background: "var(--card-bg)",
-                    borderRadius: 16,
-                    border: "1px solid var(--divider)",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 16,
                   }}
                 >
-                  <EmptyState
-                    icon={<Briefcase size={32} color="#2EBCCC" />}
-                    isDark={isDark}
-                    title={d.empty}
-                    subtitle={d.emptySubtitle}
+                  <FilterSelect
+                    label={d.filters.category}
+                    value={filters.category}
+                    options={categoryOptions}
+                    placeholder={d.filters.allCategories}
+                    onChange={handleFilterChange("category")}
+                  />
+                  {providerCoords && (
+                    <FilterSelect
+                      label={d.filters.distance}
+                      value={filters.distance}
+                      options={distanceOptions}
+                      placeholder={d.filters.anyDistance ?? d.filters.allCategories}
+                      onChange={handleFilterChange("distance")}
+                    />
+                  )}
+                  <FilterSelect
+                    label={d.filters.priceRange}
+                    value={filters.priceRange}
+                    options={priceRangeOptions}
+                    placeholder={d.filters.anyPrice}
+                    onChange={handleFilterChange("priceRange")}
                   />
                 </div>
-              ) : (
-                visibleJobs.map((job) => (
-                  <JobCard key={job.id} job={job} addToast={addToast} />
-                ))
-              )}
-            </div>
+              </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <div
-                style={{
-                  background: "#1B244C",
-                  borderRadius: 16,
-                  padding: 20,
+              <div className="jf-main-grid">
+                <div className="jf-jobs-list">
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
+                    ))
+                  ) : visibleJobs.length === 0 ? (
+                    <div
+                      style={{
+                        background: "var(--card-bg)",
+                        borderRadius: 16,
+                        border: "1px solid var(--divider)",
+                      }}
+                    >
+                      <EmptyState
+                        icon={<Briefcase size={32} color="#2EBCCC" />}
+                        isDark={isDark}
+                        title={areas.length === 0 && !filters.category ? d.noAreasTitle : d.empty}
+                        subtitle={areas.length === 0 && !filters.category ? d.noAreasSubtitle : d.emptySubtitle}
+                      />
+                    </div>
+                  ) : (
+                    paginated.map((job) => (
+                      <JobCard key={job.id} job={job} addToast={addToast} />
+                    ))
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <div
+                    style={{
+                      background: "#1B244C",
+                      borderRadius: 16,
+                      padding: 20,
                   color: "#fff",
                 }}
               >
@@ -852,7 +1113,7 @@ const JobFeedScreen: React.FC = () => {
                     fontWeight: 800,
                   }}
                 >
-                  $840.50
+                  {formatMoney(earningsSummary?.thisWeek ?? 0)}
                 </p>
                 <div
                   style={{
@@ -878,7 +1139,7 @@ const JobFeedScreen: React.FC = () => {
                         fontWeight: 700,
                       }}
                     >
-                      $120.00
+                      {formatMoney(earningsSummary?.pending ?? 0)}
                     </p>
                   </div>
                   <div>
@@ -898,7 +1159,7 @@ const JobFeedScreen: React.FC = () => {
                         fontWeight: 700,
                       }}
                     >
-                      $960.00
+                      {formatMoney(earningsSummary?.projected ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -972,6 +1233,21 @@ const JobFeedScreen: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {!isLoading && totalPages > 1 && (
+            <div className="jf-pagination-bar">
+              <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: 0 }}>
+                {d.pagination.page} {safePage} {d.pagination.of} {totalPages}
+              </p>
+              <Pagination
+                page={safePage}
+                totalPages={totalPages}
+                onChange={handlePageChange}
+              />
+            </div>
+          )}
+            </>
+          )}
         </div>
       </div>
 

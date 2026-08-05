@@ -18,8 +18,10 @@ import {
   Paintbrush,
   ArrowRight,
   UserCircle,
+  DollarSign,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
@@ -52,6 +54,7 @@ const useTheme = () => {
 
 const SettingsScreen: React.FC = () => {
   const { t, locale, toggleLocale } = useI18n();
+  const { currency, setCurrency } = useCurrency();
   const s = t("settings");
   const isDark = useTheme();
   const navigate = useNavigate();
@@ -594,6 +597,76 @@ const SettingsScreen: React.FC = () => {
                               {lang === "es"
                                 ? s.appearance.languageEs
                                 : s.appearance.languageEn}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center"
+                              style={{
+                                background: "rgba(255,255,255,0.25)",
+                              }}
+                            >
+                              <Check size={14} color="#FFFFFF" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="px-6 py-5">
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3"
+                    style={{ color: textSecondary }}
+                  >
+                    <DollarSign size={13} className="inline mr-1.5 -mt-0.5" />
+                    {s.appearance.currency}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {(["MXN", "USD"] as const).map((code) => {
+                      const isSelected = currency === code;
+                      return (
+                        <button
+                          key={code}
+                          onClick={() => {
+                            if (currency !== code) setCurrency(code);
+                          }}
+                          onMouseDown={press}
+                          onMouseUp={release}
+                          onMouseLeave={release}
+                          className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-sm font-bold border cursor-pointer"
+                          style={{
+                            background: isSelected
+                              ? "linear-gradient(135deg, #2EBCCC, #2399A8)"
+                              : inputBg,
+                            borderColor: isSelected ? "#2EBCCC" : glassBorder,
+                            color: isSelected ? "#FFFFFF" : textPrimary,
+                            boxShadow: isSelected
+                              ? "0 4px 16px rgba(46,188,204,0.25)"
+                              : "none",
+                            transition: btnTransition,
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold"
+                              style={{
+                                background: isSelected
+                                  ? "rgba(255,255,255,0.2)"
+                                  : isDark
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(27,36,76,0.06)",
+                                color: isSelected
+                                  ? "#FFFFFF"
+                                  : textSecondary,
+                              }}
+                            >
+                              {code}
+                            </div>
+                            <span>
+                              {code === "MXN"
+                                ? s.appearance.currencyMXN
+                                : s.appearance.currencyUSD}
                             </span>
                           </div>
                           {isSelected && (
