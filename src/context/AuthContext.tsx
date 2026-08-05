@@ -6,9 +6,16 @@ import React, {
   useCallback,
 } from "react";
 import { supabase } from "../lib/supabase";
-import type { Session } from "@supabase/supabase-js";
-import { fetchUserProfile, fetchUserProfileOrThrow, type UserProfile } from "../api/userApi";
-import { apiPostFormPublic, ApiError } from "../api/apiClient";
+import {
+  getAccessTokenSync,
+  setDevToken,
+  clearDevToken,
+} from "../lib/authToken";
+import { fetchUserProfile, fetchUserProfileOrThrow } from "../api/userApi";
+import type { UserProfile } from "../api/userApi";
+import { apiPostPublic, apiPostFormPublic, ApiError } from "../api/apiClient";
+
+const DEV_AUTH = import.meta.env.VITE_DEV_AUTH === "true";
 
 export type UserRole = "client" | "provider" | "admin";
 
@@ -42,17 +49,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const sessionToUser = (session: Session): AuthUser => ({
-  id: session.user.id,
-  email: session.user.email ?? "",
-  firstName: session.user.user_metadata?.first_name ?? "",
-  lastnameP: session.user.user_metadata?.last_name_p ?? "",
-  lastnameM: session.user.user_metadata?.last_name_m ?? "",
-  // El rol nunca debe salir de user_metadata: el usuario puede editarlo.
-  // Fallback siempre al menor privilegio; el rol real lo entrega el backend.
-  role: "client",
-});
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -60,50 +56,112 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadProfile = useCallback(async (session: Session) => {
+  const loadProfile = useCallback(async () => {
     const userProfile = await fetchUserProfile();
     if (userProfile) {
       setProfile(userProfile);
       setUser({
-        id: session.user.id,
-        email: session.user.email ?? "",
+        id: userProfile.id_usuario,
+        email: userProfile.correo,
         firstName: userProfile.nombre,
         lastnameP: userProfile.apellido_paterno,
         lastnameM: userProfile.apellido_materno ?? undefined,
         role: userProfile.rol,
       });
     } else {
-      setUser(sessionToUser(session));
+      setUser(null);
       setProfile(null);
     }
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        loadProfile(session).finally(() => setIsLoading(false));
-      } else {
-        setIsLoading(false);
-      }
-    });
+    let cancelled = false;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        loadProfile(session).finally(() => setIsLoading(false));
+    async function init() {
+      if (DEV_AUTH) {
+        const token = getAccessTokenSync();
+        if (token) {
+          await loadProfile();
+        }
       } else {
-        setUser(null);
-        setProfile(null);
-        setIsLoading(false);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await loadProfile();
+        }
       }
-    });
+      if (!cancelled) setIsLoading(false);
+    }
 
-    return () => subscription.unsubscribe();
+    init();
+
+    if (!DEV_AUTH) {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+          loadProfile().finally(() => {
+            if (!cancelled) setIsLoading(false);
+          });
+        } else {
+          setUser(null);
+          setProfile(null);
+          setIsLoading(false);
+        }
+      });
+
+      return () => {
+        cancelled = true;
+        subscription.unsubscribe();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadProfile]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<string | null> => {
+      if (DEV_AUTH) {
+        try {
+          const data = await apiPostPublic<{
+            access_token: string;
+            user: {
+              id_usuario: string;
+              nombre: string;
+              apellido_pa: string;
+              apellido_ma?: string;
+              correo: string;
+              rol: UserRole;
+            };
+          }>("/usuarios/dev-login/", { email, password });
+
+          setDevToken(data.access_token);
+
+          setUser({
+            id: data.user.id_usuario,
+            email: data.user.correo,
+            firstName: data.user.nombre,
+            lastnameP: data.user.apellido_pa,
+            lastnameM: data.user.apellido_ma,
+            role: data.user.rol,
+          });
+
+          try {
+            const userProfile = await fetchUserProfileOrThrow();
+            setProfile(userProfile);
+          } catch {
+            // profile load is best-effort after login
+          }
+
+          return null;
+        } catch (err) {
+          return err instanceof ApiError
+            ? err.message
+            : "No pudimos iniciar sesión. Intenta de nuevo.";
+        }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -125,8 +183,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         });
         return null;
       } catch (err) {
-        // Backend rejected the session (e.g. unconfirmed account): don't
-        // leave a half-authenticated Supabase session lying around.
         await supabase.auth.signOut();
         return err instanceof ApiError
           ? err.message
@@ -137,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const loginWithGoogle = useCallback(async () => {
+    if (DEV_AUTH) return;
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/` },
@@ -161,10 +218,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       lastNameM?: string;
       photo?: File | null;
     }): Promise<string | null> => {
-      // La cuenta queda sin confirmar (estado=false) hasta que el usuario da
-      // clic en el link del correo, así que no hay sesión que iniciar aquí.
-      // La foto se manda al backend, que la sube al bucket con su propio
-      // acceso admin (no depende de que el usuario tenga sesión).
+      if (DEV_AUTH) {
+        return "Registro no disponible en modo desarrollo. Usa credenciales seed: test123";
+      }
+
       const formData = new FormData();
       formData.append("email", email);
       formData.append("password", password);
@@ -187,7 +244,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    if (DEV_AUTH) {
+      clearDevToken();
+    } else {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+    setProfile(null);
   }, []);
 
   return (

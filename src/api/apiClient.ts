@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { getAccessToken } from "../lib/authToken";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -23,17 +23,45 @@ function extractDetail(data: unknown, status: number): string {
   return `Request failed: ${status}`;
 }
 
+async function authHeaders(): Promise<HeadersInit> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("No hay sesión activa");
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function authHeadersJson(): Promise<HeadersInit> {
+  const headers = await authHeaders();
+  return {
+    ...headers,
+    "Content-Type": "application/json",
+  };
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) throw new Error("No hay sesión activa");
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
+    headers: await authHeaders(),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(extractDetail(data, response.status), response.status);
+  }
+
+  return data as T;
+}
+
+export async function apiPost<T>(
+  path: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: Record<string, any>,
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: await authHeadersJson(),
+    body: JSON.stringify(body),
   });
 
   const data = await response.json().catch(() => null);
@@ -47,22 +75,32 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export async function apiPatch<T>(
   path: string,
-  body: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: Record<string, any>,
 ): Promise<T> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) throw new Error("No hay sesión activa");
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
+    headers: await authHeadersJson(),
     body: JSON.stringify(body),
   });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(extractDetail(data, response.status), response.status);
+  }
+
+  return data as T;
+}
+
+export async function apiDelete<T = void>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+
+  // 204 No Content returns no body
+  if (response.status === 204) return undefined as T;
 
   const data = await response.json().catch(() => null);
 

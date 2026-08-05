@@ -1,0 +1,223 @@
+@keyframes message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes message-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.messages-container {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-container {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-bubble {
+  animation: message-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-bubble.own {
+  animation: message-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-bubble.other {
+  animation: message-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.conversation-item {
+  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.conversation-item:nth-child(1) { animation-delay: 0ms; }
+.conversation-item:nth-child(2) { animation-delay: 30ms; }
+.conversation-item:nth-child(3) { animation-delay: 60ms; }
+.conversation-item:nth-child(4) { animation-delay: 90ms; }
+.conversation-item:nth-child(5) { animation-delay: 120ms; }
+.conversation-item:nth-child(6) { animation-delay: 150ms; }
+.conversation-item:nth-child(7) { animation-delay: 180ms; }
+.conversation-item:nth-child(8) { animation-delay: 210ms; }
+.conversation-item:nth-child(9) { animation-delay: 240ms; }
+.conversation-item:nth-child(10) { animation-delay: 270ms; }
+
+.chat-header {
+  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-messages {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-input-form {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-bubble {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.message-bubble.own:hover {
+  transform: translateY(-2px);
+}
+
+.message-edit-form {
+  animation: message-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdown-menu {
+  animation: message-enter 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.unread-badge {
+  animation: pulse-dot 2s infinite;
+}
+
+.load-more-button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.load-more-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.send-button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.send-button:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.send-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.chat-avatar {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-avatar:hover {
+  transform: scale(1.05);
+}
+
+.conversation-avatar {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.conversation-item:hover .conversation-avatar {
+  transform: scale(1.05);
+}
+
+.back-button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.back-button:hover {
+  transform: translateX(-2px);
+}
+
+.chat-menu-button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-menu-button:hover {
+  transform: rotate(90deg);
+}
+
+.message-menu {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-menu:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-menu {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-menu:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.edit-actions button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.edit-actions button:hover {
+  transform: translateY(-1px);
+}
+
+.connection-status {
+  transition: color 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
