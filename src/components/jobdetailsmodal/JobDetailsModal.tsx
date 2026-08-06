@@ -1,6 +1,7 @@
-// Modal that shows full job details: images, description, client card, map and apply action.
+
 
 import { useEffect, useMemo, useState } from "react";
+import { useCurrency } from "../../context/CurrencyContext";
 import CustomizableModal from "../modal/CustomizableModal";
 import {
   MapPin,
@@ -18,6 +19,7 @@ import { useI18n } from "../../i18n";
 import type { JobDetails } from "../../types/job";
 import type { ProposalStatus } from "../../data/mockJobs";
 import type { PostStatus } from "../../data/mockPosts";
+import Avatar from "../avatar/Avatar";
 
 const CATEGORY_KEY: Record<string, string> = {
   Locksmith: "locksmith",
@@ -279,6 +281,7 @@ const JobDetailsModal: React.FC<Props> = ({
 }) => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
+  const { formatMoney } = useCurrency();
   const d = t("postdetailsscreen");
   const mp = t("myposts");
   const [selectedThumb, setSelectedThumb] = useState(0);
@@ -311,7 +314,7 @@ const JobDetailsModal: React.FC<Props> = ({
       setSelectedThumb(0);
       setLoadedThumbs({});
     };
-  }, [isOpen, job?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, job?.id]);
 
   if (!job) return null;
 
@@ -553,7 +556,7 @@ const JobDetailsModal: React.FC<Props> = ({
                         color: "var(--text)",
                       }}
                     >
-                      ${job.price.toFixed(2)}
+                      {formatMoney(job.price)}
                     </p>
                   </motion.div>
                   <motion.button
@@ -872,19 +875,13 @@ const JobDetailsModal: React.FC<Props> = ({
                                 marginBottom: 18,
                               }}
                             >
-                              <motion.img
-                                src={job.client.avatar}
-                                alt={job.client.name}
+                              <motion.div
                                 whileHover={{ scale: 1.08 }}
                                 transition={{ duration: 0.2 }}
-                                style={{
-                                  width: 56,
-                                  height: 56,
-                                  borderRadius: "50%",
-                                  objectFit: "cover",
-                                  cursor: "pointer",
-                                }}
-                              />
+                                style={{ cursor: "pointer" }}
+                              >
+                                <Avatar photoUrl={job.client.avatar} name={job.client.name} size={56} />
+                              </motion.div>
                               <div>
                                 <p
                                   style={{

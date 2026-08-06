@@ -232,10 +232,9 @@ const DevModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
 };
 
 const FORGOT_PASSWORD_COOLDOWN_SECONDS = 60;
-// Mismo patrón de validación que login/signup en esta pantalla — mantiene
-// consistencia, no es la defensa real (esa vive del lado de Supabase).
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_EMAIL_LENGTH = 254; // límite de RFC 5321
+const MAX_EMAIL_LENGTH = 254;
 
 const ForgotPasswordModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
   onClose,
@@ -260,10 +259,7 @@ const ForgotPasswordModal: React.FC<{ onClose: () => void; theme: ThemeMode }> =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Doble guard: ni doble-submit mientras envía, ni reenvío antes del
-    // cooldown. Es UX, no seguridad real — cualquiera puede saltarse esto
-    // desde la consola, la defensa real es el rate limit del lado de
-    // Supabase, que corre server-side sin importar cómo llegue la petición.
+
     if (status === "sending" || cooldown > 0) return;
 
     const trimmed = email.trim();
@@ -280,10 +276,6 @@ const ForgotPasswordModal: React.FC<{ onClose: () => void; theme: ThemeMode }> =
       { redirectTo: `${window.location.origin}${ROUTES.RESET_PASSWORD}` },
     );
 
-    // GoTrue nunca revela si la cuenta existe — siempre regresa éxito pa
-    // evitar que este formulario sirva para enumerar correos registrados.
-    // Solo distinguimos rate limit, que no filtra nada de la cuenta, solo
-    // dice "mandaste muchas solicitudes seguidas".
     if (supabaseError) {
       const isRateLimited =
         "status" in supabaseError && supabaseError.status === 429;
@@ -1255,7 +1247,7 @@ const AuthScreen: React.FC = () => {
         <div
           className={`relative w-full max-w-5xl rounded-[2rem] overflow-hidden flex flex-row min-h-[680px] border transition-colors duration-400 z-10 ${isDark ? "bg-[#1B244C] border-[#273570] shadow-[0_32px_80px_rgba(0,0,0,0.4)]" : "bg-white border-[#E5E7EB] shadow-[0_24px_60px_rgba(27,36,76,0.1)]"}`}
         >
-          {/* LEFT ASIDE */}
+          {}
           <div className="hidden md:flex w-[45%] bg-gradient-to-br from-[#1B244C] via-[#273570] to-[#1a2d5a] p-14 flex-col justify-between relative overflow-hidden">
             <div className="absolute -top-20 -right-16 w-72 h-72 bg-[#2EBCCC]/10 rounded-full blur-[50px] pointer-events-none" />
             <div className="absolute bottom-12 -left-16 w-56 h-56 bg-[#2EBCCC]/6 rounded-full blur-[40px] pointer-events-none" />
@@ -1312,7 +1304,7 @@ const AuthScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT PANEL */}
+          {}
           <div
             className={`w-full md:w-[55%] px-10 py-12 flex flex-col justify-center transition-colors duration-400 ${isDark ? "bg-[#1B244C]" : "bg-white"}`}
           >

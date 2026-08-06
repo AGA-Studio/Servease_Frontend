@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "./apiClient";
+import { apiGet, apiPatch, apiPost, apiPut } from "./apiClient";
 import { supabase } from "../lib/supabase";
 import type { UserRole } from "../context/AuthContext";
 import type { ServicioListItem } from "./servicioApi";
@@ -73,9 +73,6 @@ export async function fetchUserProfile(): Promise<UserProfile | null> {
   }
 }
 
-// PATCH /api/usuarios/auth/personal-info/ — solo rol cliente. Todos los
-// campos son opcionales (partial update); el backend regresa el usuario
-// completo actualizado.
 export interface UpdatePersonalInfoPayload {
   nombre?: string;
   segundo_nombre?: string;
@@ -95,11 +92,34 @@ export async function updatePersonalInfo(
   return mapUsuarioResponse(data);
 }
 
-// POST /api/usuarios/settings/password-reset/ — dispara el correo de
-// restablecimiento (Supabase Auth "recover") a la cuenta del usuario logueado.
-// El backend usa request.user.correo, no recibe body.
 export async function requestPasswordReset(): Promise<void> {
   await apiPost<void>("/api/usuarios/settings/password-reset/", {});
+}
+
+export async function fetchDisponibilidad(): Promise<boolean> {
+  const data = await apiGet<{ disponible: boolean }>(
+    "/api/usuarios/disponibilidad/",
+  );
+  return data.disponible;
+}
+
+export async function updateDisponibilidad(disponible: boolean): Promise<void> {
+  await apiPatch<void>("/api/usuarios/disponibilidad/", { disponible });
+}
+
+export interface AreaTrabajo {
+  id_categoria: number;
+  nombre: string;
+}
+
+export async function fetchAreasTrabajo(): Promise<AreaTrabajo[]> {
+  return apiGet<AreaTrabajo[]>("/api/usuarios/areas-trabajo/");
+}
+
+export async function updateAreasTrabajo(
+  categorias: number[],
+): Promise<AreaTrabajo[]> {
+  return apiPut<AreaTrabajo[]>("/api/usuarios/areas-trabajo/", { categorias });
 }
 
 export interface PerfilCliente {
@@ -118,8 +138,6 @@ export async function fetchPerfilCliente(
   return apiGet<PerfilCliente>(`/api/usuarios/${userId}/perfil-cliente/`);
 }
 
-// GET /api/usuarios/<id>/reviews/ — reviews recibidas por el cliente, más
-// recientes primero (orden ya viene del backend).
 export interface ReviewCliente {
   id_calificacion: number;
   cliente_id: string;
@@ -159,10 +177,24 @@ export async function fetchUltimasPublicacionesCliente(
   );
 }
 
-// GET /api/usuarios/<id>/mis-publicaciones/ — todas las publicaciones del
-// cliente, paginadas (DRF PageNumberPagination) y filtrables por estado y
-// categoria_id. Reemplaza a ultimas-publicaciones (limitada a 5) en la
-// pantalla de Mis Publicaciones.
+export interface HomeCliente {
+  id_servicio: number;
+  titulo: string;
+  descripcion: string;
+  categoria: string;
+  latitud: string | null;
+  longitud: string | null;
+  fecha: string;
+  tiempo_transcurrido: string;
+  estado: string;
+  cliente_id: string;
+  fotos_proveedores_aplicantes: string[];
+}
+
+export async function fetchHomeCliente(userId: string): Promise<HomeCliente[]> {
+  return apiGet<HomeCliente[]>(`/api/usuarios/${userId}/home/`);
+}
+
 export interface MisPublicacionesResponse {
   count: number;
   next: string | null;
@@ -182,9 +214,6 @@ export async function fetchMisPublicaciones(
   );
 }
 
-// Sube la foto al bucket "profile_photos" (path: `user_${userId}/avatar.<ext>`,
-// misma convención que ya existe en el bucket) y guarda la URL pública en el
-// registro del usuario vía el backend.
 export async function uploadProfilePhoto(
   userId: string,
   file: File,

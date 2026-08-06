@@ -12,15 +12,16 @@ import {
   Lock,
   Send,
   BadgeCheck,
-  Smartphone,
   Trash2,
   Fingerprint,
   Globe,
   Paintbrush,
   ArrowRight,
   UserCircle,
+  DollarSign,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
@@ -53,6 +54,7 @@ const useTheme = () => {
 
 const SettingsScreen: React.FC = () => {
   const { t, locale, toggleLocale } = useI18n();
+  const { currency, setCurrency } = useCurrency();
   const s = t("settings");
   const isDark = useTheme();
   const navigate = useNavigate();
@@ -84,10 +86,7 @@ const SettingsScreen: React.FC = () => {
       setResetSent(true);
       addToast("success", s.toast.passwordResetSent);
     } catch (err) {
-      addToast(
-        "error",
-        err instanceof ApiError ? err.message : s.toast.error,
-      );
+      addToast("error", err instanceof ApiError ? err.message : s.toast.error);
     } finally {
       setSendingReset(false);
     }
@@ -115,9 +114,7 @@ const SettingsScreen: React.FC = () => {
 
   const textPrimary = isDark ? "#FFFFFF" : "#1B244C";
   const textSecondary = "#989898";
-  const cardBg = isDark
-    ? "rgba(15, 26, 62, 0.7)"
-    : "rgba(255, 255, 255, 0.7)";
+  const cardBg = isDark ? "rgba(15, 26, 62, 0.7)" : "rgba(255, 255, 255, 0.7)";
   const glassBorder = isDark
     ? "rgba(46, 188, 204, 0.12)"
     : "rgba(27, 36, 76, 0.08)";
@@ -134,12 +131,17 @@ const SettingsScreen: React.FC = () => {
   }, []);
 
   const release = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    e.currentTarget.style.transform = e.currentTarget.dataset.origTransform || "none";
+    e.currentTarget.style.transform =
+      e.currentTarget.dataset.origTransform || "none";
   }, []);
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "account", label: s.tabs.account, icon: <User size={16} /> },
-    { key: "appearance", label: s.tabs.appearance, icon: <Palette size={16} /> },
+    {
+      key: "appearance",
+      label: s.tabs.appearance,
+      icon: <Palette size={16} />,
+    },
     { key: "privacy", label: s.tabs.privacy, icon: <Shield size={16} /> },
     { key: "legal", label: s.tabs.legal, icon: <FileText size={16} /> },
   ];
@@ -165,7 +167,7 @@ const SettingsScreen: React.FC = () => {
           : "linear-gradient(160deg, #f0f4f8 0%, #F6F8F8 50%, #eef2f6 100%)",
       }}
     >
-      {/* --- TOP GLASS HEADER --- */}
+      {}
       <div
         className="sticky top-0 z-20"
         style={{
@@ -178,7 +180,7 @@ const SettingsScreen: React.FC = () => {
         }}
       >
         <div className="max-w-3xl mx-auto px-5 pt-6 pb-5">
-          {/* Title row */}
+          {}
           <div className="flex items-start justify-between mb-5">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
@@ -219,7 +221,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Segment control */}
+          {}
           <div
             className="flex p-1 rounded-2xl"
             style={{
@@ -257,7 +259,7 @@ const SettingsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* --- CONTENT --- */}
+      {}
       <div className="max-w-3xl mx-auto px-5 pt-8 pb-20">
         <div
           key={activeTab}
@@ -265,10 +267,10 @@ const SettingsScreen: React.FC = () => {
             animation: `fadeUp 250ms ${easeOut}`,
           }}
         >
-          {/* ========== ACCOUNT ========== */}
+          {}
           {activeTab === "account" && (
             <div className="flex flex-col gap-6">
-              {/* Profile hero */}
+              {}
               <div
                 style={{
                   ...glassCard,
@@ -282,8 +284,7 @@ const SettingsScreen: React.FC = () => {
                   <div
                     className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
                     style={{
-                      background:
-                        "linear-gradient(135deg, #2EBCCC, #1B244C)",
+                      background: "linear-gradient(135deg, #2EBCCC, #1B244C)",
                       boxShadow: "0 8px 24px rgba(46,188,204,0.25)",
                     }}
                   >
@@ -326,9 +327,12 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Account info card */}
+              {}
               <div style={glassCard}>
-                <div className="px-6 py-5 border-b" style={{ borderColor: glassBorder }}>
+                <div
+                  className="px-6 py-5 border-b"
+                  style={{ borderColor: glassBorder }}
+                >
                   <p
                     className="text-[11px] font-bold uppercase tracking-[0.12em] mb-1.5"
                     style={{ color: textSecondary }}
@@ -409,7 +413,7 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Role card */}
+              {}
               <div style={glassCard}>
                 <div className="px-6 py-5">
                   <p
@@ -454,7 +458,7 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Save button */}
+              {}
               <button
                 onClick={() => setShowSaveConfirm(true)}
                 disabled={saving}
@@ -490,11 +494,14 @@ const SettingsScreen: React.FC = () => {
             </div>
           )}
 
-          {/* ========== APPEARANCE ========== */}
+          {}
           {activeTab === "appearance" && (
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
-                <div className="px-6 py-5 border-b" style={{ borderColor: glassBorder }}>
+                <div
+                  className="px-6 py-5 border-b"
+                  style={{ borderColor: glassBorder }}
+                >
                   <p
                     className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3"
                     style={{ color: textSecondary }}
@@ -581,9 +588,7 @@ const SettingsScreen: React.FC = () => {
                                   : isDark
                                     ? "rgba(255,255,255,0.06)"
                                     : "rgba(27,36,76,0.06)",
-                                color: isSelected
-                                  ? "#FFFFFF"
-                                  : textSecondary,
+                                color: isSelected ? "#FFFFFF" : textSecondary,
                               }}
                             >
                               {lang === "es" ? "ES" : "EN"}
@@ -609,11 +614,81 @@ const SettingsScreen: React.FC = () => {
                     })}
                   </div>
                 </div>
+                <div className="px-6 py-5">
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3"
+                    style={{ color: textSecondary }}
+                  >
+                    <DollarSign size={13} className="inline mr-1.5 -mt-0.5" />
+                    {s.appearance.currency}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {(["MXN", "USD"] as const).map((code) => {
+                      const isSelected = currency === code;
+                      return (
+                        <button
+                          key={code}
+                          onClick={() => {
+                            if (currency !== code) setCurrency(code);
+                          }}
+                          onMouseDown={press}
+                          onMouseUp={release}
+                          onMouseLeave={release}
+                          className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-sm font-bold border cursor-pointer"
+                          style={{
+                            background: isSelected
+                              ? "linear-gradient(135deg, #2EBCCC, #2399A8)"
+                              : inputBg,
+                            borderColor: isSelected ? "#2EBCCC" : glassBorder,
+                            color: isSelected ? "#FFFFFF" : textPrimary,
+                            boxShadow: isSelected
+                              ? "0 4px 16px rgba(46,188,204,0.25)"
+                              : "none",
+                            transition: btnTransition,
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold"
+                              style={{
+                                background: isSelected
+                                  ? "rgba(255,255,255,0.2)"
+                                  : isDark
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(27,36,76,0.06)",
+                                color: isSelected
+                                  ? "#FFFFFF"
+                                  : textSecondary,
+                              }}
+                            >
+                              {code}
+                            </div>
+                            <span>
+                              {code === "MXN"
+                                ? s.appearance.currencyMXN
+                                : s.appearance.currencyUSD}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center"
+                              style={{
+                                background: "rgba(255,255,255,0.25)",
+                              }}
+                            >
+                              <Check size={14} color="#FFFFFF" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ========== PRIVACY ========== */}
+          {}
           {activeTab === "privacy" && (
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
@@ -660,7 +735,10 @@ const SettingsScreen: React.FC = () => {
                   ) : mfaEnabled ? (
                     <span
                       className="self-end sm:self-auto px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 sm:ml-4"
-                      style={{ background: "rgba(74,168,37,0.12)", color: "#4AA825" }}
+                      style={{
+                        background: "rgba(74,168,37,0.12)",
+                        color: "#4AA825",
+                      }}
                     >
                       {s.privacy.twoFactorEnabled}
                     </span>
@@ -681,51 +759,6 @@ const SettingsScreen: React.FC = () => {
                     </button>
                   )}
                 </div>
-
-                <div
-                  className="px-4 py-4 sm:px-6 sm:py-5 border-b flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                  style={{ borderColor: glassBorder }}
-                >
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{
-                        background: "rgba(46,188,204,0.1)",
-                      }}
-                    >
-                      <Smartphone size={18} style={{ color: "#2EBCCC" }} />
-                    </div>
-                    <div>
-                      <p
-                        className="text-sm font-bold"
-                        style={{ color: textPrimary }}
-                      >
-                        {s.privacy.sessions}
-                      </p>
-                      <p
-                        className="text-xs mt-0.5"
-                        style={{ color: textSecondary }}
-                      >
-                        {s.privacy.sessionsDesc}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onMouseDown={press}
-                    onMouseUp={release}
-                    onMouseLeave={release}
-                    className="self-end sm:self-auto px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer shrink-0 sm:ml-4"
-                    style={{
-                      borderColor: glassBorder,
-                      color: textPrimary,
-                      background: inputBg,
-                      transition: btnTransition,
-                    }}
-                  >
-                    {s.privacy.sessionsBtn}
-                  </button>
-                </div>
-
                 <div className="px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3 sm:gap-4">
                     <div
@@ -770,7 +803,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           )}
 
-          {/* ========== LEGAL ========== */}
+          {}
           {activeTab === "legal" && (
             <div className="flex flex-col gap-6">
               <div style={glassCard}>
@@ -818,10 +851,7 @@ const SettingsScreen: React.FC = () => {
                       transition: btnTransition,
                     }}
                   >
-                    <ChevronRight
-                      size={18}
-                      style={{ color: textSecondary }}
-                    />
+                    <ChevronRight size={18} style={{ color: textSecondary }} />
                   </div>
                 </button>
 
@@ -868,10 +898,7 @@ const SettingsScreen: React.FC = () => {
                       transition: btnTransition,
                     }}
                   >
-                    <ChevronRight
-                      size={18}
-                      style={{ color: textSecondary }}
-                    />
+                    <ChevronRight size={18} style={{ color: textSecondary }} />
                   </div>
                 </button>
               </div>
@@ -880,7 +907,7 @@ const SettingsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* keyframes injection */}
+      {}
       <style>{`
         @keyframes fadeUp {
           from {
@@ -894,7 +921,11 @@ const SettingsScreen: React.FC = () => {
         }
       `}</style>
 
-      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
+      <ToastContainer
+        toasts={toasts}
+        onRemove={removeToast}
+        theme={isDark ? "dark" : "light"}
+      />
 
       {showMfaSetup && (
         <TwoFactorSetupModal

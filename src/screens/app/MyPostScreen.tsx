@@ -363,6 +363,7 @@ const AnimatedCard = ({
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
   const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -402,18 +403,25 @@ const AnimatedCard = ({
         style={{ position: "relative", height: 180, overflow: "hidden" }}
       >
         {post.imageUrl && !imgError ? (
-          <img
-            src={post.imageUrl}
-            alt={post.title}
-            onError={() => setImgError(true)}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              transition: "transform 0.4s ease",
-              transform: hovered ? "scale(1.04)" : "scale(1)",
-            }}
-          />
+          <>
+            {!imgLoaded && (
+              <div className="mp-skeleton" style={{ position: "absolute", inset: 0 }} />
+            )}
+            <img
+              src={post.imageUrl}
+              alt={post.title}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                transition: "transform 0.4s ease, opacity 0.25s ease",
+                transform: hovered ? "scale(1.04)" : "scale(1)",
+                opacity: imgLoaded ? 1 : 0,
+              }}
+            />
+          </>
         ) : (
           <div
             style={{
@@ -844,7 +852,6 @@ const Pagination = ({
   );
 };
 
-
 const MyPostScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const navigate = useNavigate();
@@ -855,11 +862,6 @@ const MyPostScreen: React.FC = () => {
   const { user } = useAuth();
   const userId = user?.id;
 
-  // NewServiceScreen navega acá justo después de addToast(); su propio
-  // ToastContainer se desmonta antes de poder pintar el toast, así que la
-  // señal de éxito viaja por navigation state y se muestra desde acá.
-  // El ref evita que StrictMode (que en desarrollo vuelve a ejecutar este
-  // efecto una vez al montar) dispare el toast dos veces.
   const justCreatedHandledRef = useRef(false);
   useEffect(() => {
     if (justCreatedHandledRef.current) return;
@@ -868,7 +870,7 @@ const MyPostScreen: React.FC = () => {
     justCreatedHandledRef.current = true;
     addToast("success", mp.success.created);
     navigate(location.pathname, { replace: true, state: null });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const [search, setSearch] = useState("");
@@ -920,9 +922,6 @@ const MyPostScreen: React.FC = () => {
       : mp.errors.fetchFailed
     : null;
 
-  // Conteo de aplicantes por publicación: se resuelve por separado (no
-  // bloquea el grid) y se cachea por id de servicio para no repetir el
-  // fan-out de N requests cada vez que se vuelve a esta pantalla.
   const [applicantCounts, setApplicantCounts] = useState<
     Record<string, number>
   >({});
@@ -1046,9 +1045,7 @@ const MyPostScreen: React.FC = () => {
           (s) => String(s.id_servicio) !== deleteTarget.id,
         ),
       );
-      // Home muestra "últimas publicaciones" en otra forma/cache — no vale
-      // la pena parchearla desde acá, solo invalidarla para que se
-      // refresque sola la próxima vez que se visite.
+
       if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
       addToast("success", mp.success.deleted);
     } catch (error) {
@@ -1112,7 +1109,6 @@ const MyPostScreen: React.FC = () => {
 
   const hasActiveFilters =
     search !== "" || statusFilter !== "all" || categoryFilter !== "all";
-
 
   const statusOptions = [
     { value: "all", label: mp.filters.allStatuses },

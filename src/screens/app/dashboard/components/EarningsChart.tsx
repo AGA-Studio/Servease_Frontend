@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import type { EarningsPoint } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
+import { useCurrency } from "../../../../context/CurrencyContext";
 
 interface EarningsChartProps {
   data: EarningsPoint[] | undefined;
@@ -17,6 +18,7 @@ interface EarningsChartProps {
 
 export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
   const { t } = useI18n();
+  const { formatMoney, convertAmount } = useCurrency();
   const d = t("dashboardscreen");
   const strokeColor = "#2EBCCC";
   const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
@@ -81,7 +83,10 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
               axisLine={false}
               tickLine={false}
               tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
-              tickFormatter={(value) => `$${value / 1000}k`}
+              tickFormatter={(value) => {
+                const converted = convertAmount(Number(value));
+                return `$${(converted / 1000).toFixed(1)}k`;
+              }}
               dx={-8}
             />
             <Tooltip
@@ -95,7 +100,8 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
               itemStyle={{ color: "#2EBCCC", fontWeight: 600 }}
               formatter={(value) => {
                 const num = typeof value === "number" ? value : Number(value);
-                return [`$${Number.isNaN(num) ? 0 : num.toLocaleString()}`, d.charts.earnings.tooltipLabel];
+                if (Number.isNaN(num)) return [formatMoney(0), d.charts.earnings.tooltipLabel];
+                return [formatMoney(num), d.charts.earnings.tooltipLabel];
               }}
             />
             <Area

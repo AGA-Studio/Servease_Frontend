@@ -1,6 +1,4 @@
-// Applies a theme change with a circular reveal transition (View Transitions API),
-// expanding from the click origin. Falls back to an instant switch when unsupported
-// or when the user prefers reduced motion.
+
 
 import type { ThemeMode } from "./theme";
 

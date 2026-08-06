@@ -8,4 +8,9 @@ export const clientcountermodal = {
   cancel: "Cancel",
   send: "Send Counter-offer",
   sending: "Sending...",
+  errors: {
+    invalidBid: "Enter a valid amount greater than $0.",
+    sameBid: "The new bid must be different from the original bid.",
+    messageTooLong: "Message is too long (300 characters max).",
+  },
 };

@@ -2,6 +2,8 @@ export const profile = {
   client: {
     editProfile: "Edit Profile",
     verifiedClient: "Verified Client",
+    changePhoto: "Change profile photo",
+    photoUploadError: "Could not update your profile photo.",
     stats: {
       postedJobs: "Posted Jobs",
       overallRating: "Overall Rating",
@@ -67,9 +69,16 @@ export const profile = {
   provider: {
     editProfile: "Edit Profile",
     verifiedProvider: "Verified Provider",
+    changePhoto: "Change profile photo",
+    photoUploadError: "Could not update your profile photo.",
     availability: "Availability",
     availableForWork: "Available for work",
     currentlyUnavailable: "Currently unavailable",
+    availabilityLoadFailed: "Could not load your availability.",
+    availabilityUpdateFailed: "Could not update your availability. Try again.",
+    unavailableTitle: "Not available for work",
+    unavailableSubtitle: "Turn on your availability to see new jobs.",
+    unavailableActivate: "Activate availability",
     stats: {
       completedJobs: "Completed Jobs",
       totalEarnings: "Total Earnings",
@@ -101,6 +110,25 @@ export const profile = {
       electrical: "Electrical",
       painting: "Painting",
       carpentry: "Carpentry",
+    },
+    workAreas: {
+      title: "Work Areas",
+      empty: "You haven't set up your work areas yet.",
+      edit: "Edit",
+      editModal: {
+        title: "Edit Work Areas",
+        subtitle: "Select the categories you work in.",
+        save: "Save",
+        cancel: "Cancel",
+        confirmSave: {
+          title: "Save Work Areas",
+          message: "Save changes to your work areas?",
+          confirm: "Save",
+        },
+      },
+      loadFailed: "Could not load your work areas.",
+      updateFailed: "Could not save your work areas. Please try again.",
+      updateSuccess: "Work areas updated successfully.",
     },
   },
 };

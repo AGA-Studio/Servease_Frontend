@@ -1,4 +1,4 @@
-// Modal con todas las reviews de un cliente (GET /api/usuarios/<id>/reviews/).
+
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Star, MessageSquare } from "lucide-react";
 import type { ReviewCliente } from "../../api/userApi";
 import EmptyState from "../emptystate/EmptyState";
+import Avatar from "../avatar/Avatar";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 const EASE_IN = [0.4, 0, 1, 1] as const;
@@ -71,10 +72,6 @@ const ReviewRow = ({
   review: ReviewCliente;
   noCommentLabel: string;
 }) => {
-  const avatarUrl =
-    review.foto_evaluador ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(review.nombre_evaluador)}&background=2EBCCC&color=fff&size=80&bold=true`;
-
   return (
     <motion.div
       variants={rowVariants}
@@ -85,17 +82,7 @@ const ReviewRow = ({
         borderTop: `1px solid var(--divider)`,
       }}
     >
-      <img
-        src={avatarUrl}
-        alt={review.nombre_evaluador}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          objectFit: "cover",
-          flexShrink: 0,
-        }}
-      />
+      <Avatar photoUrl={review.foto_evaluador} name={review.nombre_evaluador} size={40} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -151,11 +138,6 @@ const ReviewsModal: React.FC<Props> = ({
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
-  // Portal a document.body: si el modal se queda dentro del árbol de la
-  // pantalla, cualquier ancestro con transform activo (ej. la animación de
-  // entrada de página, .page-enter) crea un containing block nuevo y
-  // "position: fixed" deja de anclarse al viewport — el modal se movería
-  // con el scroll de esa pantalla en vez de quedarse fijo.
   return createPortal(
     <AnimatePresence>
       {isOpen && (

@@ -1,5 +1,4 @@
-// Modal to edit a client's own service post (title, description, price,
-// category). Only usable while the post is still "abierto" (backend rule).
+
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";

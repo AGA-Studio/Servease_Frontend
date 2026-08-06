@@ -1,4 +1,4 @@
-// Desktop sidebar with collapsible state, hamburger toggle on logo hover, click-outside to close, and persistent collapse preference via localStorage.
+
 
 import { useState, useEffect, useRef } from "react";
 import { LayoutGroup } from "motion/react";

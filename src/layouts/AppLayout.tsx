@@ -1,6 +1,6 @@
-// Main application shell. Composes the desktop sidebar, mobile sidebar, mobile header, and the page outlet.
 
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Menu, Plus } from "lucide-react";
 import Sidebar from "../components/sidebar/Sidebar";
@@ -10,12 +10,20 @@ import ServeaseLogo from "../assets/Servease-Icono.svg";
 import { useI18n } from "../i18n";
 import { ROUTES } from "../router/routes";
 import { useAuth } from "../context/AuthContext";
-import RatingModal from "../components/ratingmodal/RatingModal";
+import ClientRatingModal, { type ClientRatingData } from "../components/ratingmodal/ClientRatingModal";
+import CardPaymentModal from "../components/payment/CardPaymentModal";
+import { useToast } from "../components/Toast/useToast";
+import ToastContainer from "../components/Toast/ToastContainer";
+import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
+import { friendlyErrorMessage } from "../utils/apiError";
 import {
-  getPendingClientRating,
-  clearPendingClientRating,
-  type PendingClientRating,
-} from "../utils/pendingRatings";
+  calificarServicio,
+  fetchAplicantes,
+  fetchPagoPendiente,
+  fetchPagoPendienteCliente,
+  fetchPendienteCalificar,
+  fetchPostDetails,
+} from "../api/servicioApi";
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(
@@ -38,17 +46,169 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
   const { t } = useI18n();
   const sidebar = t("sidebar");
+  const crm = t("clientratingmodal");
+  const cpm = t("cardpaymentmodal");
   const { user } = useAuth();
+  const { toasts, addToast, removeToast } = useToast();
+  const isClient = user?.role === "client";
 
-  const [pendingRating] = useState<PendingClientRating | null>(() =>
-    getPendingClientRating(),
+  interface CardPaymentPrompt {
+    idServicio: number;
+    idTransaccion: number;
+    clientSecret: string;
+    monto: string;
+    serviceTitle: string;
+  }
+  const [cardPayment, setCardPayment] = useState<CardPaymentPrompt | null>(null);
+
+  interface RatingPrompt {
+    idServicio: number;
+    provider: { name: string; avatarUrl?: string };
+  }
+  const [ratingPrompt, setRatingPrompt] = useState<RatingPrompt | null>(null);
+  const [isSubmittingClientRating, setIsSubmittingClientRating] = useState(false);
+
+  // Catches ratings pending from before this session connected (Realtime only
+  // catches the transition live) — e.g. the provider completed the service
+  // while the client was logged out, so no UPDATE event ever reaches them.
+  useEffect(() => {
+    if (!isClient || !user) return;
+    let cancelled = false;
+    fetchPendienteCalificar()
+      .then((pendiente) => {
+        if (cancelled || !pendiente) return;
+        setRatingPrompt({
+          idServicio: pendiente.id_servicio,
+          provider: {
+            name: pendiente.proveedor_nombre,
+            avatarUrl: pendiente.proveedor_foto ?? undefined,
+          },
+        });
+      })
+      .catch((error) => {
+        console.error("fetchPendienteCalificar failed:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isClient, user]);
+
+  // Same as above but for a card payment the provider already started before
+  // this session connected — Realtime's INSERT sub below only catches it live.
+  useEffect(() => {
+    if (!isClient || !user) return;
+    let cancelled = false;
+    fetchPagoPendienteCliente()
+      .then((pago) => {
+        if (cancelled || !pago) return;
+        setCardPayment({
+          idServicio: pago.id_servicio,
+          idTransaccion: pago.id_transaccion,
+          clientSecret: pago.client_secret,
+          monto: pago.monto,
+          serviceTitle: pago.titulo,
+        });
+      })
+      .catch((error) => {
+        console.error("fetchPagoPendienteCliente failed:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isClient, user]);
+
+  // Client waiting for a card charge the provider just started — also watches
+  // for the provider cancelling it mid-wait (UPDATE to 'cancelada').
+  useRealtimeChannel<{
+    id_transaccion: number;
+    servicio_id: number;
+    estado: string;
+    metodo_pago: string | null;
+  }>({
+    table: "transaccion",
+    event: "*",
+    filter: user ? `cliente_id=eq.${user.id}` : undefined,
+    enabled: isClient && !!user,
+    onChange: (payload) => {
+      const row = payload.new as {
+        id_transaccion: number;
+        servicio_id: number;
+        estado: string;
+        metodo_pago: string | null;
+      };
+
+      if (row.estado === "cancelada") {
+        if (cardPayment?.idTransaccion !== row.id_transaccion) return;
+        setCardPayment(null);
+        addToast("info", cpm.cancelledByProvider);
+        return;
+      }
+
+      if (row.metodo_pago !== "tarjeta" || row.estado !== "pendiente") return;
+      Promise.all([fetchPagoPendiente(row.servicio_id), fetchPostDetails(row.servicio_id)])
+        .then(([pago, details]) => {
+          setCardPayment({
+            idServicio: row.servicio_id,
+            idTransaccion: row.id_transaccion,
+            clientSecret: pago.client_secret,
+            monto: pago.monto,
+            serviceTitle: details.titulo,
+          });
+        })
+        .catch((error) => {
+          console.error("fetchPagoPendiente failed:", error);
+        });
+    },
+  });
+
+  // Client waiting for the provider to mark the service completed (blocking rating prompt).
+  useRealtimeChannel<{ id_servicio: number; estado: string }>({
+    table: "servicio",
+    event: "UPDATE",
+    filter: user ? `cliente_id=eq.${user.id}` : undefined,
+    enabled: isClient && !!user,
+    onChange: (payload) => {
+      const row = payload.new as { id_servicio: number; estado: string };
+      if (row.estado !== "completado") return;
+      fetchAplicantes(row.id_servicio)
+        .then((aplicantes) => {
+          const aceptado = aplicantes.find((a) =>
+            a.estado_solicitud.toLowerCase().includes("acept"),
+          );
+          setRatingPrompt({
+            idServicio: row.id_servicio,
+            provider: {
+              name: aceptado?.nombre_proveedor ?? "",
+              avatarUrl: aceptado?.url_foto_perfil ?? undefined,
+            },
+          });
+        })
+        .catch((error) => {
+          console.error("fetchAplicantes failed:", error);
+        });
+    },
+  });
+
+  const handleClientRatingSubmit = useCallback(
+    async (data: ClientRatingData) => {
+      if (!ratingPrompt) return;
+      setIsSubmittingClientRating(true);
+      try {
+        await calificarServicio(ratingPrompt.idServicio, {
+          puntuacion: data.rating,
+          comentario: data.comment,
+        });
+        addToast("success", crm.success);
+        setRatingPrompt(null);
+      } catch (error) {
+        console.error("calificarServicio failed:", error);
+        addToast("error", friendlyErrorMessage(error, crm.error));
+      } finally {
+        setIsSubmittingClientRating(false);
+      }
+    },
+    [ratingPrompt, addToast, crm],
   );
-  const [isRatingOpen, setIsRatingOpen] = useState(pendingRating !== null);
-
-  const handleRatingSubmit = () => {
-    clearPendingClientRating();
-    setIsRatingOpen(false);
-  };
 
   const bg     = isDark ? "#1B244C" : "#F6F8F8";
   const border = isDark ? "#273570" : "#CCCCCC";
@@ -114,14 +274,37 @@ const AppLayout: React.FC = () => {
         </div>
       </div>
 
-      {pendingRating && user?.role === "client" && (
-        <RatingModal
-          isOpen={isRatingOpen}
-          onClose={() => setIsRatingOpen(false)}
-          provider={pendingRating.provider}
-          onSubmit={handleRatingSubmit}
-        />
+      {isClient && (
+        <>
+          <CardPaymentModal
+            isOpen={!!cardPayment}
+            onClose={() => setCardPayment(null)}
+            onPaymentConfirmed={() => {
+              setCardPayment(null);
+              addToast("success", cpm.paymentSuccess);
+            }}
+            isDark={isDark}
+            clientSecret={cardPayment?.clientSecret ?? null}
+            amount={cardPayment ? Number(cardPayment.monto).toLocaleString() : "0"}
+            currency="MXN"
+            serviceTitle={cardPayment?.serviceTitle ?? ""}
+          />
+
+          {/* Both are full-screen non-dismissable overlays — only ever show one.
+              Payment takes priority: it blocks the provider on the other end
+              and has a server-side expiry, so it shouldn't wait behind rating. */}
+          {ratingPrompt && !cardPayment && (
+            <ClientRatingModal
+              isOpen={!!ratingPrompt}
+              provider={ratingPrompt.provider}
+              onSubmit={handleClientRatingSubmit}
+              isSubmitting={isSubmittingClientRating}
+            />
+          )}
+        </>
       )}
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
     </>
   );
 };

@@ -1,4 +1,4 @@
-// Helpers compartidos para mapear datos crudos de "servicio" (backend) a la UI.
+
 
 import type { PostDetails } from "../api/servicioApi";
 import type { JobDetails } from "../types/job";
@@ -15,25 +15,16 @@ export function timeAgo(dateStr: string): string {
   return `${days}d`;
 }
 
-// El modelo Servicio.estado es un CharField sin choices declarados en el
-// backend; estos son los valores observados/documentados hasta ahora.
-// "abierto" es el estado inicial real (rama main); "pendiente" se deja por
-// compatibilidad con datos creados bajo el esquema anterior.
 export function mapEstadoToStatus(estado: string): ServicioStatus {
   if (estado === "abierto" || estado === "pendiente") return "receiving";
   if (estado === "completado" || estado === "cerrado") return "completed";
   return "in_progress";
 }
 
-// Solo se puede editar/eliminar mientras sigue "abierto" (regla del backend
-// en ServicioEditView/ServicioDeleteView).
 export function isServicioEditable(estado: string): boolean {
   return estado === "abierto";
 }
 
-// PostDetails (GET /servicios/<id>/detalle/) -> JobDetails, para reusar
-// JobDetailsModal tanto en Mis Publicaciones (cliente) como en el feed
-// (proveedor). `location` ya viene resuelta (colonia, ciudad aproximada).
 export function mapPostDetailsToJobDetails(
   details: PostDetails,
   location: string,
@@ -48,7 +39,8 @@ export function mapPostDetailsToJobDetails(
     fecha_final: details.fecha_final,
     postedAgo: timeAgo(details.fecha),
     price: Number(details.precio_inicial),
-    priceRange: `$${Number(details.precio_inicial).toLocaleString()}`,
+    currency: "MXN",
+    priceRange: `$${Number(details.precio_inicial).toLocaleString()} MXN`,
     description: details.descripcion,
     mainImage: details.imagenes[0] ?? "",
     thumbnails: details.imagenes,

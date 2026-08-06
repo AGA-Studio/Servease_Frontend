@@ -27,6 +27,7 @@ export interface DashboardJob {
   budget: string;
   priceRange: string;
   price: number;
+  currency?: string;
   proposalCount: number;
   category: string;
   when: string;

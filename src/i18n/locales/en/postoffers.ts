@@ -24,6 +24,7 @@ export const postoffers = {
   cancel: "Cancel",
   sendCounter: "Send Counter",
   originalBid: "Original Bid",
+  previousBid: "Previous Offer",
   yourCounter: "Your Counter",
   cancelCounter: "Cancel Counter",
   waitingForResponse: "Waiting for Response",
@@ -59,8 +60,22 @@ export const postoffers = {
     message: "Restore {name}'s application back to pending?",
     confirm: "Yes, Restore",
   },
+  success: {
+    accepted: "You accepted {name}. You can now start coordinating the service.",
+    rejected: "You rejected {name}'s proposal.",
+    undone: "{name}'s application was restored to pending.",
+    countered: "You sent your counter-offer to {name}.",
+  },
   errors: {
     postFailed: "Couldn't load the post. Please try again later.",
     applicantsFailed: "Couldn't load applicants. Please try again later.",
+    acceptFailed: "Couldn't accept the application. Please try again.",
+    rejectFailed: "Couldn't reject the application. Please try again.",
+    undoFailed: "Couldn't undo the rejection. Please try again.",
+    counterFailed: "Couldn't send the counter-offer. Please try again.",
+  },
+  lastOffer: {
+    you: "You",
+    label: "Last counter-offer",
   },
 };

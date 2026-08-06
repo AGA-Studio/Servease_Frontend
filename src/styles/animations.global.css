@@ -1,5 +1,4 @@
-/* Disable the default crossfade so the circular-reveal theme transition
-   (see animateThemeChange.ts) is the only animation driving the swap. */
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;

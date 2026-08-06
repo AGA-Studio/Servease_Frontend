@@ -1,4 +1,4 @@
-// Shared building blocks for the admin screens: page shell, KPI cards, trend badges and status chips.
+
 
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useI18n } from "../../i18n";

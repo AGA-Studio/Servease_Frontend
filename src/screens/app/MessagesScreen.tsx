@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import Avatar from "../../components/avatar/Avatar";
 
 interface Message {
   id: string;
@@ -222,7 +223,7 @@ const MessagesScreen: React.FC = () => {
         transition={{ duration: 0.2, ease: "easeOut" }}
         className="w-full flex flex-col items-center flex-1"
       >
-        <img src={currentChat.avatar} alt={currentChat.name} className="w-28 h-28 rounded-full object-cover mb-4 shadow-sm" />
+        <Avatar photoUrl={currentChat.avatar} name={currentChat.name} size={112} className="mb-4 shadow-sm" />
         <h3 className="font-bold text-lg text-[var(--msg-text)] truncate">{currentChat.name}</h3>
         <p className="text-sm text-[var(--msg-text-muted)] mb-4 truncate">{currentChat.profession}</p>
 
@@ -380,7 +381,7 @@ const MessagesScreen: React.FC = () => {
                         isSelected ? "bg-[#2EBCCC]/[0.1] border-[#2EBCCC]" : "border-transparent hover:bg-[var(--msg-input)]"
                       }`}
                     >
-                      <img src={chat.avatar} alt={chat.name} className="w-12 h-12 rounded-full object-cover flex-shrink-0 ml-1" />
+                      <Avatar photoUrl={chat.avatar} name={chat.name} size={48} className="flex-shrink-0 ml-1" />
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline gap-1 mb-0.5">
                           <h4 className="font-bold text-sm text-[var(--msg-text)] truncate">{chat.name}</h4>
@@ -428,7 +429,7 @@ const MessagesScreen: React.FC = () => {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <img src={currentChat.avatar} alt={currentChat.name} className="w-12 h-12 rounded-full object-cover" />
+              <Avatar photoUrl={currentChat.avatar} name={currentChat.name} size={48} />
               <div>
                 <h3 className="font-bold text-base text-[var(--msg-text)] leading-none mb-1.5">{currentChat.name}</h3>
                 <p className="text-xs text-[var(--msg-text-muted)]">{currentChat.profession}</p>
@@ -491,10 +492,11 @@ const MessagesScreen: React.FC = () => {
                         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                         className={`flex items-end gap-3 max-w-[90%] xl:max-w-[75%] ${isUser ? "ml-auto flex-row-reverse" : ""}`}
                       >
-                        <img
-                          src={msg.senderAvatar}
-                          alt={msg.senderName}
-                          className="w-9 h-9 rounded-full object-cover flex-shrink-0 mb-5 shadow-sm"
+                        <Avatar
+                          photoUrl={msg.senderAvatar}
+                          name={msg.senderName}
+                          size={36}
+                          className="flex-shrink-0 mb-5 shadow-sm"
                         />
 
                         <div className={`flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>

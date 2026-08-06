@@ -1,10 +1,9 @@
-// Reverse geocoding: lat/long -> "colonia, ciudad" aproximada (nunca coordenadas
-// ni dirección exacta al usuario). Usa Nominatim (OpenStreetMap), sin API key.
+
 
 const cache = new Map<string, string>();
 
 export function roundCoord(value: number): number {
-  // ~100m de precisión: suficiente para colonia/ciudad, no dirección exacta.
+
   return Math.round(value * 1000) / 1000;
 }
 
@@ -13,7 +12,6 @@ export interface ApproxCoords {
   lon: number;
 }
 
-// Distancia en línea recta (km) entre dos coordenadas, fórmula de Haversine.
 export function distanceKm(
   from: ApproxCoords,
   to: ApproxCoords,
@@ -29,8 +27,6 @@ export function distanceKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Nominatim etiqueta la colonia como "quarter" o "neighbourhood" en México;
-// "suburb" suele ser la delegación/borough (ej. "Del. La Presa Este"), no la colonia.
 function addressToLabel(address: Record<string, string>): string {
   const colonia =
     address.neighbourhood ||
@@ -84,10 +80,6 @@ export interface LocationSuggestion {
   label: string;
 }
 
-// Mismo bounding box que valida el backend (servicios/serializers.py:
-// TIJUANA_LAT_MIN/MAX, TIJUANA_LON_MIN/MAX) — tienen que coincidir exacto o
-// el usuario puede elegir una ubicación que el frontend acepta y el backend
-// rechaza al enviar el formulario.
 export const TIJUANA_BOUNDS = {
   lonMin: -117.15,
   lonMax: -116.78,
@@ -115,11 +107,6 @@ interface PhotonFeature {
   geometry: { coordinates: [number, number] };
 }
 
-// Autocompletado de colonias/privadas dentro de Tijuana mientras el usuario
-// escribe. Nominatim (usado en getApproxLocation) hace *full-text* search y
-// no reconoce prefijos ("ref" no encuentra "El Refugio" hasta completar la
-// palabra) — Photon (geocoder de komoot sobre datos OSM) sí está diseñado
-// para autocompletar letra por letra, así que se usa aquí en vez de Nominatim.
 export async function searchTijuanaLocations(
   query: string,
 ): Promise<LocationSuggestion[]> {

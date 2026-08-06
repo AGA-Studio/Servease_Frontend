@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Send, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import Avatar from "../avatar/Avatar";
 
 export interface ClientCounterData {
   newBid: number;
@@ -20,7 +21,10 @@ interface ClientCounterModalProps {
   };
   onSubmit?: (data: ClientCounterData) => void | Promise<void>;
   isSubmitting?: boolean;
+  errorMessage?: string | null;
 }
+
+const MAX_MESSAGE_LENGTH = 300;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -57,6 +61,7 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
   applicant,
   onSubmit,
   isSubmitting = false,
+  errorMessage = null,
 }) => {
   const { t } = useI18n();
   const d = t("clientcountermodal");
@@ -66,18 +71,34 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
   const cardMuted = isDark ? "#273570" : "#F8FAFB";
   const inputBg = isDark ? "#151c38" : "#ffffff";
   const border = isDark ? "#273570" : "#E2E8F0";
+  const errorColor = "#c0392b";
   const text = isDark ? "#ffffff" : "#1B244C";
   const textSecondary = "#989898";
 
   const [newBid, setNewBid] = useState<number>(Math.max(0, applicant.originalBid - 150));
   const [message, setMessage] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const validate = (): string | null => {
+    if (!Number.isFinite(newBid) || newBid <= 0) return d.errors.invalidBid;
+    if (newBid === applicant.originalBid) return d.errors.sameBid;
+    if (message.length > MAX_MESSAGE_LENGTH) return d.errors.messageTooLong;
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    await onSubmit?.({ newBid, message });
-    onClose();
+    const error = validate();
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+    setValidationError(null);
+    await onSubmit?.({ newBid, message: message.trim() });
   };
+
+  const displayedError = validationError ?? errorMessage;
 
   return createPortal(
     <AnimatePresence>
@@ -155,11 +176,7 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <img
-                  src={applicant.avatarUrl || "https://i.pravatar.cc/150?img=47"}
-                  alt={applicant.name}
-                  style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                />
+                <Avatar photoUrl={applicant.avatarUrl} name={applicant.name} size={40} />
                 <div>
                   <p style={{ margin: 0, fontSize: "0.65rem", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", color: textSecondary }}>
                     {d.applicant}
@@ -199,7 +216,10 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
                     transition={{ duration: 0.15 }}
                     type="number"
                     value={newBid}
-                    onChange={(e) => setNewBid(Number(e.target.value))}
+                    onChange={(e) => {
+                      setNewBid(Number(e.target.value));
+                      setValidationError(null);
+                    }}
                     disabled={isSubmitting}
                     style={{
                       width: "100%",
@@ -230,7 +250,10 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
                   transition={{ duration: 0.15 }}
                   rows={3}
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => {
+                    setMessage(e.target.value);
+                    setValidationError(null);
+                  }}
                   placeholder={d.messagePlaceholder}
                   disabled={isSubmitting}
                   style={{
@@ -247,7 +270,27 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
                     boxSizing: "border-box",
                   }}
                 />
+                <div style={{ textAlign: "right", fontSize: "0.68rem", color: message.length > MAX_MESSAGE_LENGTH ? errorColor : textSecondary, marginTop: 4 }}>
+                  {message.length}/{MAX_MESSAGE_LENGTH}
+                </div>
               </div>
+
+              {displayedError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    color: errorColor,
+                    background: "rgba(192,57,43,0.1)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                  }}
+                >
+                  {displayedError}
+                </motion.div>
+              )}
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, paddingTop: 4 }}>
                 <motion.button

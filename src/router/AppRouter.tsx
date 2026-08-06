@@ -1,4 +1,4 @@
-// Defines all application routes, protected routes, and role-based access control routing.
+
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -11,6 +11,7 @@ import ConfirmEmailScreen from "../screens/auth/ConfirmEmailScreen";
 import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 import TermsScreen from "../screens/legal/TermsScreen";
 import PrivacyScreen from "../screens/legal/PrivacyScreen";
+import NotFoundScreen from "../screens/errors/NotFoundScreen";
 import AppLayout from "../layouts/AppLayout";
 import AdminLayout from "../layouts/AdminLayout";
 
@@ -117,7 +118,7 @@ const AppRouter: React.FC = () => (
         <Route path="logs" element={<AdminLogsScreen />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundScreen />} />
     </Routes>
   </BrowserRouter>
 );

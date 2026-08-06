@@ -1,4 +1,4 @@
-// Mock data for the admin panel. Replace with real API calls once the backend endpoints exist.
+
 
 export interface AdminKpis {
   activeUsersToday: number;
