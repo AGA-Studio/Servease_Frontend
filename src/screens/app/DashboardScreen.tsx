@@ -17,6 +17,7 @@ import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
 import type { DashboardJob } from "../../types/dashboard";
+import type { JobDetails } from "../../types/job";
 import type { ApplyJobData } from "../../components/applyjobmodal/ApplyJobModal";
 import { getApproxLocation } from "../../utils/location";
 
@@ -96,6 +97,38 @@ const DashboardScreen: React.FC = () => {
     console.log("Submit proposal:", { jobId: selectedJob?.id, ...data });
     setIsApplyOpen(false);
   };
+
+  const selectedJobDetails: JobDetails | null = useMemo(
+    () =>
+      selectedJob
+        ? {
+            id: selectedJob.id,
+            title: selectedJob.title,
+            category: selectedJob.category,
+            location: selectedJob.location,
+            latitud:
+              selectedJob.latitud !== undefined
+                ? Number(selectedJob.latitud)
+                : null,
+            longitud:
+              selectedJob.longitud !== undefined
+                ? Number(selectedJob.longitud)
+                : null,
+            when: selectedJob.when,
+            urgency: selectedJob.urgency,
+            postedAgo: selectedJob.postedAgo,
+            price: selectedJob.price,
+            currency: selectedJob.currency,
+            priceRange: selectedJob.priceRange,
+            description: selectedJob.description,
+            mainImage: selectedJob.mainImage,
+            thumbnails: selectedJob.thumbnails,
+            client: selectedJob.client,
+            proposalCount: selectedJob.proposalCount,
+          }
+        : null,
+    [selectedJob],
+  );
 
   return (
     <>
@@ -331,7 +364,7 @@ const DashboardScreen: React.FC = () => {
       <JobDetailsModal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        job={selectedJob}
+        job={selectedJobDetails}
         onApply={() => {
           setIsDetailsOpen(false);
           setIsApplyOpen(true);

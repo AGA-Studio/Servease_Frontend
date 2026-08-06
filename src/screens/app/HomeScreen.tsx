@@ -11,11 +11,9 @@ import {
   ArrowRight,
   RotateCcw,
   Megaphone,
-  Lock,
-  Zap,
-  Sparkles,
   Inbox,
 } from "lucide-react";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 import EmptyState from "../../components/emptystate/EmptyState";
 import SearchBar from "../../components/searchbar/SearchBar";
 import { useThemeMode } from "../../theme/useThemeMode";
@@ -26,14 +24,15 @@ import { useNavigate } from "react-router-dom";
 import { ROUTES, buildPostOffersPath } from "../../router/routes";
 import {
   fetchPerfilCliente,
-  fetchUltimasPublicacionesCliente,
-  type PerfilCliente,
-  type ServicioCliente,
+  fetchHomeCliente,
+  type HomeCliente,
 } from "../../api/userApi";
+import { fetchPostDetails } from "../../api/servicioApi";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import type { JobDetails } from "../../types/job";
 import { getApproxLocation } from "../../utils/location";
-import { timeAgo, mapEstadoToStatus } from "../../utils/servicio";
+import { timeAgo, mapEstadoToStatus, mapPostDetailsToJobDetails } from "../../utils/servicio";
+import Avatar from "../../components/avatar/Avatar";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { motion, AnimatePresence } from "motion/react";
@@ -48,10 +47,10 @@ interface Post {
   description: string;
   status: "receiving" | "completed" | "in_progress";
   proposalCount?: number;
-  avatarCount?: number;
-  icon: "plumbing" | "lock" | "party";
+  applicantPhotos: string[];
+  category: string;
   accentColor: string;
-  raw: ServicioCliente;
+  raw: HomeCliente;
 }
 
 interface Activity {
@@ -80,10 +79,7 @@ const itemEnter = {
   },
 };
 
-const POST_ACCENTS = ["#FF4444", "#2EBCCC", "#FFB200"];
-const POST_ICONS: Post["icon"][] = ["plumbing", "lock", "party"];
-
-function servicioToPost(servicio: ServicioCliente, index: number): Post {
+function servicioToPost(servicio: HomeCliente): Post {
   return {
     id: String(servicio.id_servicio),
     title: servicio.titulo,
@@ -91,45 +87,10 @@ function servicioToPost(servicio: ServicioCliente, index: number): Post {
     postedAgo: timeAgo(servicio.fecha),
     description: servicio.descripcion,
     status: mapEstadoToStatus(servicio.estado),
-    icon: POST_ICONS[index % POST_ICONS.length],
-    accentColor: POST_ACCENTS[index % POST_ACCENTS.length],
+    applicantPhotos: servicio.fotos_proveedores_aplicantes ?? [],
+    category: servicio.categoria,
+    accentColor: getCategoryStyle(servicio.categoria).color,
     raw: servicio,
-  };
-}
-
-function servicioToJobDetails(
-  servicio: ServicioCliente,
-  perfil: PerfilCliente | null,
-  location: string,
-): JobDetails {
-  const price = Number(servicio.precio_inicial);
-  return {
-    id: String(servicio.id_servicio),
-    title: servicio.titulo,
-    category: String(servicio.id_categoria),
-    location,
-    when: "",
-    urgency: "",
-    fecha_final: servicio.fecha_final,
-    postedAgo: timeAgo(servicio.fecha),
-    price,
-    priceRange: `$${price.toLocaleString()}`,
-    description: servicio.descripcion,
-    mainImage: servicio.imagenes[0] ?? "",
-    thumbnails: servicio.imagenes,
-    client: {
-      name: perfil?.nombre ?? "",
-      avatar: perfil?.url_foto_perfil ?? "",
-      rating: perfil?.rating ?? 0,
-      reviewCount: perfil?.num_reviews ?? 0,
-      memberSince: perfil?.fecha_registro
-        ? new Date(perfil.fecha_registro).toLocaleDateString("es-MX", {
-            month: "short",
-            year: "numeric",
-          })
-        : "",
-      jobsPosted: perfil?.num_publicaciones ?? 0,
-    },
   };
 }
 
@@ -165,12 +126,13 @@ const ACTIVITIES: Activity[] = [
 ];
 
 const PostIcon = ({
-  icon,
+  category,
   accentColor,
 }: {
-  icon: Post["icon"];
+  category: string;
   accentColor: string;
 }) => {
+  const Icon = getCategoryStyle(category).icon;
   const bg = accentColor + "22";
   const size = 42;
   return (
@@ -187,9 +149,7 @@ const PostIcon = ({
         flexShrink: 0,
       }}
     >
-      {icon === "plumbing" && <Zap size={20} color={accentColor} />}
-      {icon === "lock" && <Lock size={20} color={accentColor} />}
-      {icon === "party" && <Sparkles size={20} color={accentColor} />}
+      <Icon size={20} color={accentColor} />
     </div>
   );
 };
@@ -233,33 +193,28 @@ const StatusBadge = ({ status }: { status: Post["status"] }) => {
   );
 };
 
-const AvatarStack = ({ count }: { count: number }) => {
-  const colors = ["#2EBCCC", "#FFB200", "#4AA825"];
+const AvatarStack = ({ photos }: { photos: string[] }) => {
+  const visible = photos.slice(0, 3);
+  const extra = photos.length - visible.length;
   return (
     <div style={{ display: "flex", alignItems: "center" }}>
-      {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+      {visible.map((photoUrl, i) => (
         <div
           key={i}
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            background: colors[i],
-            border: "2px solid var(--card-bg)",
             marginLeft: i === 0 ? 0 : -8,
             zIndex: 3 - i,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.65rem",
-            fontWeight: 700,
-            color: "#fff",
+            borderRadius: "50%",
           }}
         >
-          {String.fromCharCode(65 + i)}
+          <Avatar
+            photoUrl={photoUrl}
+            size={28}
+            style={{ border: "2px solid var(--card-bg)" }}
+          />
         </div>
       ))}
-      {count > 3 && (
+      {extra > 0 && (
         <div
           style={{
             width: 28,
@@ -276,7 +231,7 @@ const AvatarStack = ({ count }: { count: number }) => {
             color: "var(--text-secondary)",
           }}
         >
-          +{count - 3}
+          +{extra}
         </div>
       )}
     </div>
@@ -286,9 +241,11 @@ const AvatarStack = ({ count }: { count: number }) => {
 const PostCard = ({
   post,
   onViewDetails,
+  isLoadingDetails,
 }: {
   post: Post;
   onViewDetails: (post: Post) => void;
+  isLoadingDetails: boolean;
 }) => {
   const [hovered, setHovered] = useState(false);
   const { t } = useI18n();
@@ -324,7 +281,7 @@ const PostCard = ({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-          <PostIcon icon={post.icon} accentColor={post.accentColor} />
+          <PostIcon category={post.category} accentColor={post.accentColor} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
@@ -398,20 +355,22 @@ const PostCard = ({
         }}
       >
         <div className="hs-post-footer-left">
-          {post.avatarCount && post.status === "receiving" && (
-            <AvatarStack count={post.avatarCount + 3} />
+          {post.applicantPhotos.length > 0 && post.status === "receiving" && (
+            <AvatarStack photos={post.applicantPhotos} />
           )}
         </div>
         <button
           className="hs-post-link"
           onClick={() => onViewDetails(post)}
+          disabled={isLoadingDetails}
           style={{
             background: "none",
             border: "none",
             color: "#2EBCCC",
             fontWeight: 600,
             fontSize: "0.84rem",
-            cursor: "pointer",
+            cursor: isLoadingDetails ? "not-allowed" : "pointer",
+            opacity: isLoadingDetails ? 0.6 : 1,
             display: "flex",
             alignItems: "center",
             gap: 5,
@@ -424,9 +383,7 @@ const PostCard = ({
           }
           onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
         >
-          {post.status === "receiving"
-            ? h.serviceCard.link.viewDetails
-            : h.serviceCard.link.viewDetails}
+          {h.serviceCard.link.viewDetails}
           <ArrowRight size={14} />
         </button>
       </div>
@@ -539,11 +496,27 @@ const HomeScreen: React.FC = () => {
   const { toasts, addToast, removeToast } = useToast();
 
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobDetails | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [loadingDetailsId, setLoadingDetailsId] = useState<string | null>(null);
 
-  const handleViewDetails = (post: Post) => {
-    setSelectedPost(post);
-    setIsDetailsOpen(true);
+  const handleViewDetails = async (post: Post) => {
+    setLoadingDetailsId(post.id);
+    try {
+      const details = await fetchPostDetails(post.id);
+      const location = await getApproxLocation(
+        details.latitud ?? "",
+        details.longitud ?? "",
+      );
+      setSelectedPost(post);
+      setSelectedJob(mapPostDetailsToJobDetails(details, location ?? ""));
+      setIsDetailsOpen(true);
+    } catch (error) {
+      console.error("fetchPostDetails failed:", error);
+      addToast("error", h.errors.detailsFailed);
+    } finally {
+      setLoadingDetailsId(null);
+    }
   };
 
   const {
@@ -560,8 +533,8 @@ const HomeScreen: React.FC = () => {
     isLoading: isLoadingPosts,
     error: postsErrorObj,
   } = useCachedResource(
-    user?.id ? `ultimas-publicaciones:${user.id}` : null,
-    () => fetchUltimasPublicacionesCliente(user!.id),
+    user?.id ? `home-cliente:${user.id}` : null,
+    () => fetchHomeCliente(user!.id),
   );
 
   const [locations, setLocations] = useState<Record<string, string>>({});
@@ -587,8 +560,8 @@ const HomeScreen: React.FC = () => {
 
   const posts = useMemo(
     () =>
-      (servicios ?? []).map((servicio, i) => ({
-        ...servicioToPost(servicio, i),
+      (servicios ?? []).map((servicio) => ({
+        ...servicioToPost(servicio),
         location: locations[String(servicio.id_servicio)] ?? "",
       })),
     [servicios, locations],
@@ -604,7 +577,7 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     if (postsErrorObj) {
-      console.error("fetchUltimasPublicacionesCliente failed:", postsErrorObj);
+      console.error("fetchHomeCliente failed:", postsErrorObj);
       addToast("error", h.errors.postsFailed);
     }
 
@@ -1127,7 +1100,11 @@ const HomeScreen: React.FC = () => {
                     >
                       {posts.map((post) => (
                         <motion.div key={post.id} variants={itemEnter}>
-                          <PostCard post={post} onViewDetails={handleViewDetails} />
+                          <PostCard
+                            post={post}
+                            onViewDetails={handleViewDetails}
+                            isLoadingDetails={loadingDetailsId === post.id}
+                          />
                         </motion.div>
                       ))}
                     </motion.div>
@@ -1286,11 +1263,7 @@ const HomeScreen: React.FC = () => {
       <JobDetailsModal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        job={
-          selectedPost
-            ? servicioToJobDetails(selectedPost.raw, perfil ?? null, selectedPost.location)
-            : null
-        }
+        job={selectedJob}
         postStatus={selectedPost?.status}
         onViewApplicants={
           selectedPost

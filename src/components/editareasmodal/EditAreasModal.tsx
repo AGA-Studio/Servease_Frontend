@@ -8,6 +8,7 @@ import { useWorkAreas } from "../../context/WorkAreasContext";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import { useCookieCached } from "../../hooks/useCookieCached";
 import CustomizableModal from "../modal/CustomizableModal";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -176,6 +177,8 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {(allCategories ?? []).map((cat) => {
                   const checked = selected.has(cat.id_categoria);
+                  const catStyle = getCategoryStyle(cat.nombre);
+                  const CatIcon = catStyle.icon;
                   return (
                     <motion.button
                       key={cat.id_categoria}
@@ -200,6 +203,20 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     >
                       <div style={checkboxStyle(checked)}>
                         {checked && <Check size={14} color="#fff" strokeWidth={3} />}
+                      </div>
+                      <div
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 8,
+                          background: `${catStyle.color}26`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <CatIcon size={14} color={catStyle.color} />
                       </div>
                       <span
                         style={{

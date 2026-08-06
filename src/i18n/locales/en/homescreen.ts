@@ -36,6 +36,7 @@ export const homescreen = {
   errors: {
     kpisFailed: "Couldn't load your stats. Please try again later.",
     postsFailed: "Couldn't load your posts. Please try again later.",
+    detailsFailed: "Couldn't load the post details. Please try again.",
   },
   empty: {
     postsTitle: "No posts yet",

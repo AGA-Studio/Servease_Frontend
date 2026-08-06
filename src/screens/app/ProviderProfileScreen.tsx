@@ -7,14 +7,11 @@ import {
   Briefcase,
   DollarSign,
   Star,
-  Wrench,
-  Zap,
-  Paintbrush,
-  Hammer,
   Camera,
   Check,
   X,
 } from "lucide-react";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 import { useAuth } from "../../context/AuthContext";
 import { useCurrency } from "../../context/CurrencyContext";
 import { useAvailability } from "../../context/AvailabilityContext";
@@ -448,21 +445,15 @@ const ProviderProfileScreen: React.FC = () => {
 
   const languageLabel = locale === "es" ? "Español" : "English";
 
-  const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
-    Plomería: <Wrench size={14} />,
-    Plumbing: <Wrench size={14} />,
-    Electricidad: <Zap size={14} />,
-    Electrical: <Zap size={14} />,
-    Pintura: <Paintbrush size={14} />,
-    Painting: <Paintbrush size={14} />,
-    "Carpintería": <Hammer size={14} />,
-    Carpentry: <Hammer size={14} />,
-  };
-
-  const services = areas.map((area) => ({
-    icon: CATEGORY_ICON_MAP[area.nombre] ?? <Briefcase size={14} />,
-    label: area.nombre,
-  }));
+  const services = areas.map((area) => {
+    const style = getCategoryStyle(area.nombre);
+    const Icon = style.icon;
+    return {
+      icon: <Icon size={14} color={style.color} />,
+      color: style.color,
+      label: area.nombre,
+    };
+  });
 
   return (
     <div
@@ -1115,10 +1106,8 @@ const ProviderProfileScreen: React.FC = () => {
                       gap: 6,
                       padding: "8px 14px",
                       borderRadius: 999,
-                      background: isDark
-                        ? "rgba(46,188,204,0.12)"
-                        : "rgba(46,188,204,0.08)",
-                      color: "#2EBCCC",
+                      background: `${service.color}${isDark ? "1F" : "14"}`,
+                      color: service.color,
                       fontSize: "0.8rem",
                       fontWeight: 700,
                     }}

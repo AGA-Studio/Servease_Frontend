@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { UserRound } from "lucide-react";
 
 const PALETTE = [
   "#2EBCCC",
@@ -50,6 +51,7 @@ const Avatar: React.FC<AvatarProps> = ({
   alt,
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
+  const hasName = Boolean(name?.trim() || lastName?.trim());
   const initials = getInitials(name, lastName);
   const seed = `${name ?? ""}${lastName ?? ""}` || "?";
   const bgColor = PALETTE[hashString(seed) % PALETTE.length];
@@ -70,6 +72,29 @@ const Avatar: React.FC<AvatarProps> = ({
           ...style,
         }}
       />
+    );
+  }
+
+  if (!hasName) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#98989833",
+          color: "#989898",
+          userSelect: "none",
+          ...style,
+        }}
+      >
+        <UserRound size={size * 0.55} />
+      </div>
     );
   }
 

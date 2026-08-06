@@ -1,6 +1,6 @@
 
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search,
   Clock,
@@ -16,23 +16,68 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import FilterSelect from "../../components/filterselect/FilterSelect";
 import type { ThemeMode } from "../../theme/theme";
-import type { MyJob, ProposalStatus } from "../../types/myjobs";
-import type { JobDetails } from "../../types/job";
-import {
-  cancelarPostulacion,
-  fetchPostDetails,
-} from "../../api/servicioApi";
-import {
-  fetchTrabajosAplicados,
-} from "../../api/userApi";
-import { mapPostDetailsToJobDetails } from "../../utils/servicio";
-import { mapTrabajoAplicadoToMyJob } from "../../utils/proposals";
-import { getApproxLocation } from "../../utils/location";
+import type { JobDetails, JobClient } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import EmptyState from "../../components/emptystate/EmptyState";
-import RatingModal from "../../components/ratingmodal/RatingModal";
-import { useAuth } from "../../context/AuthContext";
-import { setPendingClientRating } from "../../utils/pendingRatings";
+import RatingModal, { type RatingData } from "../../components/ratingmodal/RatingModal";
+import CompleteServiceModal from "../../components/completeservicemodal/CompleteServiceModal";
+import PaymentWaitingModal, {
+  type PaymentWaitStatus,
+} from "../../components/completeservicemodal/PaymentWaitingModal";
+import { timeAgo } from "../../utils/servicio";
+import { friendlyErrorMessage } from "../../utils/apiError";
+import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
+import {
+  cancelarPago,
+  cancelPostulacion,
+  completarServicio,
+  fetchMisTrabajos,
+  fetchPagoEnCursoProveedor,
+  fetchPagoEstado,
+  fetchPostDetails,
+  iniciarPago,
+  type MiTrabajo,
+  type PagoEstado,
+} from "../../api/servicioApi";
+
+type ProposalStatus = "accepted" | "pending" | "completed";
+type PaymentMethod = "efectivo" | "tarjeta";
+
+interface DisplayJob {
+  id: string;
+  idServicio: number;
+  idPostulacion: number;
+  title: string;
+  category: string;
+  proposalStatus: ProposalStatus;
+  postedAgo: string;
+  budget: number;
+  currency: string;
+  imageUrl?: string;
+}
+
+function mapTrabajoToDisplay(job: MiTrabajo): DisplayJob {
+  const proposalStatus: ProposalStatus =
+    job.servicio_estado === "completado"
+      ? "completed"
+      : job.estado === "aceptada"
+        ? "accepted"
+        : "pending";
+
+  return {
+    id: String(job.id_postulacion),
+    idServicio: job.id_servicio,
+    idPostulacion: job.id_postulacion,
+    title: job.titulo,
+    category: job.categoria_nombre,
+    proposalStatus,
+    postedAgo: timeAgo(job.fecha),
+    budget: Number(job.precio_acordado),
+    currency: job.moneda,
+    imageUrl: job.imagenes[0],
+  };
+}
+
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -58,11 +103,31 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 const PAGE_SIZE = 8;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
-const fetchJobDetails = async (job: MyJob): Promise<JobDetails> => {
-  const details = await fetchPostDetails(job.id_servicio);
-  const location = await getApproxLocation(details.latitud, details.longitud);
-  return mapPostDetailsToJobDetails(details, location);
+const FALLBACK_CLIENT: JobClient = {
+  name: "",
+  avatar: "",
+  rating: 0,
+  reviewCount: 0,
+  memberSince: "",
+  jobsPosted: 0,
 };
+
+const mapDisplayJobToDetails = (job: DisplayJob): JobDetails => ({
+  id: job.id,
+  title: job.title,
+  category: job.category,
+  location: "Tijuana, Mexico",
+  when: "",
+  urgency: "",
+  postedAgo: job.postedAgo,
+  price: job.budget,
+  priceRange: `$${job.budget.toLocaleString()} ${job.currency}`,
+  description: job.title,
+  mainImage: job.imageUrl ?? "",
+  thumbnails: job.imageUrl ? [job.imageUrl] : [],
+  client: FALLBACK_CLIENT,
+  proposalCount: 0,
+});
 
 const ProposalBadge = ({
   status,
@@ -85,15 +150,10 @@ const ProposalBadge = ({
         bg: isDark ? "rgba(255,178,0,0.18)" : "rgba(255,178,0,0.12)",
         color: "#FFB200",
       },
-      rejected: {
-        label: d.proposalStatuses.rejected,
-        bg: isDark ? "rgba(239,68,68,0.18)" : "rgba(239,68,68,0.10)",
-        color: "#EF4444",
-      },
-      counteroffer: {
-        label: d.proposalStatuses.counteroffer,
-        bg: isDark ? "rgba(139,92,246,0.18)" : "rgba(139,92,246,0.10)",
-        color: "#8B5CF6",
+      completed: {
+        label: d.proposalStatuses.completed,
+        bg: isDark ? "rgba(74,168,37,0.18)" : "rgba(74,168,37,0.12)",
+        color: "#4AA825",
       },
     };
   const s = map[status];
@@ -184,11 +244,11 @@ const AnimatedJobCard = ({
   onViewDetails,
   onMarkCompleted,
 }: {
-  job: MyJob;
+  job: DisplayJob;
   index: number;
   isDark: boolean;
-  onViewDetails: (job: MyJob) => void;
-  onMarkCompleted: (job: MyJob) => void;
+  onViewDetails: (job: DisplayJob) => void;
+  onMarkCompleted: (job: DisplayJob) => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
@@ -503,53 +563,117 @@ const MyJobsScreen: React.FC = () => {
   const { t } = useI18n();
   const d = t("myjobsscreen");
   const { toasts, addToast, removeToast } = useToast();
-  const { user, profile } = useAuth();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  const [selectedJob, setSelectedJob] = useState<MyJob | null>(null);
-  const [selectedDetails, setSelectedDetails] = useState<JobDetails | null>(
-    null,
-  );
+  const [selectedJob, setSelectedJob] = useState<DisplayJob | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-
-  const [completingJob, setCompletingJob] = useState<MyJob | null>(null);
-  const [isRatingOpen, setIsRatingOpen] = useState(false);
-  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [jobs, setJobs] = useState<MyJob[]>([]);
+  const [jobs, setJobs] = useState<DisplayJob[]>([]);
+
+  // "Marcar completado" flow: complete-service modal -> (cash: drag confirm | card: Stripe via realtime) -> rating modal.
+  const [completingJob, setCompletingJob] = useState<DisplayJob | null>(null);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [isStartingCardPayment, setIsStartingCardPayment] = useState(false);
+  const [clientInfo, setClientInfo] = useState<{ name: string; avatarUrl?: string } | null>(null);
+
+  const [paymentWait, setPaymentWait] = useState<{
+    job: DisplayJob;
+    idTransaccion: number;
+    status: PaymentWaitStatus;
+  } | null>(null);
+  const [isRetryingPayment, setIsRetryingPayment] = useState(false);
+  const [isCancellingPayment, setIsCancellingPayment] = useState(false);
+
+  const [ratingJob, setRatingJob] = useState<DisplayJob | null>(null);
+  const [ratingMethod, setRatingMethod] = useState<PaymentMethod>("efectivo");
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const items = await fetchTrabajosAplicados();
+    fetchMisTrabajos()
+      .then((data) => {
         if (cancelled) return;
-        setJobs(items.map(mapTrabajoAplicadoToMyJob));
-      } catch {
+        setJobs(data.map(mapTrabajoToDisplay));
+      })
+      .catch((error) => {
         if (cancelled) return;
-        addToast("error", d.errors.fetchFailed);
-      } finally {
+        console.error("fetchMisTrabajos failed:", error);
+        addToast("error", friendlyErrorMessage(error, d.errors.fetchFailed));
+      })
+      .finally(() => {
         if (!cancelled) setIsLoading(false);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };
-  }, [addToast, d]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const filtered = jobs.filter((j) => {
-    const matchSearch = j.title.toLowerCase().includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || j.proposalStatus === statusFilter;
-    const matchCategory =
-      categoryFilter === "all" || j.category === categoryFilter;
-    return matchSearch && matchStatus && matchCategory;
+  // Provider waiting for the client to confirm a card payment (realtime-driven).
+  useRealtimeChannel<{ estado: string }>({
+    table: "transaccion",
+    event: "UPDATE",
+    filter: paymentWait ? `id_transaccion=eq.${paymentWait.idTransaccion}` : undefined,
+    enabled: !!paymentWait && paymentWait.status === "waiting",
+    onChange: (payload) => {
+      const nuevoEstado = (payload.new as { estado?: string }).estado;
+      // A decline ("rechazada") isn't terminal — the client can keep
+      // retrying with another card on the same intent, so the provider just
+      // keeps waiting no matter how many attempts it takes. Only a genuine
+      // expiry (30 min timeout, intent actually cancelled server-side) ends
+      // the wait and needs the provider to start a fresh charge.
+      if (nuevoEstado === "completada") {
+        setPaymentWait((prev) => (prev ? { ...prev, status: "success" } : prev));
+      } else if (nuevoEstado === "expirada") {
+        setPaymentWait((prev) => (prev ? { ...prev, status: "failed" } : prev));
+      }
+    },
   });
+
+  // Backstop for the subscription above: browser tab backgrounding, a dropped
+  // socket, or any other silent Realtime failure would otherwise strand the
+  // provider on "waiting" forever with no way to notice the payment resolved.
+  useEffect(() => {
+    if (!paymentWait || paymentWait.status !== "waiting") return;
+    const interval = setInterval(() => {
+      fetchPagoEstado(paymentWait.job.idServicio)
+        .then((pago) => {
+          if (!pago || pago.id_transaccion !== paymentWait.idTransaccion) return;
+          if (pago.estado === "completada") {
+            setPaymentWait((prev) => (prev ? { ...prev, status: "success" } : prev));
+          } else if (pago.estado === "expirada") {
+            setPaymentWait((prev) => (prev ? { ...prev, status: "failed" } : prev));
+          }
+        })
+        .catch((error) => {
+          console.error("fetchPagoEstado poll failed:", error);
+        });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [paymentWait]);
+
+  const filtered = jobs
+    .filter((j) => {
+      const matchSearch = j.title.toLowerCase().includes(search.toLowerCase());
+      const matchStatus =
+        statusFilter === "all" || j.proposalStatus === statusFilter;
+      const matchCategory =
+        categoryFilter === "all" || j.category === categoryFilter;
+      return matchSearch && matchStatus && matchCategory;
+    })
+    // Completed jobs sink to the bottom when viewing "all" — they're done,
+    // active/pending work stays the priority at a glance.
+    .sort((a, b) => {
+      if (statusFilter !== "all") return 0;
+      const aCompleted = a.proposalStatus === "completed" ? 1 : 0;
+      const bCompleted = b.proposalStatus === "completed" ? 1 : 0;
+      return aCompleted - bCompleted;
+    });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -569,80 +693,182 @@ const MyJobsScreen: React.FC = () => {
     [totalPages, safePage]
   );
 
-  const handleViewDetails = useCallback(
-    async (job: MyJob) => {
-      setIsDetailsOpen(true);
-      setSelectedJob(job);
-      try {
-        const details = await fetchJobDetails(job);
-        setSelectedDetails(details);
-      } catch {
-        addToast("error", d.errors.fetchFailed);
-        setIsDetailsOpen(false);
-      }
-    },
-    [addToast, d],
-  );
+  const handleViewDetails = useCallback((job: DisplayJob) => {
+    setSelectedJob(job);
+    setIsDetailsOpen(true);
+  }, []);
 
   const handleCancelProposal = useCallback(
-    async (job: MyJob) => {
+    async (job: DisplayJob) => {
       try {
-        await cancelarPostulacion(Number(job.id));
+        await cancelPostulacion(job.idPostulacion);
         setJobs((prev) => prev.filter((j) => j.id !== job.id));
         setIsDetailsOpen(false);
-        setSelectedJob(null);
         addToast("success", d.actions.cancelSuccess);
-      } catch {
-        addToast("error", d.errors.cancelFailed);
+      } catch (error) {
+        console.error("cancelPostulacion failed:", error);
+        addToast("error", friendlyErrorMessage(error, d.actions.cancelFailed));
       }
     },
     [addToast, d],
   );
+
+  // Shared by the manual "marcar completado" recheck and the auto-resume-on-
+  // mount effect below: a decline just means keep waiting (client can retry
+  // the same intent), only a genuine expiry needs the provider to restart.
+  const resumePaymentFlow = useCallback((job: DisplayJob, pago: PagoEstado) => {
+    if (pago.estado === "completada") {
+      setRatingMethod("tarjeta");
+      setRatingJob(job);
+      setClientInfo(null);
+      fetchPostDetails(job.idServicio)
+        .then((details) => {
+          setClientInfo({ name: details.nombre_cliente, avatarUrl: details.url_foto_perfil ?? undefined });
+        })
+        .catch((error) => {
+          console.error("fetchPostDetails failed:", error);
+        });
+    } else if (pago.estado === "expirada") {
+      setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "failed" });
+    } else {
+      setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "waiting" });
+    }
+  }, []);
+
+  // Auto-resumes an in-flight card payment on mount — if the provider closed
+  // the tab or navigated away mid-wait, they land back exactly where they
+  // left off (waiting, rating, or a genuine expiry) instead of a silent job
+  // card with no indication anything was ever in progress.
+  const hasCheckedResumeRef = useRef(false);
+  useEffect(() => {
+    if (hasCheckedResumeRef.current || isLoading) return;
+    hasCheckedResumeRef.current = true;
+    fetchPagoEnCursoProveedor()
+      .then((pago) => {
+        if (!pago) return;
+        const job = jobs.find((j) => j.idServicio === pago.id_servicio);
+        if (!job) return;
+        resumePaymentFlow(job, pago);
+      })
+      .catch((error) => {
+        console.error("fetchPagoEnCursoProveedor failed:", error);
+      });
+  }, [isLoading, jobs, resumePaymentFlow]);
 
   const handleMarkCompletedClick = useCallback(
-    async (job: MyJob) => {
+    (job: DisplayJob) => {
       setCompletingJob(job);
-      setIsRatingOpen(true);
-      try {
-        const details = await fetchJobDetails(job);
-        setSelectedDetails(details);
-      } catch {
-        addToast("error", d.errors.fetchFailed);
-        setCompletingJob(null);
-        setIsRatingOpen(false);
-      }
-    },
-    [addToast, d],
-  );
-
-  const handleRatingSubmit = useCallback(
-    async () => {
-      if (!completingJob) return;
-      setIsSubmittingRating(true);
-      try {
-        setJobs((prev) => prev.filter((j) => j.id !== completingJob.id));
-
-        const providerName = user
-          ? `${user.firstName} ${user.lastnameP}`.trim()
-          : "Provider";
-        setPendingClientRating({
-          jobId: completingJob.id,
-          jobTitle: completingJob.title,
-          provider: {
-            name: providerName,
-            avatarUrl: profile?.url_foto_perfil ?? undefined,
-            rating: 5,
-            reviewsCount: 0,
-          },
+      setClientInfo(null);
+      fetchPostDetails(job.idServicio)
+        .then((details) => {
+          setClientInfo({ name: details.nombre_cliente, avatarUrl: details.url_foto_perfil ?? undefined });
+        })
+        .catch((error) => {
+          console.error("fetchPostDetails failed:", error);
         });
 
+      // Recovers the true payment state if a previous card attempt is already
+      // resolved (or still in flight) — Realtime only catches transitions
+      // live, so a reload/navigation while waiting would otherwise strand it.
+      fetchPagoEstado(job.idServicio)
+        .then((pago) => {
+          if (!pago) {
+            setIsCompleteModalOpen(true);
+            return;
+          }
+          resumePaymentFlow(job, pago);
+        })
+        .catch((error) => {
+          console.error("fetchPagoEstado failed:", error);
+          setIsCompleteModalOpen(true);
+        });
+    },
+    [resumePaymentFlow],
+  );
+
+  const handleConfirmCash = useCallback(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    setTimeout(() => {
+      setIsCompleteModalOpen(false);
+      setRatingMethod("efectivo");
+      setRatingJob(completingJob);
+    }, 550);
+  }, [completingJob]);
+
+  const handleStartCardPayment = useCallback(async () => {
+    if (!completingJob) return;
+    setIsStartingCardPayment(true);
+    try {
+      const res = await iniciarPago(completingJob.idServicio);
+      setIsCompleteModalOpen(false);
+      setPaymentWait({ job: completingJob, idTransaccion: res.id_transaccion, status: "waiting" });
+    } catch (error) {
+      console.error("iniciarPago failed:", error);
+      addToast("error", friendlyErrorMessage(error, d.actions.paymentStartFailed));
+    } finally {
+      setIsStartingCardPayment(false);
+    }
+  }, [completingJob, addToast, d]);
+
+  const handlePaymentSuccessContinue = useCallback(() => {
+    if (!paymentWait) return;
+    setRatingMethod("tarjeta");
+    setRatingJob(paymentWait.job);
+    setPaymentWait(null);
+  }, [paymentWait]);
+
+  const handlePaymentRetry = useCallback(async () => {
+    if (!paymentWait) return;
+    setIsRetryingPayment(true);
+    try {
+      const res = await iniciarPago(paymentWait.job.idServicio);
+      setPaymentWait({ job: paymentWait.job, idTransaccion: res.id_transaccion, status: "waiting" });
+    } catch (error) {
+      console.error("iniciarPago retry failed:", error);
+      addToast("error", friendlyErrorMessage(error, d.actions.paymentStartFailed));
+    } finally {
+      setIsRetryingPayment(false);
+    }
+  }, [paymentWait, addToast, d]);
+
+  const handlePaymentCancel = useCallback(async () => {
+    if (!paymentWait) return;
+    setIsCancellingPayment(true);
+    try {
+      await cancelarPago(paymentWait.idTransaccion);
+      setPaymentWait(null);
+    } catch (error) {
+      console.error("cancelarPago failed:", error);
+      addToast("error", friendlyErrorMessage(error, d.actions.paymentCancelFailed));
+    } finally {
+      setIsCancellingPayment(false);
+    }
+  }, [paymentWait, addToast, d]);
+
+  const handleProviderRatingSubmit = useCallback(
+    async (data: RatingData) => {
+      if (!ratingJob) return;
+      setIsSubmittingRating(true);
+      try {
+        await completarServicio(ratingJob.idServicio, {
+          metodo_pago: ratingMethod,
+          puntuacion: data.rating,
+          comentario: data.comment,
+        });
+        setJobs((prev) =>
+          prev.map((j) => (j.id === ratingJob.id ? { ...j, proposalStatus: "completed" as const } : j)),
+        );
         addToast("success", d.actions.completeSuccess);
+        setRatingJob(null);
+      } catch (error) {
+        console.error("completarServicio failed:", error);
+        addToast("error", friendlyErrorMessage(error, d.actions.completeFailed));
+        throw error;
       } finally {
         setIsSubmittingRating(false);
-        setCompletingJob(null);
       }
     },
-    [completingJob, user, profile, addToast, d],
+    [ratingJob, ratingMethod, addToast, d],
   );
 
   const clearFilters = () => {
@@ -659,20 +885,16 @@ const MyJobsScreen: React.FC = () => {
     { value: "all", label: d.filters.allStatuses },
     { value: "accepted", label: d.proposalStatuses.accepted },
     { value: "pending", label: d.proposalStatuses.pending },
-    { value: "rejected", label: d.proposalStatuses.rejected },
-    { value: "counteroffer", label: d.proposalStatuses.counteroffer },
+    { value: "completed", label: d.proposalStatuses.completed },
   ];
 
-  const categoryOptions = useMemo(
-    () => [
-      { value: "all", label: d.filters.allCategories },
-      ...Array.from(new Set(jobs.map((j) => j.category))).map((c) => ({
-        value: c,
-        label: c,
-      })),
-    ],
-    [jobs, d],
-  );
+  const categoryOptions = [
+    { value: "all", label: d.filters.allCategories },
+    ...Array.from(new Set(jobs.map((j) => j.category))).map((c) => ({
+      value: c,
+      label: c,
+    })),
+  ];
 
   return (
     <>
@@ -1041,24 +1263,51 @@ const MyJobsScreen: React.FC = () => {
       <JobDetailsModal
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        job={selectedDetails}
-        proposalStatus={selectedJob?.proposalStatus}
+        job={selectedJob ? mapDisplayJobToDetails(selectedJob) : null}
+        proposalStatus={
+          selectedJob?.proposalStatus === "completed" ? undefined : selectedJob?.proposalStatus
+        }
         onCancelProposal={
           selectedJob ? () => handleCancelProposal(selectedJob) : undefined
         }
       />
 
       {completingJob && (
+        <CompleteServiceModal
+          isOpen={isCompleteModalOpen}
+          onClose={() => setIsCompleteModalOpen(false)}
+          isDark={isDark}
+          jobTitle={completingJob.title}
+          amount={completingJob.budget.toLocaleString()}
+          currency={completingJob.currency}
+          onConfirmCash={handleConfirmCash}
+          onStartCardPayment={handleStartCardPayment}
+          isStartingCardPayment={isStartingCardPayment}
+        />
+      )}
+
+      <PaymentWaitingModal
+        isOpen={!!paymentWait}
+        isDark={isDark}
+        status={paymentWait?.status ?? "waiting"}
+        onSuccessContinue={handlePaymentSuccessContinue}
+        onRetry={handlePaymentRetry}
+        onCancel={handlePaymentCancel}
+        isRetrying={isRetryingPayment}
+        isCancelling={isCancellingPayment}
+      />
+
+      {ratingJob && (
         <RatingModal
-          isOpen={isRatingOpen}
-          onClose={() => setIsRatingOpen(false)}
+          isOpen={!!ratingJob}
+          onClose={() => setRatingJob(null)}
           provider={{
-            name: user ? `${user.firstName} ${user.lastnameP}`.trim() : "Provider",
-            avatarUrl: profile?.url_foto_perfil ?? undefined,
-            rating: 5,
+            name: clientInfo?.name || ratingJob.title,
+            avatarUrl: clientInfo?.avatarUrl,
+            rating: 0,
             reviewsCount: 0,
           }}
-          onSubmit={handleRatingSubmit}
+          onSubmit={handleProviderRatingSubmit}
           isSubmitting={isSubmittingRating}
         />
       )}

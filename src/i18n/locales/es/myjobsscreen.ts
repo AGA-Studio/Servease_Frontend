@@ -17,12 +17,17 @@ export const myjobsscreen = {
     pending: "Propuesta Pendiente",
     rejected: "Propuesta Rechazada",
     counteroffer: "Contraoferta",
+    completed: "Completado",
   },
   actions: {
     viewDetails: "Ver Detalles",
     cancelSuccess: "Postulación cancelada correctamente.",
+    cancelFailed: "No se pudo cancelar la postulación. Intenta de nuevo.",
     markCompleted: "Marcar como Completado",
     completeSuccess: "¡Servicio completado! Gracias por tu calificación.",
+    completeFailed: "No se pudo completar el servicio. Intenta de nuevo.",
+    paymentStartFailed: "No se pudo iniciar el cobro con tarjeta. Intenta de nuevo.",
+    paymentCancelFailed: "No se pudo cancelar el cobro. Intenta de nuevo.",
   },
   pagination: {
     page: "Página",

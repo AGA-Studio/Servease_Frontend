@@ -69,12 +69,14 @@ export const RatingModal: React.FC<RatingModalProps> = ({
 
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState<string | null>(null);
+
+  const messages = d.messagesByRating[rating] ?? [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    await onSubmit?.({ rating, comment });
+    await onSubmit?.({ rating, comment: comment ?? "" });
     onClose();
   };
 
@@ -217,7 +219,10 @@ export const RatingModal: React.FC<RatingModalProps> = ({
                         type="button"
                         whileHover={{ scale: 1.25 }}
                         whileTap={{ scale: 0.85 }}
-                        onClick={() => setRating(starIndex)}
+                        onClick={() => {
+                          setRating(starIndex);
+                          setComment(null);
+                        }}
                         onMouseEnter={() => setHoverRating(starIndex)}
                         onMouseLeave={() => setHoverRating(null)}
                         style={{ padding: 4, background: "transparent", border: "none", cursor: "pointer", display: "flex" }}
@@ -247,26 +252,35 @@ export const RatingModal: React.FC<RatingModalProps> = ({
                 >
                   {d.shareExperience}
                 </p>
-                <textarea
-                  rows={4}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder={d.placeholder}
-                  style={{
-                    width: "100%",
-                    borderRadius: 16,
-                    border: `1px solid ${border}`,
-                    background: inputBg,
-                    padding: 14,
-                    fontSize: "0.78rem",
-                    color: text,
-                    fontFamily: "inherit",
-                    resize: "none",
-                    outline: "none",
-                    boxSizing: "border-box",
-                    lineHeight: 1.5,
-                  }}
-                />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {messages.map((message) => {
+                    const selected = comment === message;
+                    return (
+                      <motion.button
+                        key={message}
+                        type="button"
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => setComment(selected ? null : message)}
+                        style={{
+                          textAlign: "left",
+                          borderRadius: 14,
+                          border: `1.5px solid ${selected ? "#2EBCCC" : border}`,
+                          background: selected ? "rgba(46,188,204,0.1)" : inputBg,
+                          padding: "12px 14px",
+                          fontSize: "0.78rem",
+                          fontWeight: selected ? 700 : 500,
+                          color: selected ? "#2EBCCC" : text,
+                          fontFamily: "inherit",
+                          cursor: "pointer",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {message}
+                      </motion.button>
+                    );
+                  })}
+                </div>
               </div>
 
               <motion.button

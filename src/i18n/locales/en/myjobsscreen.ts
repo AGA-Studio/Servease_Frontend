@@ -17,12 +17,17 @@ export const myjobsscreen = {
     pending: "Pending Proposal",
     rejected: "Rejected Proposal",
     counteroffer: "Counteroffer",
+    completed: "Completed",
   },
   actions: {
     viewDetails: "View Details",
     cancelSuccess: "Application cancelled successfully.",
+    cancelFailed: "Couldn't cancel the application. Please try again.",
     markCompleted: "Mark as Completed",
     completeSuccess: "Service completed! Thanks for your rating.",
+    completeFailed: "Couldn't complete the service. Please try again.",
+    paymentStartFailed: "Couldn't start the card charge. Please try again.",
+    paymentCancelFailed: "Couldn't cancel the charge. Please try again.",
   },
   pagination: {
     page: "Page",

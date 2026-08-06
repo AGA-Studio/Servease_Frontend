@@ -4,9 +4,34 @@ export const ratingmodal = {
   completed: "Completed",
   reviews: "reviews",
   selectRating: "SELECT YOUR RATING",
-  shareExperience: "SHARE YOUR EXPERIENCE (OPTIONAL)",
-  placeholder:
-    "What do you think of the service? Your words will help others choose the right professional",
+  shareExperience: "PICK A COMMENT (OPTIONAL)",
   submit: "Submit Rating",
   submitting: "Submitting...",
+  messagesByRating: {
+    5: [
+      "Excellent client, clear communication",
+      "Very punctual and respectful",
+      "Everything went perfectly",
+    ],
+    4: [
+      "Good client, no issues",
+      "Clear, direct communication",
+      "Fair treatment throughout the service",
+    ],
+    3: [
+      "Decent client, covered the basics",
+      "Acceptable communication",
+      "No major issues",
+    ],
+    2: [
+      "There were communication difficulties",
+      "Last-minute changes",
+      "Below expected experience",
+    ],
+    1: [
+      "Very bad experience with this client",
+      "Lack of respect during the service",
+      "I don't recommend it",
+    ],
+  } as Record<number, string[]>,
 };
