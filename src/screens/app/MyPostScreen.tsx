@@ -48,6 +48,7 @@ import EmptyState from "../../components/emptystate/EmptyState";
 import EditPostModal from "../../components/editpostmodal/EditPostModal";
 import { useCachedResource } from "../../hooks/useCachedResource";
 import { getCached, invalidateCached, setCached } from "../../lib/dataCache";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -371,6 +372,8 @@ const AnimatedCard = ({
 
   const categoryLabel =
     mp.categories[post.category as keyof typeof mp.categories] ?? post.category;
+  const categoryStyle = getCategoryStyle(post.category);
+  const CategoryIcon = categoryStyle.icon;
 
   return (
     <motion.div
@@ -467,13 +470,17 @@ const AnimatedCard = ({
         >
           <span
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
               fontSize: "0.7rem",
               fontWeight: 800,
-              color: "#2EBCCC",
+              color: categoryStyle.color,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
           >
+            <CategoryIcon size={12} />
             {categoryLabel}
           </span>
           <StatusBadge status={post.status} isDark={isDark} />

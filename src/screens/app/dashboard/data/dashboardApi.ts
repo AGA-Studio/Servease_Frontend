@@ -20,20 +20,7 @@ import {
 } from "../../../../api/providerApi";
 import { timeAgo } from "../../../../utils/servicio";
 import { getApproxLocation } from "../../../../utils/location";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Plumbing: "#2EBCCC",
-  Plomería: "#2EBCCC",
-  Electrical: "#FFB200",
-  Electricidad: "#FFB200",
-  Gardening: "#0432FF",
-  Jardinería: "#0432FF",
-  HVAC: "#4AA825",
-  Locksmith: "#2EBCCC",
-  Cerrajería: "#2EBCCC",
-};
-
-const DEFAULT_COLORS = ["#2EBCCC", "#FFB200", "#0432FF", "#4AA825", "#FF6B6B", "#845EF7"];
+import { getCategoryStyle } from "../../../../utils/categoryStyle";
 
 const MOCK_CLIENT: JobClient = {
   name: "",
@@ -82,7 +69,7 @@ function deriveJobsByCategory(items: ServicioListItem[]): CategoryBreakdown[] {
     .map(([name, count]) => ({
       name,
       value: Math.round((count / total) * 100),
-      color: CATEGORY_COLORS[name] ?? DEFAULT_COLORS[Math.min(counts.size, DEFAULT_COLORS.length)],
+      color: getCategoryStyle(name).color,
     }))
     .sort((a, b) => b.value - a.value);
 }
@@ -202,10 +189,10 @@ export const MOCK_EARNINGS: EarningsPoint[] = [
 ];
 
 export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
-  { name: "Plumbing", value: 40, color: "#2EBCCC" },
-  { name: "Electrical", value: 30, color: "#FFB200" },
-  { name: "Gardening", value: 20, color: "#0432FF" },
-  { name: "HVAC", value: 10, color: "#4AA825" },
+  { name: "Plumbing", value: 40, color: getCategoryStyle("Plumbing").color },
+  { name: "Electrical", value: 30, color: getCategoryStyle("Electrical").color },
+  { name: "Gardening", value: 20, color: getCategoryStyle("Gardening").color },
+  { name: "HVAC", value: 10, color: getCategoryStyle("HVAC").color },
 ];
 
 export async function fetchDashboardData(

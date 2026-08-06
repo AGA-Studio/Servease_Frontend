@@ -12,6 +12,8 @@ export interface JobDetails {
   title: string;
   category: string;
   location: string;
+  latitud?: number | null;
+  longitud?: number | null;
   when: string;
   urgency: string;
   postedAgo: string;

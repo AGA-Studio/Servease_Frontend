@@ -11,11 +11,9 @@ import {
   ArrowRight,
   RotateCcw,
   Megaphone,
-  Lock,
-  Zap,
-  Sparkles,
   Inbox,
 } from "lucide-react";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 import EmptyState from "../../components/emptystate/EmptyState";
 import SearchBar from "../../components/searchbar/SearchBar";
 import { useThemeMode } from "../../theme/useThemeMode";
@@ -50,7 +48,7 @@ interface Post {
   status: "receiving" | "completed" | "in_progress";
   proposalCount?: number;
   applicantPhotos: string[];
-  icon: "plumbing" | "lock" | "party";
+  category: string;
   accentColor: string;
   raw: HomeCliente;
 }
@@ -81,10 +79,7 @@ const itemEnter = {
   },
 };
 
-const POST_ACCENTS = ["#FF4444", "#2EBCCC", "#FFB200"];
-const POST_ICONS: Post["icon"][] = ["plumbing", "lock", "party"];
-
-function servicioToPost(servicio: HomeCliente, index: number): Post {
+function servicioToPost(servicio: HomeCliente): Post {
   return {
     id: String(servicio.id_servicio),
     title: servicio.titulo,
@@ -93,8 +88,8 @@ function servicioToPost(servicio: HomeCliente, index: number): Post {
     description: servicio.descripcion,
     status: mapEstadoToStatus(servicio.estado),
     applicantPhotos: servicio.fotos_proveedores_aplicantes ?? [],
-    icon: POST_ICONS[index % POST_ICONS.length],
-    accentColor: POST_ACCENTS[index % POST_ACCENTS.length],
+    category: servicio.categoria,
+    accentColor: getCategoryStyle(servicio.categoria).color,
     raw: servicio,
   };
 }
@@ -131,12 +126,13 @@ const ACTIVITIES: Activity[] = [
 ];
 
 const PostIcon = ({
-  icon,
+  category,
   accentColor,
 }: {
-  icon: Post["icon"];
+  category: string;
   accentColor: string;
 }) => {
+  const Icon = getCategoryStyle(category).icon;
   const bg = accentColor + "22";
   const size = 42;
   return (
@@ -153,9 +149,7 @@ const PostIcon = ({
         flexShrink: 0,
       }}
     >
-      {icon === "plumbing" && <Zap size={20} color={accentColor} />}
-      {icon === "lock" && <Lock size={20} color={accentColor} />}
-      {icon === "party" && <Sparkles size={20} color={accentColor} />}
+      <Icon size={20} color={accentColor} />
     </div>
   );
 };
@@ -287,7 +281,7 @@ const PostCard = ({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-          <PostIcon icon={post.icon} accentColor={post.accentColor} />
+          <PostIcon category={post.category} accentColor={post.accentColor} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
@@ -566,8 +560,8 @@ const HomeScreen: React.FC = () => {
 
   const posts = useMemo(
     () =>
-      (servicios ?? []).map((servicio, i) => ({
-        ...servicioToPost(servicio, i),
+      (servicios ?? []).map((servicio) => ({
+        ...servicioToPost(servicio),
         location: locations[String(servicio.id_servicio)] ?? "",
       })),
     [servicios, locations],

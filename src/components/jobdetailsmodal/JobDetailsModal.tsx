@@ -20,6 +20,8 @@ import type { JobDetails } from "../../types/job";
 import type { ProposalStatus } from "../../data/mockJobs";
 import type { PostStatus } from "../../data/mockPosts";
 import Avatar from "../avatar/Avatar";
+import { getCategoryStyle } from "../../utils/categoryStyle";
+import LocationMap from "../map/LocationMap";
 
 const CATEGORY_KEY: Record<string, string> = {
   Locksmith: "locksmith",
@@ -81,80 +83,6 @@ const itemVariants = {
   hidden: { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: EASE } },
 };
-
-const MapPlaceholder = () => (
-  <div
-    style={{
-      width: "100%",
-      height: 160,
-      borderRadius: 12,
-      background: "#E5E7EB",
-      position: "relative",
-      overflow: "hidden",
-    }}
-  >
-    <svg
-      width="100%"
-      height="100%"
-      viewBox="0 0 400 160"
-      preserveAspectRatio="none"
-      style={{ position: "absolute", inset: 0 }}
-    >
-      <rect width="400" height="160" fill="#E5E7EB" />
-      <path
-        d="M0 80 Q100 60 200 80 T400 80"
-        stroke="#D1D5DB"
-        strokeWidth="2"
-        fill="none"
-      />
-      <path
-        d="M0 120 Q120 100 240 120 T400 120"
-        stroke="#D1D5DB"
-        strokeWidth="2"
-        fill="none"
-      />
-      <path
-        d="M80 0 Q90 60 80 120 T80 160"
-        stroke="#D1D5DB"
-        strokeWidth="2"
-        fill="none"
-      />
-      <path
-        d="M280 0 Q290 60 280 120 T280 160"
-        stroke="#D1D5DB"
-        strokeWidth="2"
-        fill="none"
-      />
-    </svg>
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 0.3, duration: 0.4, ease: EASE }}
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: 32,
-        height: 32,
-        borderRadius: "50%",
-        background: "rgba(46,188,204,0.2)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: "50%",
-          background: "#2EBCCC",
-        }}
-      />
-    </motion.div>
-  </div>
-);
 
 const Shimmer = ({
   bg,
@@ -317,6 +245,9 @@ const JobDetailsModal: React.FC<Props> = ({
   }, [isOpen, job?.id]);
 
   if (!job) return null;
+
+  const categoryStyle = getCategoryStyle(job.category);
+  const CategoryIcon = categoryStyle.icon;
 
   return (
     <>
@@ -506,13 +437,17 @@ const JobDetailsModal: React.FC<Props> = ({
                     </span>
                     <span
                       style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
                         padding: "3px 10px",
                         borderRadius: 20,
-                        background: "rgba(46,188,204,0.12)",
-                        color: "#2EBCCC",
+                        background: `${categoryStyle.color}1F`,
+                        color: categoryStyle.color,
                         fontWeight: 600,
                       }}
                     >
+                      <CategoryIcon size={12} />
                       {d.categories[
                         CATEGORY_KEY[job.category] as keyof typeof d.categories
                       ] ?? job.category}
@@ -1004,7 +939,13 @@ const JobDetailsModal: React.FC<Props> = ({
                               padding: 20,
                             }}
                           >
-                            <MapPlaceholder />
+                            <LocationMap
+                              lat={job.latitud}
+                              lon={job.longitud}
+                              label={job.location}
+                              placeholder={d.approximateLocation}
+                              height={160}
+                            />
                             <p
                               style={{
                                 margin: "12px 0 4px",

@@ -1,6 +1,7 @@
 
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   MapPin,
   ChevronDown,
@@ -25,6 +26,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ApiError } from "../../api/apiClient";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 import { createServicio, uploadServiceImage } from "../../api/servicioApi";
 import { invalidateCached } from "../../lib/dataCache";
 import CustomizableModal from "../../components/modal/CustomizableModal";
@@ -36,11 +38,7 @@ import {
   type ApproxCoords,
   type LocationSuggestion,
 } from "../../utils/location";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import LocationMap from "../../components/map/LocationMap";
 import {
   DESCRIPTION_MAX_LENGTH,
   LOCATION_MAX_LENGTH,
@@ -56,15 +54,14 @@ import { motion } from "motion/react";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-const TIPO_CAMBIO_IDS: Record<"MXN" | "USD", number> = { MXN: 1, USD: 2 };
+function formatThousands(raw: string): string {
+  if (!raw) return "";
+  const [intPart, decPart] = raw.split(".");
+  const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decPart !== undefined ? `${withCommas}.${decPart}` : withCommas;
+}
 
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
-  ._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
+const TIPO_CAMBIO_IDS: Record<"MXN" | "USD", number> = { MXN: 1, USD: 2 };
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -616,37 +613,6 @@ const NewServiceScreen: React.FC = () => {
   const [highlightedSuggestion, setHighlightedSuggestion] = useState(0);
   const suppressNextSearchRef = useRef(false);
   const locationInputWrapRef = useRef<HTMLDivElement>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-
-  useEffect(() => {
-    if (!locationCoords || !mapContainerRef.current) return;
-    const center: [number, number] = [locationCoords.lat, locationCoords.lon];
-
-    if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current, {
-        zoomControl: false,
-        scrollWheelZoom: false,
-        attributionControl: true,
-      }).setView(center, 15);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-        maxZoom: 19,
-      }).addTo(mapRef.current);
-      markerRef.current = L.marker(center).addTo(mapRef.current);
-    } else {
-      mapRef.current.setView(center, 15);
-      markerRef.current?.setLatLng(center);
-    }
-  }, [locationCoords]);
-
-  useEffect(() => {
-    return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -716,6 +682,15 @@ const NewServiceScreen: React.FC = () => {
 
   const set = (key: keyof FormState, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const isFormEmpty =
+    !form.title.trim() &&
+    !form.category &&
+    !form.description.trim() &&
+    !form.location.trim() &&
+    !form.date &&
+    !form.budget &&
+    form.photos.length === 0;
 
   const computeStepErrors = (step: number): ValidationErrors => {
     const e: ValidationErrors = {};
@@ -898,7 +873,7 @@ const NewServiceScreen: React.FC = () => {
     }
   };
 
-  const useCurrentLocation = () => {
+  const resolveCurrentLocation = () => {
     if (!navigator.geolocation) {
       addToast("error", ns.errors.geolocationUnsupported);
       return;
@@ -1053,16 +1028,22 @@ const NewServiceScreen: React.FC = () => {
             position: "relative",
           }}
         >
-          <Tag
-            size={15}
-            style={{
-              position: "absolute",
-              left: 12,
-              color: form.category ? "#2EBCCC" : "#989898",
-              flexShrink: 0,
-              pointerEvents: "none",
-            }}
-          />
+          {(() => {
+            const TriggerIcon = form.category ? getCategoryStyle(form.category).icon : Tag;
+            const triggerColor = form.category ? getCategoryStyle(form.category).color : "#989898";
+            return (
+              <TriggerIcon
+                size={15}
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  color: triggerColor,
+                  flexShrink: 0,
+                  pointerEvents: "none",
+                }}
+              />
+            );
+          })()}
           <span style={{ flex: 1 }}>{form.category || ns.basicInfo.categoryPlaceholder}</span>
           <ChevronDown
             size={16}
@@ -1084,40 +1065,42 @@ const NewServiceScreen: React.FC = () => {
               overflowY: "auto",
             }}
           >
-            {categorias.map((cat) => (
-              <button
-                key={cat.id_categoria}
-                type="button"
-                onClick={() => {
-                  setForm((prev) => ({
-                    ...prev,
-                    category: cat.nombre,
-                    categoryId: cat.id_categoria,
-                  }));
-                  closeCategoryDropdown();
-                  setErrors((e) => ({ ...e, category: undefined }));
-                }}
-                className="w-full text-left px-4 py-2.5 text-sm font-medium transition-colors"
-                style={{
-                  color: isDark ? "#fff" : "#000",
-                  background:
-                    form.categoryId === cat.id_categoria
-                      ? "rgba(46,188,204,0.15)"
-                      : "transparent",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background =
-                    form.categoryId === cat.id_categoria
-                      ? "rgba(46,188,204,0.15)"
+            {categorias.map((cat) => {
+              const catStyle = getCategoryStyle(cat.nombre);
+              const CatIcon = catStyle.icon;
+              const isSelected = form.categoryId === cat.id_categoria;
+              return (
+                <button
+                  key={cat.id_categoria}
+                  type="button"
+                  onClick={() => {
+                    setForm((prev) => ({
+                      ...prev,
+                      category: cat.nombre,
+                      categoryId: cat.id_categoria,
+                    }));
+                    closeCategoryDropdown();
+                    setErrors((e) => ({ ...e, category: undefined }));
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2.5"
+                  style={{
+                    color: isDark ? "#fff" : "#000",
+                    background: isSelected ? `${catStyle.color}26` : "transparent",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = `${catStyle.color}1A`)
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = isSelected
+                      ? `${catStyle.color}26`
                       : "transparent")
-                }
-              >
-                {cat.nombre}
-              </button>
-            ))}
+                  }
+                >
+                  <CatIcon size={14} color={catStyle.color} />
+                  {cat.nombre}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1137,20 +1120,24 @@ const NewServiceScreen: React.FC = () => {
           style={{ color: "#2EBCCC" }}
         />
         <input
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
+          inputMode="decimal"
           placeholder={ns.details.budgetPlaceholder}
-          value={form.budget}
-          onChange={(e) => set("budget", stripControlChars(e.target.value))}
+          value={formatThousands(form.budget)}
+          onChange={(e) => {
+            const raw = stripControlChars(e.target.value)
+              .replace(/,/g, "")
+              .replace(/[^0-9.]/g, "");
+            const parts = raw.split(".");
+            const normalized =
+              parts.length > 2 ? `${parts[0]}.${parts.slice(1).join("")}` : raw;
+            set("budget", normalized);
+          }}
           style={
             {
               ...inputStyles(isDark, !!errors.budget),
               paddingLeft: 36,
               paddingRight: 84,
-              appearance: "textfield",
-              MozAppearance: "textfield",
-              WebkitAppearance: "none",
             } as React.CSSProperties
           }
           onFocus={(e) => (e.currentTarget.style.borderColor = "#2EBCCC")}
@@ -1243,7 +1230,6 @@ const NewServiceScreen: React.FC = () => {
           </div>
         </div>
       </div>
-      <style>{`input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}`}</style>
     </InputField>
   );
 
@@ -1254,24 +1240,32 @@ const NewServiceScreen: React.FC = () => {
         error={errors.title}
         isDark={isDark}
       >
-        <input
-          type="text"
-          placeholder={ns.basicInfo.titlePlaceholder}
-          value={form.title}
-          maxLength={TITLE_MAX_LENGTH}
-          onChange={(e) =>
-            set("title", stripControlChars(e.target.value).slice(0, TITLE_MAX_LENGTH))
-          }
-          style={inputStyles(isDark, !!errors.title)}
-          onFocus={(e) => (e.currentTarget.style.borderColor = "#2EBCCC")}
-          onBlur={(e) =>
-            (e.currentTarget.style.borderColor = errors.title
-              ? "#FF4444"
-              : isDark
-                ? "#2d3e7a"
-                : "#E5E7EB")
-          }
-        />
+        <div className="relative">
+          <input
+            type="text"
+            placeholder={ns.basicInfo.titlePlaceholder}
+            value={form.title}
+            maxLength={TITLE_MAX_LENGTH}
+            onChange={(e) =>
+              set("title", stripControlChars(e.target.value).slice(0, TITLE_MAX_LENGTH))
+            }
+            style={{ ...inputStyles(isDark, !!errors.title), paddingRight: 56 }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "#2EBCCC")}
+            onBlur={(e) =>
+              (e.currentTarget.style.borderColor = errors.title
+                ? "#FF4444"
+                : isDark
+                  ? "#2d3e7a"
+                  : "#E5E7EB")
+            }
+          />
+          <span
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+            style={{ color: "#989898" }}
+          >
+            {form.title.length}/{TITLE_MAX_LENGTH}
+          </span>
+        </div>
       </InputField>
 
       {CategoryDropdown}
@@ -1411,41 +1405,31 @@ const NewServiceScreen: React.FC = () => {
         </p>
       </InputField>
 
-      <div
-        className="rounded-xl overflow-hidden mb-4 relative"
-        style={{ height: 140, background: isDark ? "#273570" : "#E5E7EB" }}
-      >
-        <div
-          ref={mapContainerRef}
-          className="w-full h-full"
-          style={{ display: locationCoords ? "block" : "none" }}
-        />
-        {!locationCoords && (
-          <div className="w-full h-full flex items-center justify-center">
-            <div
-              className="text-xs font-medium px-4 py-1.5 rounded-full"
-              style={{
-                background: isDark ? "#1B244C" : "#fff",
-                color: "#989898",
-              }}
-            >
-              {ns.details.mapPlaceholder}
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={useCurrentLocation}
-          disabled={isLocatingCurrent}
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold text-white flex items-center gap-1.5"
-          style={{ background: "#2EBCCC", opacity: isLocatingCurrent ? 0.7 : 1 }}
-        >
-          <Crosshair size={13} />
-          {isLocatingCurrent
-            ? ns.details.locatingCurrentLocation
-            : ns.details.useCurrentLocation}
-        </button>
-      </div>
+      <LocationMap
+        lat={locationCoords?.lat}
+        lon={locationCoords?.lon}
+        label={form.location}
+        placeholder={ns.details.mapPlaceholder}
+        height={140}
+        className="mb-4"
+        overlay={
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              resolveCurrentLocation();
+            }}
+            disabled={isLocatingCurrent}
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold text-white flex items-center gap-1.5"
+            style={{ background: "#2EBCCC", opacity: isLocatingCurrent ? 0.7 : 1 }}
+          >
+            <Crosshair size={13} />
+            {isLocatingCurrent
+              ? ns.details.locatingCurrentLocation
+              : ns.details.useCurrentLocation}
+          </button>
+        }
+      />
 
       <InputField label={ns.details.dateLabel ?? "Date & Time"} isDark={isDark}>
         <div className="relative w-full">
@@ -1918,16 +1902,19 @@ const NewServiceScreen: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowClearModal(true)}
+                  disabled={isFormEmpty}
                   className="w-full mt-3 text-sm font-semibold hidden md:flex items-center justify-center gap-1.5 rounded-xl transition-all"
                   style={{
                     color: "#989898",
                     background: "none",
                     border: "1.5px solid transparent",
-                    cursor: "pointer",
+                    cursor: isFormEmpty ? "not-allowed" : "pointer",
+                    opacity: isFormEmpty ? 0.5 : 1,
                     fontFamily: "inherit",
                     padding: "8px 0",
                   }}
                   onMouseEnter={(e) => {
+                    if (isFormEmpty) return;
                     e.currentTarget.style.color = "#FF4444";
                     e.currentTarget.style.borderColor = "rgba(255,68,68,0.25)";
                     e.currentTarget.style.background = "rgba(255,68,68,0.06)";
@@ -1948,7 +1935,8 @@ const NewServiceScreen: React.FC = () => {
         </div>
       </div>
 
-      {showClearModal && (
+      {showClearModal &&
+        createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}
@@ -2017,8 +2005,9 @@ const NewServiceScreen: React.FC = () => {
               </button>
             </div>
           </motion.div>
-        </div>
-      )}
+        </div>,
+        document.body,
+        )}
 
       <ToastContainer
         toasts={toasts}
