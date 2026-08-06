@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../router/routes";
@@ -14,11 +15,17 @@ import {
   Camera,
   X,
   KeyRound,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
 } from "lucide-react";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { useToast } from "../../components/Toast/useToast";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
+import type { Translations } from "../../i18n";
 import { supabase } from "../../lib/supabase";
 import "../../styles/animations.global.css";
 import "./animations.auth.css";
@@ -31,6 +38,7 @@ import {
   PASSWORD_STRENGTH_COLOR,
   PASSWORD_STRENGTH_WIDTH,
 } from "../../utils/passwordStrength";
+import { sanitizeNameInput, isValidName } from "../../utils/validation";
 
 type AuthMode = "login" | "signup";
 
@@ -39,18 +47,24 @@ interface SignupData {
   secondName: string;
   lastNameP: string;
   lastNameM: string;
+  birthDate: string;
   email: string;
   password: string;
 }
 
-type LoginErrors = { email?: string; password?: string };
+// Los errores guardan la *key* de traducción, no el texto ya resuelto —
+// así el mensaje se re-resuelve solo al cambiar de idioma en vez de quedar
+// congelado en el idioma que estaba activo cuando se disparó el error.
+type AuthErrorKey = keyof Translations["auth"]["errors"];
+type LoginErrors = { email?: AuthErrorKey; password?: AuthErrorKey };
 type SignupStep0Errors = {
-  firstName?: string;
-  secondName?: string;
-  lastNameP?: string;
-  lastNameM?: string;
+  firstName?: AuthErrorKey;
+  secondName?: AuthErrorKey;
+  lastNameP?: AuthErrorKey;
+  lastNameM?: AuthErrorKey;
+  birthDate?: AuthErrorKey;
 };
-type SignupStep1Errors = { email?: string; password?: string };
+type SignupStep1Errors = { email?: AuthErrorKey; password?: AuthErrorKey };
 
 const SunIcon = () => (
   <svg
@@ -391,6 +405,7 @@ interface InputFieldProps {
   badge?: string;
   error?: string;
   maxLength?: number;
+  max?: string;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -409,6 +424,7 @@ const InputField: React.FC<InputFieldProps> = ({
   badge,
   error,
   maxLength,
+  max,
 }) => {
   const isDark = theme === "dark";
   const isFocused = focusedField === name;
@@ -436,7 +452,8 @@ const InputField: React.FC<InputFieldProps> = ({
             onFocus={onFocus}
             onBlur={onBlur}
             maxLength={maxLength}
-            className={`w-full pl-12 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 placeholder:text-slate-400 ${suffix ? "pr-12" : badge ? "pr-24" : "pr-4"} ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : isFocused ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
+            max={max}
+            className={`w-full pl-12 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 placeholder:text-slate-400 ${suffix ? "pr-12" : badge ? "pr-16" : "pr-4"} ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : isFocused ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
           />
           {suffix && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
@@ -458,6 +475,487 @@ const InputField: React.FC<InputFieldProps> = ({
           {error}
         </p>
       )}
+    </div>
+  );
+};
+
+const WHEEL_ITEM_HEIGHT = 36;
+const WHEEL_VISIBLE = 5;
+const WHEEL_PAD = Math.floor(WHEEL_VISIBLE / 2);
+
+const currentYear = new Date().getFullYear();
+const BIRTH_YEAR_RANGE = Array.from(
+  { length: 101 },
+  (_, i) => currentYear - i,
+);
+
+/** Columna estilo iOS: scroll con snap, ítem centrado = seleccionado. */
+const WheelColumn: React.FC<{
+  items: string[];
+  index: number;
+  onChange: (i: number) => void;
+  isDark: boolean;
+  width?: number;
+}> = ({ items, index, onChange, isDark, width = 96 }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const settleTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const suppressSync = React.useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || suppressSync.current) return;
+    el.scrollTop = index * WHEEL_ITEM_HEIGHT;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const atIndex = Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT) === index;
+    if (!atIndex) {
+      suppressSync.current = true;
+      el.scrollTo({ top: index * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
+      setTimeout(() => {
+        suppressSync.current = false;
+      }, 350);
+    }
+  }, [index]);
+
+  const settle = () => {
+    const el = ref.current;
+    if (!el) return;
+    const clamped = Math.max(
+      0,
+      Math.min(items.length - 1, Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT)),
+    );
+    suppressSync.current = true;
+    el.scrollTo({ top: clamped * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
+    if (clamped !== index) onChange(clamped);
+    setTimeout(() => {
+      suppressSync.current = false;
+    }, 350);
+  };
+
+  const handleScroll = () => {
+    if (settleTimeout.current) clearTimeout(settleTimeout.current);
+    settleTimeout.current = setTimeout(settle, 120);
+  };
+
+  const selectItem = (i: number) => {
+    const el = ref.current;
+    if (!el) return;
+    suppressSync.current = true;
+    el.scrollTo({ top: i * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
+    onChange(i);
+    setTimeout(() => {
+      suppressSync.current = false;
+    }, 350);
+  };
+
+  return (
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      className="wheel-hide-scrollbar"
+      style={{
+        height: WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE,
+        width,
+        overflowY: "scroll",
+        scrollSnapType: "y mandatory",
+        overscrollBehavior: "contain",
+      }}
+    >
+      <div style={{ height: WHEEL_ITEM_HEIGHT * WHEEL_PAD }} />
+      {items.map((label, i) => {
+        const distance = Math.abs(i - index);
+        return (
+          <div
+            key={`${label}-${i}`}
+            onClick={() => selectItem(i)}
+            style={{
+              height: WHEEL_ITEM_HEIGHT,
+              scrollSnapAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: distance === 0 ? "1rem" : "0.85rem",
+              fontWeight: distance === 0 ? 800 : 500,
+              color:
+                distance === 0
+                  ? isDark
+                    ? "#fff"
+                    : "#1B244C"
+                  : "#94a3b8",
+              opacity: distance === 0 ? 1 : distance === 1 ? 0.65 : 0.35,
+              cursor: "pointer",
+              userSelect: "none",
+              transition: "font-size 0.15s, opacity 0.15s, color 0.15s",
+              fontFamily: "inherit",
+            }}
+          >
+            {label}
+          </div>
+        );
+      })}
+      <div style={{ height: WHEEL_ITEM_HEIGHT * WHEEL_PAD }} />
+    </div>
+  );
+};
+
+const BirthDatePicker: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  isDark: boolean;
+  monthNames: string[];
+  label: string;
+  placeholder: string;
+  error?: string;
+}> = ({ value, onChange, isDark, monthNames, label, placeholder, error }) => {
+  const now = new Date();
+  const parsed = value ? new Date(`${value}T00:00:00`) : null;
+  const [viewYear, setViewYear] = useState(
+    parsed ? parsed.getFullYear() : now.getFullYear() - 18,
+  );
+  const [viewMonth, setViewMonth] = useState(
+    parsed ? parsed.getMonth() : now.getMonth(),
+  );
+  const [selectedDay, setSelectedDay] = useState<number | null>(
+    parsed ? parsed.getDate() : null,
+  );
+  const [open, setOpen] = useState(false);
+  // El wheel de mes/año viene colapsado por default — solo aparece cuando
+  // el usuario toca el texto "Mes Año" del header, igual que un picker iOS.
+  const [wheelOpen, setWheelOpen] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{
+    bottom: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+  const hasError = !!error;
+
+  const updatePosition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth * 0.9);
+    const left = Math.max(
+      16,
+      Math.min(rect.left, window.innerWidth - width - 16),
+    );
+    // Se ancla por `bottom` (no `top`) para que el popover crezca hacia
+    // arriba del selector sin tener que medir su alto de antemano.
+    setPopoverPos({ bottom: window.innerHeight - rect.top + 8, left, width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+  // Derivado, no estado: si el usuario navega a un mes más corto sin
+  // seleccionar día nuevo, el texto del botón no debe mostrar un día
+  // inexistente (ej. "Feb 31").
+  const displayDay = selectedDay ? Math.min(selectedDay, daysInMonth) : null;
+
+  const commit = (day: number) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    onChange(`${viewYear}-${pad(viewMonth + 1)}-${pad(day)}`);
+  };
+
+  const prevMonth = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else setViewMonth((m) => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else setViewMonth((m) => m + 1);
+  };
+
+  const popBg = isDark ? "#1e2d5e" : "#ffffff";
+  const border = isDark ? "#2d3e7a" : "#E5E7EB";
+  const textColor = isDark ? "#fff" : "#000";
+  const mutedColor = "#94a3b8";
+  const accentColor = "#2EBCCC";
+
+  const displayValue = displayDay
+    ? `${monthNames[viewMonth]} ${displayDay}, ${viewYear}`
+    : "";
+  const yearIndex = BIRTH_YEAR_RANGE.indexOf(viewYear);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        className={`text-[0.78rem] font-bold tracking-wide ${isDark ? "text-slate-400" : "text-slate-500"}`}
+      >
+        {label}
+      </label>
+      <div
+        ref={triggerRef}
+        className={`relative w-full ${hasError ? "animate-input-shake" : ""}`}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setWheelOpen(false);
+            setOpen((o) => !o);
+          }}
+          className={`w-full pl-12 pr-4 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 flex items-center justify-between text-left cursor-pointer ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : open ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
+        >
+          <span className={displayValue ? "" : "text-slate-400"}>
+            {displayValue || placeholder}
+          </span>
+          <ChevronDown
+            size={16}
+            className={open ? "text-[#2EBCCC]" : "text-slate-400"}
+          />
+        </button>
+        <Calendar
+          size={18}
+          className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${open ? "text-[#2EBCCC]" : "text-slate-400"}`}
+        />
+      </div>
+      {hasError && (
+        <p className="text-red-400 text-[0.75rem] font-semibold mt-0.5 flex items-center gap-1.5 animate-fade-up">
+          <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
+          {error}
+        </p>
+      )}
+
+      {open &&
+        popoverPos &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+            style={{
+              position: "fixed",
+              bottom: popoverPos.bottom,
+              left: popoverPos.left,
+              width: popoverPos.width,
+              background: popBg,
+              border: `1.5px solid ${border}`,
+              zIndex: 10010,
+            }}
+          >
+            <div style={{ padding: "14px 16px 4px" }}>
+              <div
+                className="flex items-center justify-between"
+                style={{ marginBottom: 8, minHeight: 28 }}
+              >
+                {!wheelOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevMonth}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: accentColor,
+                        padding: 4,
+                      }}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWheelOpen(true)}
+                      className="flex items-center gap-1"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        color: textColor,
+                        fontFamily: "inherit",
+                        padding: "2px 6px",
+                        borderRadius: 8,
+                      }}
+                    >
+                      {monthNames[viewMonth]} {viewYear}
+                      <ChevronDown size={14} style={{ color: mutedColor }} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextMonth}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: accentColor,
+                        padding: 4,
+                      }}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ width: 24 }} />
+                    <div
+                      className="flex items-center justify-center relative"
+                      style={{ flex: 1 }}
+                    >
+                      <div
+                        className="pointer-events-none absolute left-0 right-0"
+                        style={{
+                          top: WHEEL_ITEM_HEIGHT * WHEEL_PAD,
+                          height: WHEEL_ITEM_HEIGHT,
+                          background: isDark
+                            ? "rgba(46,188,204,0.12)"
+                            : "rgba(46,188,204,0.08)",
+                          borderTop: `1px solid ${accentColor}55`,
+                          borderBottom: `1px solid ${accentColor}55`,
+                        }}
+                      />
+                      <WheelColumn
+                        items={monthNames}
+                        index={viewMonth}
+                        onChange={setViewMonth}
+                        isDark={isDark}
+                        width={124}
+                      />
+                      <WheelColumn
+                        items={BIRTH_YEAR_RANGE.map(String)}
+                        index={yearIndex}
+                        onChange={(i) => setViewYear(BIRTH_YEAR_RANGE[i])}
+                        isDark={isDark}
+                        width={76}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWheelOpen(false)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: accentColor,
+                        padding: 4,
+                      }}
+                    >
+                      <Check size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="grid grid-cols-7 mb-1">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      textAlign: "center",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      color: mutedColor,
+                      padding: "4px 0",
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-y-1 pb-3.5">
+                {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                  <div key={`e-${i}`} />
+                ))}
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+                  (day) => {
+                    const isSelected = selectedDay === day;
+                    const isFuture =
+                      new Date(viewYear, viewMonth, day) > now;
+                    const isToday =
+                      now.getDate() === day &&
+                      now.getMonth() === viewMonth &&
+                      now.getFullYear() === viewYear;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        disabled={isFuture}
+                        onClick={() => {
+                          setSelectedDay(day);
+                          commit(day);
+                          setOpen(false);
+                        }}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          margin: "0 auto",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "50%",
+                          border:
+                            isToday && !isSelected
+                              ? `1.5px solid ${accentColor}`
+                              : "none",
+                          background: isSelected
+                            ? accentColor
+                            : "transparent",
+                          color: isFuture
+                            ? "#cbd5e1"
+                            : isSelected
+                              ? "#fff"
+                              : textColor,
+                          fontSize: "0.8rem",
+                          fontWeight: isSelected ? 700 : 400,
+                          cursor: isFuture ? "not-allowed" : "pointer",
+                          opacity: isFuture ? 0.4 : 1,
+                          transition: "background 0.15s",
+                          fontFamily: "inherit",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected && !isFuture)
+                            e.currentTarget.style.background =
+                              "rgba(46,188,204,0.15)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected)
+                            e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        {day}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
@@ -506,6 +1004,7 @@ const AuthScreen: React.FC = () => {
     secondName: "",
     lastNameP: "",
     lastNameM: "",
+    birthDate: "",
     email: "",
     password: "",
   });
@@ -516,7 +1015,7 @@ const AuthScreen: React.FC = () => {
     {},
   );
   const [signupAcceptedTerms, setSignupAcceptedTerms] = useState(false);
-  const [termsError, setTermsError] = useState<string | null>(null);
+  const [termsError, setTermsError] = useState<AuthErrorKey | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
@@ -556,6 +1055,7 @@ const AuthScreen: React.FC = () => {
         secondName: "",
         lastNameP: "",
         lastNameM: "",
+        birthDate: "",
         email: "",
         password: "",
       });
@@ -593,38 +1093,49 @@ const AuthScreen: React.FC = () => {
 
   const validateLoginForm = (): boolean => {
     const errors: LoginErrors = {};
-    if (!loginData.email.trim()) errors.email = auth.errors.emailRequired;
+    if (!loginData.email.trim()) errors.email = "emailRequired";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginData.email))
-      errors.email = auth.errors.emailInvalid;
-    if (!loginData.password) errors.password = auth.errors.passwordRequired;
+      errors.email = "emailInvalid";
+    if (!loginData.password) errors.password = "passwordRequired";
     setLoginErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const validateStep0 = (): boolean => {
     const errors: SignupStep0Errors = {};
-    if (!signupData.firstName.trim())
-      errors.firstName = auth.errors.firstNameRequired;
-    if (!signupData.lastNameP.trim())
-      errors.lastNameP = auth.errors.lastNamePRequired;
+    if (!signupData.firstName.trim()) errors.firstName = "firstNameRequired";
+    else if (!isValidName(signupData.firstName))
+      errors.firstName = "nameInvalid";
+    if (signupData.secondName.trim() && !isValidName(signupData.secondName))
+      errors.secondName = "nameInvalid";
+    if (!signupData.lastNameP.trim()) errors.lastNameP = "lastNamePRequired";
+    else if (!isValidName(signupData.lastNameP))
+      errors.lastNameP = "nameInvalid";
+    if (signupData.lastNameM.trim() && !isValidName(signupData.lastNameM))
+      errors.lastNameM = "nameInvalid";
+    if (!signupData.birthDate) errors.birthDate = "birthDateRequired";
+    else if (new Date(signupData.birthDate) > new Date())
+      errors.birthDate = "birthDateInvalid";
     setSignupStep0Errors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const validateStep1 = (): boolean => {
     const errors: SignupStep1Errors = {};
-    if (!signupData.email.trim()) errors.email = auth.errors.emailRequired;
+    if (!signupData.email.trim()) errors.email = "emailRequired";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.email))
-      errors.email = auth.errors.emailInvalid;
-    if (signupData.password.length < 6)
-      errors.password = auth.errors.passwordMin;
+      errors.email = "emailInvalid";
+    if (!signupData.password) errors.password = "passwordRequired";
+    else if (signupData.password.length < 6) errors.password = "passwordMin";
+    else if (getPasswordStrength(signupData.password) !== "strong")
+      errors.password = "passwordWeak";
     setSignupStep1Errors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const validateStep2 = (): boolean => {
     if (!signupAcceptedTerms) {
-      setTermsError(auth.errors.termsRequired);
+      setTermsError("termsRequired");
       return false;
     }
     setTermsError(null);
@@ -650,6 +1161,7 @@ const AuthScreen: React.FC = () => {
         secondName: signupData.secondName,
         lastNameP: signupData.lastNameP,
         lastNameM: signupData.lastNameM,
+        birthDate: signupData.birthDate,
         photo: profilePhoto,
       });
       setIsLoading(false);
@@ -875,7 +1387,11 @@ const AuthScreen: React.FC = () => {
                     onFocus={() => setFocusedField("email-login")}
                     onBlur={() => setFocusedField(null)}
                     theme={theme}
-                    error={loginErrors.email}
+                    error={
+                      loginErrors.email
+                        ? auth.errors[loginErrors.email]
+                        : undefined
+                    }
                   />
                   <InputField
                     label={auth.login.password}
@@ -892,7 +1408,11 @@ const AuthScreen: React.FC = () => {
                     onFocus={() => setFocusedField("password-login")}
                     onBlur={() => setFocusedField(null)}
                     theme={theme}
-                    error={loginErrors.password}
+                    error={
+                      loginErrors.password
+                        ? auth.errors[loginErrors.password]
+                        : undefined
+                    }
                     suffix={
                       <button
                         type="button"
@@ -941,85 +1461,137 @@ const AuthScreen: React.FC = () => {
                   <div className={`space-y-3.5 ${fieldsAnimClass}`}>
                     {signupStep === 0 ? (
                       <>
-                        <InputField
-                          label={auth.signup.firstName}
-                          name="firstName"
-                          placeholder={auth.signup.firstNamePlaceholder}
-                          value={signupData.firstName}
-                          onChange={(e) => {
+                        <div className="grid grid-cols-2 gap-3">
+                          <InputField
+                            label={auth.signup.firstName}
+                            name="firstName"
+                            placeholder={auth.signup.firstNamePlaceholder}
+                            value={signupData.firstName}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                firstName: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                firstName: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("firstName")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            error={
+                              signupStep0Errors.firstName
+                                ? auth.errors[signupStep0Errors.firstName]
+                                : undefined
+                            }
+                          />
+                          <InputField
+                            label={auth.signup.secondName}
+                            name="secondName"
+                            placeholder={auth.signup.secondNamePlaceholder}
+                            value={signupData.secondName}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                secondName: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                secondName: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("secondName")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            badge={auth.signup.optional}
+                            error={
+                              signupStep0Errors.secondName
+                                ? auth.errors[signupStep0Errors.secondName]
+                                : undefined
+                            }
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <InputField
+                            label={auth.signup.lastNameP}
+                            name="lastNameP"
+                            placeholder={auth.signup.lastNamePPlaceholder}
+                            value={signupData.lastNameP}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                lastNameP: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                lastNameP: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("lastNameP")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            error={
+                              signupStep0Errors.lastNameP
+                                ? auth.errors[signupStep0Errors.lastNameP]
+                                : undefined
+                            }
+                          />
+                          <InputField
+                            label={auth.signup.lastNameM}
+                            name="lastNameM"
+                            placeholder={auth.signup.lastNameMPlaceholder}
+                            value={signupData.lastNameM}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                lastNameM: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                lastNameM: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("lastNameM")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            badge={auth.signup.optional}
+                            error={
+                              signupStep0Errors.lastNameM
+                                ? auth.errors[signupStep0Errors.lastNameM]
+                                : undefined
+                            }
+                          />
+                        </div>
+                        <BirthDatePicker
+                          label={auth.signup.birthDate}
+                          placeholder={auth.signup.birthDatePlaceholder}
+                          monthNames={auth.signup.months}
+                          value={signupData.birthDate}
+                          onChange={(v) => {
                             setSignupData({
                               ...signupData,
-                              firstName: e.target.value,
+                              birthDate: v,
                             });
                             setSignupStep0Errors((p) => ({
                               ...p,
-                              firstName: undefined,
+                              birthDate: undefined,
                             }));
                           }}
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("firstName")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          error={signupStep0Errors.firstName}
-                        />
-                        <InputField
-                          label={auth.signup.secondName}
-                          name="secondName"
-                          placeholder={auth.signup.secondNamePlaceholder}
-                          value={signupData.secondName}
-                          onChange={(e) =>
-                            setSignupData({
-                              ...signupData,
-                              secondName: e.target.value,
-                            })
+                          isDark={isDark}
+                          error={
+                            signupStep0Errors.birthDate
+                              ? auth.errors[signupStep0Errors.birthDate]
+                              : undefined
                           }
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("secondName")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          badge={auth.signup.optional}
-                        />
-                        <InputField
-                          label={auth.signup.lastNameP}
-                          name="lastNameP"
-                          placeholder={auth.signup.lastNamePPlaceholder}
-                          value={signupData.lastNameP}
-                          onChange={(e) => {
-                            setSignupData({
-                              ...signupData,
-                              lastNameP: e.target.value,
-                            });
-                            setSignupStep0Errors((p) => ({
-                              ...p,
-                              lastNameP: undefined,
-                            }));
-                          }}
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("lastNameP")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          error={signupStep0Errors.lastNameP}
-                        />
-                        <InputField
-                          label={auth.signup.lastNameM}
-                          name="lastNameM"
-                          placeholder={auth.signup.lastNameMPlaceholder}
-                          value={signupData.lastNameM}
-                          onChange={(e) =>
-                            setSignupData({
-                              ...signupData,
-                              lastNameM: e.target.value,
-                            })
-                          }
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("lastNameM")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          badge={auth.signup.optional}
                         />
                       </>
                     ) : signupStep === 1 ? (
@@ -1045,7 +1617,11 @@ const AuthScreen: React.FC = () => {
                           onFocus={() => setFocusedField("email-signup")}
                           onBlur={() => setFocusedField(null)}
                           theme={theme}
-                          error={signupStep1Errors.email}
+                          error={
+                            signupStep1Errors.email
+                              ? auth.errors[signupStep1Errors.email]
+                              : undefined
+                          }
                         />
                         <InputField
                           label={auth.signup.password}
@@ -1068,7 +1644,11 @@ const AuthScreen: React.FC = () => {
                           onFocus={() => setFocusedField("password-signup")}
                           onBlur={() => setFocusedField(null)}
                           theme={theme}
-                          error={signupStep1Errors.password}
+                          error={
+                            signupStep1Errors.password
+                              ? auth.errors[signupStep1Errors.password]
+                              : undefined
+                          }
                           suffix={
                             <button
                               type="button"
@@ -1250,7 +1830,7 @@ const AuthScreen: React.FC = () => {
                       {termsError && (
                         <p className="text-red-400 text-[0.75rem] font-semibold mt-2 flex items-center gap-1.5 animate-fade-up ml-1">
                           <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
-                          {termsError}
+                          {auth.errors[termsError]}
                         </p>
                       )}
                     </div>

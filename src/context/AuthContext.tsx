@@ -41,6 +41,7 @@ interface AuthContextValue {
     secondName?: string;
     lastNameP: string;
     lastNameM?: string;
+    birthDate: string;
     photo?: File | null;
   }) => Promise<string | null>;
   logout: () => Promise<void>;
@@ -219,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       secondName,
       lastNameP,
       lastNameM,
+      birthDate,
       photo,
     }: {
       email: string;
@@ -227,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       secondName?: string;
       lastNameP: string;
       lastNameM?: string;
+      birthDate: string;
       photo?: File | null;
     }): Promise<string | null> => {
       // La cuenta queda sin confirmar (estado=false) hasta que el usuario da
@@ -240,6 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       formData.append("segundo_nombre", secondName ?? "");
       formData.append("apellido_pa", lastNameP);
       formData.append("apellido_ma", lastNameM ?? "");
+      formData.append("fecha_nacimiento", birthDate);
       if (photo) formData.append("photo", photo);
 
       try {

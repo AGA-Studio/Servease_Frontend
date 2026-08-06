@@ -1,3 +1,11 @@
+.wheel-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.wheel-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes wheel-in {
   from {
     opacity: 0;
