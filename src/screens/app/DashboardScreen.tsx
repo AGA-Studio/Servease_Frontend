@@ -1,6 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
+import { useAuth } from "../../context/AuthContext";
+import { useAvailability } from "../../context/AvailabilityContext";
+import { useWorkAreas } from "../../context/WorkAreasContext";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
 import { useDashboardData } from "./dashboard/hooks/useDashboardData";
 import { DashboardTopBar } from "./dashboard/components/DashboardTopBar";
 import { KpiRow } from "./dashboard/components/KpiRow";
@@ -35,8 +40,27 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 
 const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
-  const { data, status, error, refresh } = useDashboardData();
+  const { user } = useAuth();
+  const { areas } = useWorkAreas();
+  const workAreaIds = useMemo(
+    () => areas.map((a) => a.id_categoria),
+    [areas],
+  );
+  const { data, status, error, refresh } = useDashboardData(
+    user?.id,
+    workAreaIds.length > 0 ? workAreaIds : undefined,
+  );
+  const { disponible, setDisponible } = useAvailability();
+  const { toasts, addToast, removeToast } = useToast();
+  const { t } = useI18n();
+  const p = t("profile").provider;
   const isLoading = status === "loading" || status === "idle";
+
+  const handleActivate = () => {
+    setDisponible(true).catch(() =>
+      addToast("error", p.availabilityUpdateFailed),
+    );
+  };
 
   return (
     <>
@@ -253,6 +277,8 @@ const DashboardScreen: React.FC = () => {
                   jobs={data?.availableJobs}
                   isLoading={isLoading}
                   isDark={isDark}
+                  disponible={disponible}
+                  onActivate={handleActivate}
                 />
                 <RecentActivity
                   activities={data?.recentActivity}
@@ -264,6 +290,12 @@ const DashboardScreen: React.FC = () => {
           )}
         </div>
       </div>
+
+      <ToastContainer
+        toasts={toasts}
+        onRemove={removeToast}
+        theme={isDark ? "dark" : "light"}
+      />
     </>
   );
 };

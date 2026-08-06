@@ -7,6 +7,7 @@ import { AdminTopbar, StatusBadge, adminAnimationStyles } from "../../components
 import { useAdminTheme } from "../../components/admin/useAdminTheme";
 import CustomizableModal from "../../components/modal/CustomizableModal";
 import { useI18n } from "../../i18n";
+import Avatar from "../../components/avatar/Avatar";
 
 const ROLE_FILTERS = ["all", "client", "provider", "admin"] as const;
 const STATUS_FILTERS: (UserStatus | "all")[] = ["all", "active", "pending", "suspended"];
@@ -139,12 +140,7 @@ const AdminUsersScreen: React.FC = () => {
                     <tr key={u.id} className="admin-row" style={{ animationDelay: `${i * 35}ms` }}>
                       <td>
                         <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-extrabold text-[0.75rem] shrink-0"
-                            style={{ background: "linear-gradient(135deg, #2EBCCC, #1B244C)" }}
-                          >
-                            {u.name[0]}
-                          </div>
+                          <Avatar name={u.name} size={32} />
                           <div>
                             <div style={{ fontWeight: 700 }}>{u.name}</div>
                             <div style={{ fontSize: "0.76rem", color: "#989898" }}>{u.email}</div>

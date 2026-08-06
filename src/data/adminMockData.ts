@@ -1,5 +1,7 @@
 
 
+import { getCategoryStyle } from "../utils/categoryStyle";
+
 export interface AdminKpis {
   activeUsersToday: number;
   activeUsersTrend: number;
@@ -70,11 +72,11 @@ export interface CategorySlice {
 }
 
 export const CATEGORY_BREAKDOWN: CategorySlice[] = [
-  { name: "Plomería", value: 32, color: "#2EBCCC" },
-  { name: "Electricidad", value: 24, color: "#0432FF" },
-  { name: "Limpieza", value: 19, color: "#4AA825" },
-  { name: "Jardinería", value: 14, color: "#FFB200" },
-  { name: "Otros", value: 11, color: "#8B5CF6" },
+  { name: "Plomería", value: 32, color: getCategoryStyle("Plomería").color },
+  { name: "Electricidad", value: 24, color: getCategoryStyle("Electricidad").color },
+  { name: "Limpieza", value: 19, color: getCategoryStyle("Limpieza").color },
+  { name: "Jardinería", value: 14, color: getCategoryStyle("Jardinería").color },
+  { name: "Otros", value: 11, color: getCategoryStyle("Otros").color },
 ];
 
 export type UserStatus = "active" | "suspended" | "pending";

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Briefcase, MapPin, Clock, Users, ArrowRight, Eye } from "lucide-react";
+import { MapPin, Clock, Users, ArrowRight, Eye } from "lucide-react";
 import type { DashboardJob } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import ApplyJobModal, {
   type ApplyJobData,
 } from "../../../../components/applyjobmodal/ApplyJobModal";
 import JobDetailsModal from "../../../../components/jobdetailsmodal/JobDetailsModal";
+import { getCategoryStyle } from "../../../../utils/categoryStyle";
 
 const CATEGORY_KEY: Record<string, string> = {
   Plumbing: "plumbing",
@@ -26,6 +27,8 @@ export const JobCard = ({ job }: JobCardProps) => {
   const d = t("dashboardscreen");
 
   const jobDetails = job;
+  const categoryStyle = getCategoryStyle(job.category);
+  const CategoryIcon = categoryStyle.icon;
 
   const handleApplySubmit = (data: ApplyJobData) => {
 
@@ -68,14 +71,14 @@ export const JobCard = ({ job }: JobCardProps) => {
               width: 42,
               height: 42,
               borderRadius: 10,
-              background: "rgba(46,188,204,0.15)",
+              background: `${categoryStyle.color}26`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <Briefcase size={20} color="#2EBCCC" />
+            <CategoryIcon size={20} color={categoryStyle.color} />
           </div>
           <div>
             <div
@@ -112,15 +115,19 @@ export const JobCard = ({ job }: JobCardProps) => {
         </div>
         <span
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
             padding: "4px 12px",
             borderRadius: 20,
             fontSize: "0.75rem",
             fontWeight: 600,
-            background: "rgba(46,188,204,0.15)",
-            color: "#2EBCCC",
+            background: `${categoryStyle.color}26`,
+            color: categoryStyle.color,
             whiteSpace: "nowrap",
           }}
         >
+          <CategoryIcon size={12} />
           {d.categories[CATEGORY_KEY[job.category] as keyof typeof d.categories] ?? job.category}
         </span>
       </div>

@@ -16,10 +16,11 @@ import {
   Fingerprint,
   Globe,
   Paintbrush,
-  ArrowRight,
   UserCircle,
+  DollarSign,
 } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ROUTES } from "../../router/routes";
@@ -30,6 +31,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import TwoFactorSetupModal from "../../components/mfa/TwoFactorSetupModal";
 import CustomizableModal from "../../components/modal/CustomizableModal";
+import Avatar from "../../components/avatar/Avatar";
 
 type Tab = "account" | "appearance" | "privacy" | "legal";
 
@@ -52,21 +54,17 @@ const useTheme = () => {
 
 const SettingsScreen: React.FC = () => {
   const { t, locale, toggleLocale } = useI18n();
+  const { currency, setCurrency } = useCurrency();
   const s = t("settings");
   const isDark = useTheme();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const [activeTab, setActiveTab] = useState<Tab>("account");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
-
-  const [email, setEmail] = useState(user?.email ?? "");
 
   const [mfaEnabled, setMfaEnabled] = useState<boolean | null>(null);
   const [showMfaSetup, setShowMfaSetup] = useState(false);
@@ -97,16 +95,6 @@ const SettingsScreen: React.FC = () => {
     const next = currentTheme === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("servease-theme", next);
-  };
-
-  const handleSave = () => {
-    setShowSaveConfirm(false);
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    }, 1200);
   };
 
   const textPrimary = isDark ? "#FFFFFF" : "#1B244C";
@@ -152,8 +140,6 @@ const SettingsScreen: React.FC = () => {
   };
 
   const btnTransition = `transform 160ms ${easeOut}, background 200ms ${easeOut}, box-shadow 200ms ${easeOut}, color 200ms ${easeOut}`;
-
-  const inputTransition = `border-color 200ms ${easeOut}, box-shadow 200ms ${easeOut}`;
 
   return (
     <div
@@ -278,15 +264,13 @@ const SettingsScreen: React.FC = () => {
                 }}
               >
                 <div className="px-6 py-6 flex items-center gap-5">
-                  <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shrink-0"
-                    style={{
-                      background: "linear-gradient(135deg, #2EBCCC, #1B244C)",
-                      boxShadow: "0 8px 24px rgba(46,188,204,0.25)",
-                    }}
-                  >
-                    {user?.firstName?.[0]?.toUpperCase() ?? "U"}
-                  </div>
+                  <Avatar
+                    photoUrl={profile?.url_foto_perfil}
+                    name={profile?.nombre ?? user?.firstName}
+                    lastName={profile?.apellido_paterno ?? user?.lastnameP}
+                    size={64}
+                    style={{ boxShadow: "0 8px 24px rgba(46,188,204,0.25)" }}
+                  />
                   <div className="flex-1 min-w-0">
                     <p
                       className="text-lg font-bold truncate"
@@ -337,26 +321,12 @@ const SettingsScreen: React.FC = () => {
                     <Mail size={13} className="inline mr-1.5 -mt-0.5" />
                     {s.account.email}
                   </p>
-                  <div className="relative group">
-                    <input
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder={s.account.emailPlaceholder}
-                      className="w-full px-4 py-4 rounded-2xl text-sm font-medium outline-none border"
-                      style={{
-                        background: inputBg,
-                        borderColor: glassBorder,
-                        color: textPrimary,
-                        transition: inputTransition,
-                      }}
-                      onFocus={(e) =>
-                        (e.currentTarget.style.borderColor = "#2EBCCC")
-                      }
-                      onBlur={(e) =>
-                        (e.currentTarget.style.borderColor = glassBorder)
-                      }
-                    />
-                  </div>
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: textPrimary }}
+                  >
+                    {user?.email}
+                  </p>
                 </div>
 
                 <div className="px-6 py-5">
@@ -455,39 +425,6 @@ const SettingsScreen: React.FC = () => {
                 </div>
               </div>
 
-              {}
-              <button
-                onClick={() => setShowSaveConfirm(true)}
-                disabled={saving}
-                onMouseDown={press}
-                onMouseUp={release}
-                onMouseLeave={release}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-bold text-white"
-                style={{
-                  background: saved
-                    ? "linear-gradient(135deg, #4AA825, #3D8C1E)"
-                    : "linear-gradient(135deg, #2EBCCC, #2399A8)",
-                  boxShadow: saved
-                    ? "0 8px 32px rgba(74,168,37,0.3)"
-                    : "0 8px 32px rgba(46,188,204,0.25)",
-                  opacity: saving ? 0.7 : 1,
-                  transition: `transform 160ms ${easeOut}, opacity 200ms ${easeOut}, box-shadow 200ms ${easeOut}`,
-                }}
-              >
-                {saved ? (
-                  <>
-                    <Check size={18} />
-                    {s.toast.saved}
-                  </>
-                ) : saving ? (
-                  <span style={{ opacity: 0.6 }}>{s.account.saving}</span>
-                ) : (
-                  <>
-                    {s.account.save}
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </button>
             </div>
           )}
 
@@ -594,6 +531,76 @@ const SettingsScreen: React.FC = () => {
                               {lang === "es"
                                 ? s.appearance.languageEs
                                 : s.appearance.languageEn}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center"
+                              style={{
+                                background: "rgba(255,255,255,0.25)",
+                              }}
+                            >
+                              <Check size={14} color="#FFFFFF" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="px-6 py-5">
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-[0.12em] mb-3"
+                    style={{ color: textSecondary }}
+                  >
+                    <DollarSign size={13} className="inline mr-1.5 -mt-0.5" />
+                    {s.appearance.currency}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {(["MXN", "USD"] as const).map((code) => {
+                      const isSelected = currency === code;
+                      return (
+                        <button
+                          key={code}
+                          onClick={() => {
+                            if (currency !== code) setCurrency(code);
+                          }}
+                          onMouseDown={press}
+                          onMouseUp={release}
+                          onMouseLeave={release}
+                          className="flex items-center justify-between w-full px-5 py-4 rounded-2xl text-sm font-bold border cursor-pointer"
+                          style={{
+                            background: isSelected
+                              ? "linear-gradient(135deg, #2EBCCC, #2399A8)"
+                              : inputBg,
+                            borderColor: isSelected ? "#2EBCCC" : glassBorder,
+                            color: isSelected ? "#FFFFFF" : textPrimary,
+                            boxShadow: isSelected
+                              ? "0 4px 16px rgba(46,188,204,0.25)"
+                              : "none",
+                            transition: btnTransition,
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold"
+                              style={{
+                                background: isSelected
+                                  ? "rgba(255,255,255,0.2)"
+                                  : isDark
+                                    ? "rgba(255,255,255,0.06)"
+                                    : "rgba(27,36,76,0.06)",
+                                color: isSelected
+                                  ? "#FFFFFF"
+                                  : textSecondary,
+                              }}
+                            >
+                              {code}
+                            </div>
+                            <span>
+                              {code === "MXN"
+                                ? s.appearance.currencyMXN
+                                : s.appearance.currencyUSD}
                             </span>
                           </div>
                           {isSelected && (
@@ -865,16 +872,6 @@ const SettingsScreen: React.FC = () => {
           }}
         />
       )}
-
-      <CustomizableModal
-        isOpen={showSaveConfirm}
-        variant="feature"
-        title={s.account.confirmSave.title}
-        subtitle={s.account.confirmSave.message}
-        confirmText={s.account.confirmSave.confirm}
-        onConfirm={handleSave}
-        onClose={() => setShowSaveConfirm(false)}
-      />
 
       <CustomizableModal
         isOpen={showResetConfirm}
