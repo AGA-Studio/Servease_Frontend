@@ -17,6 +17,25 @@ export function stripControlChars(value: string): string {
   return value.replace(CONTROL_CHARS, "");
 }
 
+// Letras (incl. acentos/ñ), espacios, apóstrofes y guiones — cubre nombres
+// compuestos ("María José") y apellidos con guion ("Pérez-López") sin abrir
+// la puerta a dígitos o símbolos.
+const NAME_DISALLOWED_CHARS = /[^\p{L}\s'-]/gu;
+const NAME_PATTERN = /^\p{L}+(?:[\s'-]+\p{L}+)*$/u;
+
+/** Filtra en tiempo real: quita cualquier carácter que no sea letra/espacio/guion. */
+export function sanitizeNameInput(value: string): string {
+  return stripControlChars(value)
+    .replace(NAME_DISALLOWED_CHARS, "")
+    .slice(0, NAME_MAX_LENGTH);
+}
+
+/** Valida el campo ya trimeado — usar en submit, no en cada tecleo. */
+export function isValidName(value: string): boolean {
+  return NAME_PATTERN.test(value.trim());
+}
+
+/** Sanea texto libre: quita bytes de control y recorta espacios/longitud. */
 export function sanitizeText(value: string, maxLength: number): string {
   return stripControlChars(value).trim().slice(0, maxLength);
 }

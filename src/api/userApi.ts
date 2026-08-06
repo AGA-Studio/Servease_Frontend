@@ -11,6 +11,7 @@ export interface UserProfile {
   url_foto_perfil: string | null;
   descripcion_perfil: string | null;
   fecha_registro: string;
+  fecha_nacimiento: string | null;
   rol: UserRole;
   correo: string;
   celular: string | null;
@@ -28,6 +29,7 @@ interface UsuarioResponse {
   apellido_ma: string | null;
   correo: string;
   celular: string | null;
+  fecha_nacimiento: string | null;
   url_foto_perfil: string | null;
   descripcion_perfil: string | null;
   fecha_registro: string;
@@ -46,6 +48,7 @@ function mapUsuarioResponse(data: UsuarioResponse): UserProfile {
     url_foto_perfil: data.url_foto_perfil,
     descripcion_perfil: data.descripcion_perfil,
     fecha_registro: data.fecha_registro,
+    fecha_nacimiento: data.fecha_nacimiento,
     rol: data.rol,
     correo: data.correo,
     celular: data.celular,

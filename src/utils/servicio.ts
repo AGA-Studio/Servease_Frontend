@@ -34,6 +34,8 @@ export function mapPostDetailsToJobDetails(
     title: details.titulo,
     category: details.categoria,
     location,
+    latitud: details.latitud ? Number(details.latitud) : null,
+    longitud: details.longitud ? Number(details.longitud) : null,
     when: "",
     urgency: "",
     fecha_final: details.fecha_final,

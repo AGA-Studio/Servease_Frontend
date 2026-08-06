@@ -7,6 +7,7 @@ import { AdminTopbar, StatusBadge, adminAnimationStyles } from "../../components
 import { useAdminTheme } from "../../components/admin/useAdminTheme";
 import CustomizableModal from "../../components/modal/CustomizableModal";
 import { useI18n } from "../../i18n";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 
 const STATUS_FILTERS: (PostStatus | "all")[] = ["all", "active", "flagged", "closed"];
 
@@ -99,9 +100,12 @@ const AdminPostsScreen: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div
                       className="flex items-center justify-center shrink-0"
-                      style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(46,188,204,0.15)" }}
+                      style={{ width: 38, height: 38, borderRadius: 10, background: `${getCategoryStyle(p.category).color}26` }}
                     >
-                      <FileText size={17} color="#2EBCCC" />
+                      {(() => {
+                        const CategoryIcon = getCategoryStyle(p.category).icon;
+                        return <CategoryIcon size={17} color={getCategoryStyle(p.category).color} />;
+                      })()}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: "0.9rem", color: c.text }}>{p.title}</div>
@@ -115,14 +119,21 @@ const AdminPostsScreen: React.FC = () => {
                   <div className="flex items-center gap-3" style={{ fontSize: "0.78rem", color: "#989898" }}>
                     <span
                       style={{
-                        background: "rgba(4,50,255,0.1)",
-                        color: "#0432FF",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        background: `${getCategoryStyle(p.category).color}1A`,
+                        color: getCategoryStyle(p.category).color,
                         padding: "3px 9px",
                         borderRadius: 20,
                         fontWeight: 700,
                         fontSize: "0.72rem",
                       }}
                     >
+                      {(() => {
+                        const CategoryIcon = getCategoryStyle(p.category).icon;
+                        return <CategoryIcon size={11} />;
+                      })()}
                       {p.category}
                     </span>
                     <span className="flex items-center gap-1"><Users size={12} /> {p.offersCount} {p2.offers}</span>

@@ -38,6 +38,7 @@ import {
 import { ApiError } from "../../api/apiClient";
 import { fetchProviderEarningsSummary } from "../../api/providerApi";
 import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
+import { getCategoryStyle } from "../../utils/categoryStyle";
 import {
   distanceKm,
   getApproxLocation,
@@ -241,6 +242,9 @@ const JobCard = ({
     addToast("info", d.actionUnavailable);
   };
 
+  const categoryStyle = getCategoryStyle(job.categoria_nombre);
+  const CategoryIcon = categoryStyle.icon;
+
   return (
     <>
       <motion.div
@@ -287,7 +291,7 @@ const JobCard = ({
               justifyContent: "center",
             }}
           >
-            <MapPin size={24} color="var(--text-secondary)" />
+            <CategoryIcon size={24} color={categoryStyle.color} />
           </div>
         )}
         {job.distanceKm !== null && (
@@ -334,13 +338,17 @@ const JobCard = ({
           >
             <span
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
                 padding: "4px 10px",
                 borderRadius: 20,
-                background: "rgba(46,188,204,0.12)",
-                color: "#2EBCCC",
+                background: `${categoryStyle.color}1F`,
+                color: categoryStyle.color,
                 fontWeight: 600,
               }}
             >
+              <CategoryIcon size={12} />
               {job.categoria_nombre}
             </span>
             <span>
