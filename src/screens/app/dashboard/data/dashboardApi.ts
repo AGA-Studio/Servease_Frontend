@@ -3,6 +3,7 @@ import type {
   DashboardJob,
   KpiData,
   CategoryBreakdown,
+  EarningsPoint,
 } from "../../../../types/dashboard";
 import type { JobClient } from "../../../../types/job";
 import {
@@ -11,10 +12,12 @@ import {
 } from "../../../../api/servicioApi";
 import {
   fetchDashboardProveedor,
+  fetchProviderEarningsSummary,
+  type ProviderEarningsSummaryResponse,
   type ProviderKpisResponse,
 } from "../../../../api/providerApi";
 import { timeAgo } from "../../../../utils/servicio";
-import { getApproxLocation } from "../../../../utils/location";
+import { getCookie, setCookie } from "../../../../lib/cookieUtils";
 
 const CATEGORY_COLORS: Record<string, string> = {
   Plumbing: "#2EBCCC",
@@ -39,17 +42,18 @@ const MOCK_CLIENT: JobClient = {
   jobsPosted: 0,
 };
 
-async function mapCatalogItemToDashboardJob(
+function mapCatalogItemToDashboardJob(
   item: ServicioListItem,
-): Promise<DashboardJob> {
-  const location = await getApproxLocation(item.latitud, item.longitud);
+): DashboardJob {
   const price = Number(item.precio_inicial);
   const formattedPrice = `$${price.toLocaleString()}`;
 
   return {
     id: String(item.id_servicio),
     title: item.titulo,
-    location,
+    location: "",
+    latitud: item.latitud,
+    longitud: item.longitud,
     postedAgo: timeAgo(item.fecha),
     description: "",
     budget: formattedPrice,
@@ -82,9 +86,19 @@ function deriveJobsByCategory(items: ServicioListItem[]): CategoryBreakdown[] {
     .sort((a, b) => b.value - a.value);
 }
 
-function mapProviderKpisToKpiData(
+function buildEarningsTrend(
+  value: number | undefined,
+  label: string,
+): { value: number; label: string; isPositive: boolean } | undefined {
+  if (value === undefined) return undefined;
+  return { value, label, isPositive: value >= 0 };
+}
+
+export function mapProviderKpisToKpiData(
   kpis: ProviderKpisResponse,
+  earnings?: ProviderEarningsSummaryResponse,
 ): KpiData[] {
+  const vsLastMonth = "vs last month";
   return [
     {
       key: "activeJobs",
@@ -94,7 +108,7 @@ function mapProviderKpisToKpiData(
       iconColor: "#2EBCCC",
       iconBg: "rgba(46,188,204,0.15)",
       ...(kpis.activeJobsTrend !== undefined && {
-        trend: { value: kpis.activeJobsTrend, label: "vs last month", isPositive: kpis.activeJobsTrend >= 0 },
+        trend: { value: kpis.activeJobsTrend, label: vsLastMonth, isPositive: kpis.activeJobsTrend >= 0 },
       }),
     },
     {
@@ -105,18 +119,43 @@ function mapProviderKpisToKpiData(
       iconColor: "#4AA825",
       iconBg: "rgba(74,168,37,0.15)",
       ...(kpis.completedJobsTrend !== undefined && {
-        trend: { value: kpis.completedJobsTrend, label: "vs last month", isPositive: kpis.completedJobsTrend >= 0 },
+        trend: { value: kpis.completedJobsTrend, label: vsLastMonth, isPositive: kpis.completedJobsTrend >= 0 },
       }),
     },
     {
       key: "earnings",
       label: "Earnings",
-      value: kpis.earnings,
+      value: earnings?.total ?? kpis.earnings,
       iconName: "dollarSign",
       iconColor: "#FFB200",
       iconBg: "rgba(255,178,0,0.15)",
       ...(kpis.earningsTrend !== undefined && {
-        trend: { value: kpis.earningsTrend, label: "vs last month", isPositive: kpis.earningsTrend >= 0 },
+        trend: { value: kpis.earningsTrend, label: vsLastMonth, isPositive: kpis.earningsTrend >= 0 },
+      }),
+      ...(earnings && {
+        periodOptions: [
+          {
+            key: "total",
+            label: "Total",
+            value: earnings.total || kpis.earnings,
+          },
+          {
+            key: "month",
+            label: "Monthly",
+            value: earnings.thisMonth,
+            ...(earnings.monthTrend !== undefined && {
+              trend: buildEarningsTrend(earnings.monthTrend, vsLastMonth),
+            }),
+          },
+          {
+            key: "week",
+            label: "Weekly",
+            value: earnings.thisWeek,
+            ...(earnings.weekTrend !== undefined && {
+              trend: buildEarningsTrend(earnings.weekTrend, vsLastMonth),
+            }),
+          },
+        ],
       }),
     },
     {
@@ -130,36 +169,92 @@ function mapProviderKpisToKpiData(
   ];
 }
 
+export function getCachedDashboardData(): DashboardData | null {
+  const kpis = getCookie<ProviderKpisResponse>("pv-dashboard-kpis");
+  const earnings = getCookie<ProviderEarningsSummaryResponse>("pv-earnings");
+  if (!kpis) return null;
+
+  const earningsSummary = earnings ?? undefined;
+  const earningsPoints: EarningsPoint[] = earningsSummary
+    ? [
+        { month: "thisWeek", earnings: earningsSummary.thisWeek },
+        { month: "thisMonth", earnings: earningsSummary.thisMonth },
+        { month: "pending", earnings: earningsSummary.pending },
+        { month: "projected", earnings: earningsSummary.projected },
+      ]
+    : [];
+
+  return {
+    kpis: mapProviderKpisToKpiData(kpis, earningsSummary),
+    earnings: earningsPoints,
+    jobsByCategory: [],
+    availableJobs: [],
+    recentActivity: [],
+  };
+}
+
 export async function fetchDashboardData(
   userId: string,
   areaNames?: string[],
 ): Promise<DashboardData> {
-  let catalogItems: ServicioListItem[] = [];
-  try {
-    const all = await fetchServiciosCatalog({ estado: "abierto" });
-    catalogItems =
-      areaNames && areaNames.length > 0
-        ? all.filter((item) => areaNames.includes(item.categoria_nombre))
-        : all;
-  } catch (err) {
-    console.error("fetchServiciosCatalog failed:", err);
-  }
-  const availableJobs = await Promise.all(
-    catalogItems.map(mapCatalogItemToDashboardJob),
-  );
+  const catalogPromise = (async (): Promise<ServicioListItem[]> => {
+    try {
+      const all = await fetchServiciosCatalog({ estado: "abierto", page_size: 10000 });
+      const items = all.results;
+      return areaNames && areaNames.length > 0
+        ? items.filter((item) => areaNames.includes(item.categoria_nombre))
+        : items;
+    } catch (err) {
+      console.error("fetchServiciosCatalog failed:", err);
+      return [];
+    }
+  })();
+
+  const providerDataPromise = (async (): Promise<{
+    kpis: KpiData[];
+    earningsSummary: ProviderEarningsSummaryResponse | undefined;
+  }> => {
+    try {
+      const dashboardKpis = await fetchDashboardProveedor(userId);
+      let earningsSummary: ProviderEarningsSummaryResponse | undefined;
+      try {
+        earningsSummary = await fetchProviderEarningsSummary();
+      } catch (err) {
+        console.error("fetchProviderEarningsSummary failed:", err);
+      }
+      setCookie("pv-dashboard-kpis", dashboardKpis, 300);
+      if (earningsSummary) setCookie("pv-earnings", earningsSummary, 300);
+      return {
+        kpis: mapProviderKpisToKpiData(dashboardKpis, earningsSummary),
+        earningsSummary,
+      };
+    } catch (err) {
+      console.error("fetch dashboard KPIs failed:", err);
+      return { kpis: [], earningsSummary: undefined };
+    }
+  })();
+
+  const [catalogItems, providerData] = await Promise.all([
+    catalogPromise,
+    providerDataPromise,
+  ]);
 
   const jobsByCategory = deriveJobsByCategory(catalogItems);
+  const visibleItems = catalogItems.slice(0, 5);
+  const availableJobs = visibleItems.map(mapCatalogItemToDashboardJob);
 
-  let kpis: KpiData[] = [];
-  try {
-    kpis = mapProviderKpisToKpiData(await fetchDashboardProveedor(userId));
-  } catch (err) {
-    console.error("fetchDashboardProveedor failed:", err);
-  }
+  const earningsPoints: EarningsPoint[] = providerData.earningsSummary
+    ? [
+        { month: "thisWeek", earnings: providerData.earningsSummary.thisWeek },
+        { month: "thisMonth", earnings: providerData.earningsSummary.thisMonth },
+        { month: "pending", earnings: providerData.earningsSummary.pending },
+        { month: "projected", earnings: providerData.earningsSummary.projected },
+      ]
+    : [];
 
   return {
-    kpis,
-    earnings: [],
+    kpis: providerData.kpis,
+    earnings: earningsPoints,
     jobsByCategory,
     availableJobs,
     recentActivity: [],

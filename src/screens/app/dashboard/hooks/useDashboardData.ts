@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { DashboardData } from "../../../../types/dashboard";
-import { fetchDashboardData } from "../data/dashboardApi";
+import {
+  fetchDashboardData,
+  getCachedDashboardData,
+} from "../data/dashboardApi";
 
 type FetchStatus = "idle" | "loading" | "success" | "error" | "empty";
 
@@ -9,17 +12,25 @@ interface UseDashboardDataReturn {
   status: FetchStatus;
   error: string | null;
   refresh: () => void;
+  isLive: boolean;
 }
 
-export function useDashboardData(userId: string | undefined, areaNames?: string[]): UseDashboardDataReturn {
+export function useDashboardData(
+  userId: string | undefined,
+  areaNames?: string[],
+): UseDashboardDataReturn {
+  const cached = useMemo(() => getCachedDashboardData(), []);
+  const hasDataRef = useRef(cached !== null);
+  const [isLive, setIsLive] = useState(false);
   const [state, setState] = useState<{
     data: DashboardData | null;
     status: FetchStatus;
     error: string | null;
-  }>({
-    data: null,
-    status: "loading",
-    error: null,
+  }>(() => {
+    if (cached) {
+      return { data: cached, status: "success", error: null };
+    }
+    return { data: null, status: "loading", error: null };
   });
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -28,10 +39,18 @@ export function useDashboardData(userId: string | undefined, areaNames?: string[
   }, []);
 
   useEffect(() => {
+    if (state.data) {
+      hasDataRef.current = true;
+    }
+  }, [state.data]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      setState((prev) => ({ ...prev, status: "loading", error: null }));
+      if (!hasDataRef.current) {
+        setState((prev) => ({ ...prev, status: "loading", error: null }));
+      }
       try {
         const result = await fetchDashboardData(userId ?? "", areaNames);
         if (cancelled) return;
@@ -44,12 +63,21 @@ export function useDashboardData(userId: string | undefined, areaNames?: string[
           status: isEmpty ? "empty" : "success",
           error: null,
         });
+        setIsLive(true);
       } catch (err) {
         if (cancelled) return;
-        setState({
-          data: null,
-          status: "error",
-          error: err instanceof Error ? err.message : "Unknown error",
+        setState((prev) => {
+          if (prev.data) {
+            return {
+              ...prev,
+              error: err instanceof Error ? err.message : "Unknown error",
+            };
+          }
+          return {
+            data: null,
+            status: "error",
+            error: err instanceof Error ? err.message : "Unknown error",
+          };
         });
       }
     };
@@ -66,5 +94,6 @@ export function useDashboardData(userId: string | undefined, areaNames?: string[
     status: state.status,
     error: state.error,
     refresh,
+    isLive,
   };
 }

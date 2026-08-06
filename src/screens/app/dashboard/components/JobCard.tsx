@@ -2,10 +2,6 @@ import { useState } from "react";
 import { Briefcase, MapPin, Clock, Users, ArrowRight, Eye } from "lucide-react";
 import type { DashboardJob } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
-import ApplyJobModal, {
-  type ApplyJobData,
-} from "../../../../components/applyjobmodal/ApplyJobModal";
-import JobDetailsModal from "../../../../components/jobdetailsmodal/JobDetailsModal";
 
 const CATEGORY_KEY: Record<string, string> = {
   Plumbing: "plumbing",
@@ -16,27 +12,18 @@ const CATEGORY_KEY: Record<string, string> = {
 
 interface JobCardProps {
   job: DashboardJob;
+  onViewDetails: () => void;
+  onApply: () => void;
 }
 
-export const JobCard = ({ job }: JobCardProps) => {
+export const JobCard = ({ job, onViewDetails, onApply }: JobCardProps) => {
   const [hovered, setHovered] = useState(false);
-  const [isApplyOpen, setIsApplyOpen] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const { t } = useI18n();
   const d = t("dashboardscreen");
 
-  const jobDetails = job;
-
-  const handleApplySubmit = (data: ApplyJobData) => {
-
-    console.log("Submit proposal:", { jobId: job.id, ...data });
-    setIsApplyOpen(false);
-  };
-
   return (
-    <>
-      <div
-        className="ds-job-card"
+    <div
+      className="ds-job-card"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -77,13 +64,17 @@ export const JobCard = ({ job }: JobCardProps) => {
           >
             <Briefcase size={20} color="#2EBCCC" />
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontWeight: 700,
                 fontSize: "0.95rem",
                 color: "var(--text)",
                 marginBottom: 2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: 240,
               }}
             >
               {job.title}
@@ -131,6 +122,7 @@ export const JobCard = ({ job }: JobCardProps) => {
           color: "var(--text-secondary)",
           margin: "12px 0",
           lineHeight: 1.55,
+          overflowWrap: "break-word",
         }}
       >
         {job.description}
@@ -161,7 +153,7 @@ export const JobCard = ({ job }: JobCardProps) => {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
-              onClick={() => setIsDetailsOpen(true)}
+              onClick={onViewDetails}
               style={{
                 background: "none",
                 border: "none",
@@ -190,7 +182,7 @@ export const JobCard = ({ job }: JobCardProps) => {
               {d.jobCard.viewDetails}
             </button>
             <button
-              onClick={() => setIsApplyOpen(true)}
+              onClick={onApply}
               style={{
                 background: "#2EBCCC",
                 border: "none",
@@ -223,23 +215,5 @@ export const JobCard = ({ job }: JobCardProps) => {
         </div>
       </div>
 
-      <ApplyJobModal
-        isOpen={isApplyOpen}
-        onClose={() => setIsApplyOpen(false)}
-        jobTitle={job.title}
-        clientPrice={job.price}
-        onSubmit={handleApplySubmit}
-      />
-
-      <JobDetailsModal
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        job={jobDetails}
-        onApply={() => {
-          setIsDetailsOpen(false);
-          setIsApplyOpen(true);
-        }}
-      />
-    </>
   );
 };

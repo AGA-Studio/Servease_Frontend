@@ -71,11 +71,11 @@ const ApplyJobModal: React.FC<Props> = ({
   const { t } = useI18n();
   const d = t("applyjobmodal");
   const { isDark } = useThemeMode();
-  const { formatMoney, currency } = useCurrency();
+  const { formatMoney, currency, convertAmount, convertToMXN } = useCurrency();
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
   const [counterOffer, setCounterOffer] = useState<string>(
-    String(clientPrice + 30),
+    String(Math.round(convertAmount(clientPrice + 30) * 100) / 100),
   );
   const [coverLetter, setCoverLetter] = useState("");
 
@@ -608,7 +608,7 @@ const ApplyJobModal: React.FC<Props> = ({
                     price:
                       option === "accept"
                         ? clientPrice
-                        : parseFloat(counterOffer) || clientPrice,
+                        : convertToMXN(parseFloat(counterOffer)) || clientPrice,
                     coverLetter,
                   })
                 }

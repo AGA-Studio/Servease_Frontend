@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import { fetchUserProfile, fetchUserProfileOrThrow, type UserProfile } from "../api/userApi";
 import { apiPostFormPublic, ApiError } from "../api/apiClient";
+import { getCookie, setCookie } from "../lib/cookieUtils";
 
 export type UserRole = "client" | "provider" | "admin";
 
@@ -73,23 +74,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const loadProfile = useCallback(async (session: Session) => {
+    const buildUser = (p: UserProfile) => ({
+      id: session.user.id,
+      email: session.user.email ?? "",
+      firstName: p.nombre,
+      lastnameP: p.apellido_paterno,
+      lastnameM: p.apellido_materno ?? undefined,
+      role: p.rol,
+    });
+
+    const cached = getCookie<UserProfile>("pv-profile");
+    if (cached) {
+      setProfile(cached);
+      setUser(buildUser(cached));
+    }
+
     const userProfile = await fetchUserProfile();
     if (userProfile) {
+      setCookie("pv-profile", userProfile, 1800);
       setProfile(userProfile);
-      setUser({
-        id: session.user.id,
-        email: session.user.email ?? "",
-        firstName: userProfile.nombre,
-        lastnameP: userProfile.apellido_paterno,
-        lastnameM: userProfile.apellido_materno ?? undefined,
-        role: userProfile.rol,
-      });
-    } else {
-      // Profile fetch failed (network blip, backend restart, etc). Keep whatever
-      // user/profile we already had rather than downgrading to a fallback with
-      // role "client" — that fallback previously bounced providers/admins out
-      // of their own screens on transient failures during a background token
-      // refresh, which looked like a random logout.
+      setUser(buildUser(userProfile));
+    } else if (!cached) {
       setUser((prev) => prev ?? sessionToUser(session));
     }
   }, []);
@@ -157,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         const userProfile = await fetchUserProfileOrThrow();
+        setCookie("pv-profile", userProfile, 1800);
         setProfile(userProfile);
         setUser({
           id: data.session.user.id,
@@ -189,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const userProfile = await fetchUserProfileOrThrow();
+      setCookie("pv-profile", userProfile, 1800);
       setProfile(userProfile);
       setUser({
         id: session.user.id,

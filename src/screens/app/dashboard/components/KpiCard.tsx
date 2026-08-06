@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Briefcase, CheckCircle, DollarSign, Star, TrendingUp, TrendingDown } from "lucide-react";
-import type { KpiData } from "../../../../types/dashboard";
+import type { KpiData, KpiPeriodKey } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { useCurrency } from "../../../../context/CurrencyContext";
 
@@ -18,15 +18,34 @@ interface KpiCardProps {
 
 export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
   const [hovered, setHovered] = useState(false);
+  const [activePeriod, setActivePeriod] = useState<KpiPeriodKey>("total");
   const Icon = ICONS[data.iconName];
   const { t } = useI18n();
   const { formatMoney } = useCurrency();
   const d = t("dashboardscreen");
 
+  const activeOption =
+    data.periodOptions?.find((o) => o.key === activePeriod) ?? null;
+
+  const rawValue =
+    activeOption?.value ??
+    (typeof data.value === "number" ? data.value : Number(data.value));
+
+  const trend = data.periodOptions ? activeOption?.trend : data.trend;
+
   const formattedValue =
-    data.key === "earnings" && typeof data.value === "number"
-      ? formatMoney(data.value)
-      : data.value;
+    data.key === "earnings" ? formatMoney(rawValue) : data.value;
+
+  const periodLabel = (key: KpiPeriodKey): string => {
+    const i18nLabel =
+      d.kpis.earningsPeriods?.[key as keyof typeof d.kpis.earningsPeriods];
+    const option = data.periodOptions?.find((o) => o.key === key);
+    return i18nLabel ?? option?.label ?? key;
+  };
+
+  const kpiLabelEntry = d.kpis[data.key as keyof typeof d.kpis];
+  const kpiLabel =
+    typeof kpiLabelEntry === "string" ? kpiLabelEntry : data.label;
 
   return (
     <div
@@ -70,7 +89,7 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
             marginBottom: 4,
           }}
         >
-          {d.kpis[data.key as keyof typeof d.kpis] ?? data.label}
+          {kpiLabel}
         </div>
         <div
           style={{
@@ -90,7 +109,7 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
           >
             {formattedValue}
           </div>
-          {data.trend && (
+          {trend && (
             <div
               style={{
                 display: "flex",
@@ -98,23 +117,62 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
                 gap: 3,
                 fontSize: "0.72rem",
                 fontWeight: 700,
-                color: data.trend.isPositive ? "#4AA825" : "#FF0000",
+                color: trend.isPositive ? "#4AA825" : "#FF0000",
                 background: isDark
-                  ? data.trend.isPositive
+                  ? trend.isPositive
                     ? "rgba(74,168,37,0.12)"
                     : "rgba(255,0,0,0.12)"
-                  : data.trend.isPositive
+                  : trend.isPositive
                     ? "rgba(74,168,37,0.10)"
                     : "rgba(255,0,0,0.10)",
                 padding: "3px 8px",
                 borderRadius: 20,
               }}
             >
-              {data.trend.isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-              {data.trend.value}%
+              {trend.isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+              {trend.value}%
             </div>
           )}
         </div>
+        {data.periodOptions && data.periodOptions.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              gap: 4,
+              marginTop: 10,
+              background: isDark ? "rgba(0,0,0,0.25)" : "var(--input-bg)",
+              borderRadius: 8,
+              padding: 3,
+              width: "fit-content",
+            }}
+          >
+            {data.periodOptions.map((option) => {
+              const isActive = option.key === activePeriod;
+              return (
+                <button
+                  key={option.key}
+                  onClick={() => setActivePeriod(option.key)}
+                  style={{
+                    border: "none",
+                    background: isActive
+                      ? isDark ? "#2EBCCC" : "#2EBCCC"
+                      : "transparent",
+                    color: isActive ? "#ffffff" : "var(--text-secondary)",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    padding: "3px 10px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    transition: "background 0.2s, color 0.2s",
+                  }}
+                >
+                  {periodLabel(option.key)}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

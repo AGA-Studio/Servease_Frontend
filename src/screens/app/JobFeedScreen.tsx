@@ -22,6 +22,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
 import type { JobDetails } from "../../types/job";
+import type { MyJob, ProposalStatus } from "../../types/myjobs";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
 import FilterSelect, {
@@ -35,22 +36,15 @@ import {
 } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
 import { fetchProviderEarningsSummary } from "../../api/providerApi";
+import { fetchTrabajosAplicados } from "../../api/userApi";
 import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
+import { mapTrabajoAplicadoToMyJob } from "../../utils/proposals";
 import {
   distanceKm,
   getApproxLocation,
   roundCoord,
   type ApproxCoords,
 } from "../../utils/location";
-
-interface AppliedJob {
-  id: string;
-  title: string;
-  status: "reviewing" | "completed" | "declined" | "closed";
-  sentAgo: string;
-  price: number;
-  currency: string;
-}
 
 interface JobFilters {
   category: string;
@@ -91,33 +85,6 @@ function servicioToFeedJob(item: ServicioListItem): FeedJob {
     raw: item,
   };
 }
-
-const APPLIED_JOBS: AppliedJob[] = [
-  {
-    id: "a1",
-    title: "High-Security Lock Install",
-    status: "reviewing",
-    sentAgo: "2 hours ago",
-    price: 350,
-    currency: "MXN",
-  },
-  {
-    id: "a2",
-    title: "Office Complex Rekey",
-    status: "completed",
-    sentAgo: "yesterday",
-    price: 1200,
-    currency: "MXN",
-  },
-  {
-    id: "a3",
-    title: "Garage Door Fix",
-    status: "declined",
-    sentAgo: "3 days ago",
-    price: 180,
-    currency: "MXN",
-  },
-];
 
 const PAGE_SIZE = 10;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
@@ -203,45 +170,19 @@ const Pagination = ({
 
 const JobCard = ({
   job,
-  addToast,
+  onViewDetails,
+  isLoadingDetails,
 }: {
   job: FeedJob;
-  addToast: (type: "success" | "error" | "info", message: string) => void;
+  onViewDetails: () => void;
+  isLoadingDetails: boolean;
 }) => {
   const [hovered, setHovered] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isApplyOpen, setIsApplyOpen] = useState(false);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [jobDetails, setJobDetails] = useState<JobDetails | null>(null);
   const { t } = useI18n();
   const d = t("jobfeedscreen");
 
-  const handleViewDetails = async () => {
-    setIsLoadingDetails(true);
-    try {
-      const details = await fetchPostDetails(job.id);
-      const location = await getApproxLocation(details.latitud, details.longitud);
-      setJobDetails(mapPostDetailsToJobDetails(details, location));
-      setIsDetailsOpen(true);
-    } catch (error) {
-      console.error("fetchPostDetails failed:", error);
-      addToast(
-        "error",
-        error instanceof ApiError ? error.message : d.errors.detailsFailed,
-      );
-    } finally {
-      setIsLoadingDetails(false);
-    }
-  };
-
-  const handleApplySubmit = () => {
-    setIsApplyOpen(false);
-    addToast("info", d.actionUnavailable);
-  };
-
   return (
-    <>
-      <motion.div
+    <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
@@ -362,6 +303,10 @@ const JobCard = ({
             fontSize: "1rem",
             fontWeight: 700,
             color: "var(--text)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 400,
           }}
         >
           {job.titulo}
@@ -387,7 +332,7 @@ const JobCard = ({
         </div>
 
         <button
-          onClick={handleViewDetails}
+          onClick={onViewDetails}
           disabled={isLoadingDetails}
           style={{
             marginTop: 14,
@@ -436,145 +381,191 @@ const JobCard = ({
         </button>
       </div>
     </motion.div>
-
-    <JobDetailsModal
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        job={jobDetails}
-        onApply={() => {
-          setIsDetailsOpen(false);
-          setIsApplyOpen(true);
-        }}
-      />
-
-      <ApplyJobModal
-        isOpen={isApplyOpen}
-        onClose={() => setIsApplyOpen(false)}
-        jobTitle={job.titulo}
-        clientPrice={job.precio_inicial}
-        onSubmit={handleApplySubmit}
-      />
-    </>
   );
 };
 
-const AppliedJobItem = ({ job }: { job: AppliedJob }) => {
+const AppliedJobItem = ({
+  job,
+  onViewStatus,
+}: {
+  job: MyJob;
+  onViewStatus: (job: MyJob) => void;
+}) => {
   const { t } = useI18n();
   const { formatMoney } = useCurrency();
   const d = t("jobfeedscreen");
 
-  const statusMap = {
-    reviewing: {
-      label: d.statuses.reviewing,
+  const statusMap: Record<
+    ProposalStatus,
+    { label: string; bg: string; color: string }
+  > = {
+    accepted: {
+      label: d.statuses.accepted,
+      bg: "rgba(46,188,204,0.15)",
+      color: "#2EBCCC",
+    },
+    pending: {
+      label: d.statuses.pending,
       bg: "rgba(255,178,0,0.15)",
       color: "#FFB200",
     },
-    completed: {
-      label: d.statuses.completed,
-      bg: "rgba(74,168,37,0.15)",
-      color: "#4AA825",
+    rejected: {
+      label: d.statuses.rejected,
+      bg: "rgba(239,68,68,0.15)",
+      color: "#EF4444",
     },
-    declined: {
-      label: d.statuses.declined,
-      bg: "rgba(152,152,152,0.15)",
-      color: "#989898",
-    },
-    closed: {
-      label: d.statuses.closed,
-      bg: "rgba(152,152,152,0.15)",
-      color: "#989898",
+    counteroffer: {
+      label: d.statuses.counteroffer,
+      bg: "rgba(139,92,246,0.15)",
+      color: "#8B5CF6",
     },
   };
-  const s = statusMap[job.status];
+  const s = statusMap[job.proposalStatus];
 
   return (
     <div
+      onClick={() => onViewStatus(job)}
       style={{
-        padding: "14px 0",
-        borderBottom: "1px solid var(--divider)",
+        display: "flex",
+        gap: 12,
+        background: "var(--input-bg)",
+        border: "1px solid var(--divider)",
+        borderRadius: 12,
+        padding: "12px 14px",
+        cursor: "pointer",
+        transition: "box-shadow 0.2s, transform 0.2s, border-color 0.2s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.10)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.transform = "translateY(0)";
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 8,
-          marginBottom: 4,
-        }}
-      >
-        <h4
+      {job.imageUrl ? (
+        <img
+          src={job.imageUrl}
+          alt={job.title}
           style={{
-            margin: 0,
-            fontSize: "0.88rem",
-            fontWeight: 700,
-            color: "var(--text)",
-            flex: 1,
+            width: 44,
+            height: 44,
+            borderRadius: 10,
+            objectFit: "cover",
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 10,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--sidebar-bg)",
+            color: "var(--text-secondary)",
           }}
         >
-          {job.title}
-        </h4>
-        <span
+          <Briefcase size={20} />
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
           style={{
-            padding: "3px 10px",
-            borderRadius: 20,
-            background: s.bg,
-            color: s.color,
-            fontSize: "0.68rem",
-            fontWeight: 700,
-            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 4,
           }}
         >
-          {s.label}
-        </span>
-      </div>
-      <p
-        style={{
-          margin: "0 0 6px",
-          fontSize: "0.78rem",
-          color: "var(--text-secondary)",
-        }}
-      >
-        {d.card.posted} {job.sentAgo}
-      </p>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <span
+          <h4
+            style={{
+              margin: 0,
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              color: "var(--text)",
+              flex: 1,
+              lineHeight: 1.35,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {job.title}
+          </h4>
+          <span
+            style={{
+              padding: "3px 10px",
+              borderRadius: 20,
+              background: s.bg,
+              color: s.color,
+              fontSize: "0.66rem",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            {s.label}
+          </span>
+        </div>
+        <p
           style={{
-            fontSize: "0.85rem",
-            fontWeight: 700,
-            color: "var(--text)",
+            margin: "0 0 6px",
+            fontSize: "0.74rem",
+            color: "var(--text-secondary)",
           }}
         >
-          {formatMoney(job.price)}
-        </span>
-        <button
+          {d.card.posted} {job.postedAgo}
+        </p>
+        <div
           style={{
-            background: "none",
-            border: "none",
-            color: "#2EBCCC",
-            fontSize: "0.78rem",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            padding: "4px 8px",
-            borderRadius: 6,
-            transition: "background 0.2s",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "none")
-          }
         >
-          {d.viewStatus}
-        </button>
+          <span
+            style={{
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              color: "var(--text)",
+            }}
+          >
+            {formatMoney(job.budget)}
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewStatus(job);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#2EBCCC",
+              fontSize: "0.76rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              padding: "4px 8px",
+              borderRadius: 6,
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "none")
+            }
+          >
+            {d.viewStatus}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -604,12 +595,42 @@ const JobFeedScreen: React.FC = () => {
   const [jobs, setJobs] = useState<FeedJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [earningsSummary, setEarningsSummary] = useState<{
     thisWeek: number;
     pending: number;
     projected: number;
   } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [appliedJobs, setAppliedJobs] = useState<MyJob[]>([]);
+  const [isLoadingApplied, setIsLoadingApplied] = useState(true);
+  const [appliedDetails, setAppliedDetails] = useState<JobDetails | null>(null);
+  const [isAppliedDetailsOpen, setIsAppliedDetailsOpen] = useState(false);
+
+  const [selectedJob, setSelectedJob] = useState<FeedJob | null>(null);
+  const [selectedJobDetails, setSelectedJobDetails] = useState<JobDetails | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const items = await fetchTrabajosAplicados();
+        if (cancelled) return;
+        setAppliedJobs(items.map(mapTrabajoAplicadoToMyJob).slice(0, 5));
+      } catch {
+        if (cancelled) return;
+        setAppliedJobs([]);
+      } finally {
+        if (!cancelled) setIsLoadingApplied(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -637,34 +658,33 @@ const JobFeedScreen: React.FC = () => {
     let cancelled = false;
 
     const run = async () => {
-      let allItems: ServicioListItem[];
+      let items: ServicioListItem[];
+      let count = 0;
 
       if (filters.category) {
-        allItems = await fetchServiciosCatalog({
+        const res = await fetchServiciosCatalog({
           categoriaId: Number(filters.category),
           estado: "abierto",
+          page,
+          page_size: PAGE_SIZE,
         });
+        items = res.results;
+        count = res.count;
       } else {
-        const all = await fetchServiciosCatalog({ estado: "abierto" });
+        const res = await fetchServiciosCatalog({
+          estado: "abierto",
+          page_size: 10000,
+        });
         const areaNames = areas.map((a) => a.nombre);
-        allItems =
+        items =
           areaNames.length > 0
-            ? all.filter((item) => areaNames.includes(item.categoria_nombre))
-            : all;
+            ? res.results.filter((item) => areaNames.includes(item.categoria_nombre))
+            : res.results;
       }
 
       if (cancelled) return;
-      const feedJobs = allItems.map(servicioToFeedJob);
-      const locations = await Promise.all(
-        allItems.map((item) => getApproxLocation(item.latitud, item.longitud)),
-      );
-      if (cancelled) return;
-      setJobs(
-        feedJobs.map((job, i) => ({
-          ...job,
-          location: locations[i],
-        })),
-      );
+      setJobs(items.map(servicioToFeedJob));
+      setTotalItems(count);
     };
 
     run()
@@ -684,8 +704,35 @@ const JobFeedScreen: React.FC = () => {
       cancelled = true;
       setIsLoading(true);
     };
+  }, [filters.category, page, areas, addToast, d.errors.fetchFailed]);
 
-  }, [filters.category, areas]);
+  const handleViewDetails = async (job: FeedJob) => {
+    setSelectedJob(job);
+    setIsDetailsLoading(true);
+    setIsDetailsOpen(true);
+    try {
+      const details = await fetchPostDetails(job.id);
+      const location = await getApproxLocation(
+        details.latitud,
+        details.longitud,
+      );
+      setSelectedJobDetails(mapPostDetailsToJobDetails(details, location));
+    } catch (error) {
+      console.error("fetchPostDetails failed:", error);
+      addToast(
+        "error",
+        error instanceof ApiError ? error.message : d.errors.detailsFailed,
+      );
+      setIsDetailsOpen(false);
+    } finally {
+      setIsDetailsLoading(false);
+    }
+  };
+
+  const handleApplySubmit = () => {
+    setIsApplyOpen(false);
+    addToast("info", d.actionUnavailable);
+  };
 
   const jobsWithDistance = useMemo(() => {
     if (!providerCoords) return jobs;
@@ -723,6 +770,25 @@ const JobFeedScreen: React.FC = () => {
     setPage(1);
   };
 
+  const handleViewAppliedDetails = async (job: MyJob) => {
+    setIsAppliedDetailsOpen(true);
+    try {
+      const details = await fetchPostDetails(job.id_servicio);
+      const location = await getApproxLocation(
+        details.latitud,
+        details.longitud,
+      );
+      setAppliedDetails(mapPostDetailsToJobDetails(details, location));
+    } catch (error) {
+      console.error("fetchPostDetails failed:", error);
+      addToast(
+        "error",
+        error instanceof ApiError ? error.message : d.errors.detailsFailed,
+      );
+      setIsAppliedDetailsOpen(false);
+    }
+  };
+
   const visibleJobs = useMemo(() => {
     return jobsWithDistance.filter((job) => {
       if (filters.distance && job.distanceKm !== null) {
@@ -740,12 +806,13 @@ const JobFeedScreen: React.FC = () => {
     });
   }, [jobsWithDistance, filters.distance, filters.priceRange]);
 
-  const totalPages = Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  const totalPages = filters.category
+    ? Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
+    : Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginated = visibleJobs.slice(
-    (safePage - 1) * PAGE_SIZE,
-    safePage * PAGE_SIZE,
-  );
+  const paginated = filters.category
+    ? visibleJobs
+    : visibleJobs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handlePageChange = useCallback(
     (p: number) => {
@@ -776,6 +843,7 @@ const JobFeedScreen: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 14px;
+          min-width: 0;
         }
         @media (max-width: 900px) {
           .jf-main-grid {
@@ -1064,7 +1132,12 @@ const JobFeedScreen: React.FC = () => {
                     </div>
                   ) : (
                     paginated.map((job) => (
-                      <JobCard key={job.id} job={job} addToast={addToast} />
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        onViewDetails={() => handleViewDetails(job)}
+                        isLoadingDetails={isDetailsLoading && selectedJob?.id === job.id}
+                      />
                     ))
                   )}
                 </div>
@@ -1211,7 +1284,7 @@ const JobFeedScreen: React.FC = () => {
                     {d.viewAll}
                   </button>
                 </div>
-                {APPLIED_JOBS.length === 0 ? (
+                {isLoadingApplied ? null : appliedJobs.length === 0 ? (
                   <EmptyState
                     icon={<Send size={20} color="#2EBCCC" />}
                     isDark={isDark}
@@ -1219,9 +1292,22 @@ const JobFeedScreen: React.FC = () => {
                     size="compact"
                   />
                 ) : (
-                  APPLIED_JOBS.map((job) => (
-                    <AppliedJobItem key={job.id} job={job} />
-                  ))
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      marginTop: 10,
+                    }}
+                  >
+                    {appliedJobs.map((job) => (
+                      <AppliedJobItem
+                        key={job.id}
+                        job={job}
+                        onViewStatus={handleViewAppliedDetails}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -1243,6 +1329,30 @@ const JobFeedScreen: React.FC = () => {
           )}
         </div>
       </div>
+
+      <JobDetailsModal
+        isOpen={isAppliedDetailsOpen}
+        onClose={() => setIsAppliedDetailsOpen(false)}
+        job={appliedDetails}
+      />
+
+      <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={selectedJobDetails}
+        onApply={() => {
+          setIsDetailsOpen(false);
+          setIsApplyOpen(true);
+        }}
+      />
+
+      <ApplyJobModal
+        isOpen={isApplyOpen}
+        onClose={() => setIsApplyOpen(false)}
+        jobTitle={selectedJob?.titulo ?? ""}
+        clientPrice={selectedJob?.precio_inicial ?? 0}
+        onSubmit={handleApplySubmit}
+      />
 
       <ToastContainer
         toasts={toasts}

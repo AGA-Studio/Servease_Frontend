@@ -18,22 +18,40 @@ export async function fetchProviderKpis(): Promise<ProviderKpisResponse> {
 interface ResumenGananciasRaw {
   proveedor_id: string;
   ganancias_esta_semana: string;
+  ganancias_este_mes: string;
   ganancias_pendiente: string;
   ganancias_proyectado: string;
+  ganancias_totales: string;
+  ganancias_esta_semana_pct_cambio: string | null;
+  ganancias_este_mes_pct_cambio: string | null;
 }
 
 export interface ProviderEarningsSummaryResponse {
+  total: number;
   thisWeek: number;
+  weekTrend?: number;
+  thisMonth: number;
+  monthTrend?: number;
   pending: number;
   projected: number;
 }
 
+const toNumberOrUndefined = (value: string | null | undefined): number | undefined => {
+  if (value === null || value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isNaN(n) ? undefined : n;
+};
+
 export async function fetchProviderEarningsSummary(): Promise<ProviderEarningsSummaryResponse> {
   const raw = await apiGet<ResumenGananciasRaw>("/api/usuarios/resumen-ganancias/");
   return {
-    thisWeek: Number(raw.ganancias_esta_semana),
-    pending: Number(raw.ganancias_pendiente),
-    projected: Number(raw.ganancias_proyectado),
+    total: Number(raw.ganancias_totales ?? 0),
+    thisWeek: Number(raw.ganancias_esta_semana ?? 0),
+    weekTrend: toNumberOrUndefined(raw.ganancias_esta_semana_pct_cambio),
+    thisMonth: Number(raw.ganancias_este_mes ?? 0),
+    monthTrend: toNumberOrUndefined(raw.ganancias_este_mes_pct_cambio),
+    pending: Number(raw.ganancias_pendiente ?? 0),
+    projected: Number(raw.ganancias_proyectado ?? 0),
   };
 }
 

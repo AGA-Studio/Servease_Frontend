@@ -84,8 +84,10 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
               tickLine={false}
               tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
               tickFormatter={(month) => {
-                const key = month.toLowerCase() as keyof typeof d.months;
-                return d.months?.[key] ?? month;
+                const key = month as keyof typeof d.charts.earnings.categories;
+                return d.charts.earnings.categories?.[key]
+                  ?? (d.months?.[month.toLowerCase() as keyof typeof d.months]
+                  ?? month);
               }}
               dy={10}
             />

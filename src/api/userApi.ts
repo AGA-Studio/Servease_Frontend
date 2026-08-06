@@ -193,6 +193,31 @@ export async function fetchMisPublicaciones(
   );
 }
 
+export interface TrabajoAplicado {
+  id_postulacion: number;
+  id_servicio: number;
+  titulo: string;
+  estado: string;
+  categoria: string;
+  fecha_publicacion: string;
+  tiempo_transcurrido: string;
+  precio_final: string;
+  foto: string | null;
+}
+
+export async function fetchTrabajosAplicados(filters?: {
+  estadoId?: number;
+  categoriaId?: number;
+}): Promise<TrabajoAplicado[]> {
+  const qs = new URLSearchParams();
+  if (filters?.estadoId !== undefined) qs.set("estado_id", String(filters.estadoId));
+  if (filters?.categoriaId !== undefined) qs.set("categoria_id", String(filters.categoriaId));
+  const suffix = qs.toString();
+  return apiGet<TrabajoAplicado[]>(
+    `/api/usuarios/trabajos-aplicados/${suffix ? `?${suffix}` : ""}`,
+  );
+}
+
 export async function uploadProfilePhoto(
   userId: string,
   file: File,

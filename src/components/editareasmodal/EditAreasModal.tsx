@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Check } from "lucide-react";
@@ -6,6 +6,7 @@ import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useWorkAreas } from "../../context/WorkAreasContext";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import { useCookieCached } from "../../hooks/useCookieCached";
 import CustomizableModal from "../modal/CustomizableModal";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -21,29 +22,21 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const p = t("profile").provider.workAreas;
   const { areas, update } = useWorkAreas();
 
-  const [allCategories, setAllCategories] = useState<Categoria[]>([]);
+  const {
+    data: allCategories = [],
+    loading: loadingCategories,
+  } = useCookieCached<Categoria[]>({
+    key: "pv-categorias",
+    fetcher: fetchCategorias,
+    maxAgeSecs: 86400,
+    enabled: isOpen,
+  });
+
   const [selected, setSelected] = useState<Set<number>>(
     () => new Set(areas.map((a) => a.id_categoria)),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    let cancelled = false;
-    fetchCategorias()
-      .then((cats) => {
-        if (!cancelled) {
-          setAllCategories(cats);
-          setCategoriesLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCategoriesLoaded(true);
-      });
-    return () => { cancelled = true; };
-  }, [isOpen]);
 
   const toggle = (id: number) => {
     setSelected((prev) => {
@@ -168,7 +161,7 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
               {p.editModal.subtitle}
             </p>
 
-            {!categoriesLoaded ? (
+            {loadingCategories ? (
               <div
                 style={{
                   padding: "24px 0",
@@ -181,7 +174,7 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {allCategories.map((cat) => {
+                {(allCategories ?? []).map((cat) => {
                   const checked = selected.has(cat.id_categoria);
                   return (
                     <motion.button

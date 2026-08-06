@@ -2,7 +2,6 @@ import React, {
   createContext,
   useContext,
   useState,
-  useEffect,
   useCallback,
 } from "react";
 import { useAuth } from "./AuthContext";
@@ -11,6 +10,8 @@ import {
   updateAreasTrabajo,
   type AreaTrabajo,
 } from "../api/userApi";
+import { useCookieCached } from "../hooks/useCookieCached";
+import { setCookie } from "../lib/cookieUtils";
 
 interface WorkAreasContextValue {
   areas: AreaTrabajo[];
@@ -27,31 +28,18 @@ export const WorkAreasProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useAuth();
   const isProvider = user?.role === "provider";
 
-  const [areas, setAreas] = useState<AreaTrabajo[]>([]);
-  const [isLoading, setIsLoading] = useState(isProvider);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const {
+    data: areasData,
+    loading,
+    reload,
+  } = useCookieCached<AreaTrabajo[]>({
+    key: "pv-areas",
+    fetcher: fetchAreasTrabajo,
+    maxAgeSecs: 3600,
+    enabled: isProvider,
+  });
 
-  useEffect(() => {
-    if (!isProvider) return;
-
-    let cancelled = false;
-    fetchAreasTrabajo()
-      .then((data) => {
-        if (!cancelled) setAreas(data);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isProvider, refreshToken]);
-
-  const refresh = useCallback(() => {
-    setRefreshToken((prev) => prev + 1);
-  }, []);
+  const [areas, setAreas] = useState<AreaTrabajo[]>(areasData ?? []);
 
   const update = useCallback(
     async (categoriaIds: number[]) => {
@@ -59,6 +47,7 @@ export const WorkAreasProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const updated = await updateAreasTrabajo(categoriaIds);
         setAreas(updated);
+        setCookie("pv-areas", updated, 3600);
       } catch {
         setAreas(previous);
         throw new Error("update_areas_failed");
@@ -69,7 +58,12 @@ export const WorkAreasProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <WorkAreasContext.Provider
-      value={{ areas, isLoading, refresh, update }}
+      value={{
+        areas: areasData ?? areas,
+        isLoading: loading,
+        refresh: reload,
+        update,
+      }}
     >
       {children}
     </WorkAreasContext.Provider>

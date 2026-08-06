@@ -15,6 +15,8 @@ export const myjobsscreen = {
   proposalStatuses: {
     accepted: "Accepted Proposal",
     pending: "Pending Proposal",
+    rejected: "Rejected Proposal",
+    counteroffer: "Counteroffer",
   },
   actions: {
     viewDetails: "View Details",
@@ -37,16 +39,6 @@ export const myjobsscreen = {
   },
   errors: {
     fetchFailed: "Failed to load jobs. Please try again.",
-  },
-  categories: {
-    locksmith: "Locksmith",
-    plumbing: "Plumbing",
-    electrical: "Electrical",
-    cleaning: "Cleaning",
-    painting: "Painting",
-    carpentry: "Carpentry",
-    moving: "Moving",
-    gardening: "Gardening",
-    other: "Other",
+    cancelFailed: "Failed to cancel the application. Please try again.",
   },
 };

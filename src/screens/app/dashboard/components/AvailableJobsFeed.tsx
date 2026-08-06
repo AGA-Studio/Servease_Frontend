@@ -13,6 +13,8 @@ interface AvailableJobsFeedProps {
   isDark: boolean;
   disponible: boolean;
   onActivate: () => void;
+  onViewDetails: (job: DashboardJob) => void;
+  onApply: (job: DashboardJob) => void;
 }
 
 const EmptyJobsState = ({ isDark }: { isDark: boolean }) => {
@@ -36,7 +38,7 @@ const EmptyJobsState = ({ isDark }: { isDark: boolean }) => {
   );
 };
 
-export const AvailableJobsFeed = ({ jobs, isLoading, isDark, disponible, onActivate }: AvailableJobsFeedProps) => {
+export const AvailableJobsFeed = ({ jobs, isLoading, isDark, disponible, onActivate, onViewDetails, onApply }: AvailableJobsFeedProps) => {
   const { t } = useI18n();
   const d = t("dashboardscreen");
   const p = t("profile").provider;
@@ -109,7 +111,14 @@ export const AvailableJobsFeed = ({ jobs, isLoading, isDark, disponible, onActiv
           ) : !jobs?.length ? (
             <EmptyJobsState isDark={isDark} />
           ) : (
-            jobs.map((job) => <JobCard key={job.id} job={job} />)
+            jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onViewDetails={() => onViewDetails(job)}
+                onApply={() => onApply(job)}
+              />
+            ))
           )}
         </div>
       </div>
