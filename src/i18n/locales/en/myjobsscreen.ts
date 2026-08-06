@@ -44,6 +44,7 @@ export const myjobsscreen = {
   },
   errors: {
     fetchFailed: "Failed to load jobs. Please try again.",
+    detailsFailed: "Failed to load job details. Please try again.",
     cancelFailed: "Failed to cancel the application. Please try again.",
   },
 };

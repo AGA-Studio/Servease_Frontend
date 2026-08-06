@@ -15,13 +15,14 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onSave: (categoriaIds: number[]) => Promise<void>;
 }
 
-const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
+const EditAreasModal: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
   const p = t("profile").provider.workAreas;
-  const { areas, update } = useWorkAreas();
+  const { areas } = useWorkAreas();
 
   const {
     data: allCategories = [],
@@ -56,10 +57,10 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setShowSaveConfirm(false);
     setIsSaving(true);
     try {
-      await update(Array.from(selected));
+      await onSave(Array.from(selected));
       onClose();
     } catch {
-      // parent context handles error re-throw; we just close on success
+      // the parent screen shows the error toast; keep the modal open
     } finally {
       setIsSaving(false);
     }

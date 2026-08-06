@@ -41,6 +41,12 @@ export const WorkAreasProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [areas, setAreas] = useState<AreaTrabajo[]>(areasData ?? []);
 
+  const [prevAreasData, setPrevAreasData] = useState(areasData);
+  if (areasData !== prevAreasData) {
+    setPrevAreasData(areasData);
+    setAreas(areasData ?? []);
+  }
+
   const update = useCallback(
     async (categoriaIds: number[]) => {
       const previous = areas;
@@ -59,7 +65,7 @@ export const WorkAreasProvider: React.FC<{ children: React.ReactNode }> = ({
   return (
     <WorkAreasContext.Provider
       value={{
-        areas: areasData ?? areas,
+        areas,
         isLoading: loading,
         refresh: reload,
         update,

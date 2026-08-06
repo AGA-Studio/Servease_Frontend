@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, useInView } from "motion/react";
 import {
   Pencil,
@@ -22,6 +22,7 @@ import { uploadProfilePhoto } from "../../api/userApi";
 import { fetchDashboardProveedor, type ProviderKpisResponse } from "../../api/providerApi";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
+import { friendlyErrorMessage } from "../../utils/apiError";
 import Avatar from "../../components/avatar/Avatar";
 import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
 
@@ -377,11 +378,24 @@ const ProviderProfileScreen: React.FC = () => {
   const { toasts, addToast, removeToast } = useToast();
 
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
-  const { areas, isLoading: isAreasLoading } = useWorkAreas();
+  const { areas, isLoading: isAreasLoading, update: updateAreas } = useWorkAreas();
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showEditAreasModal, setShowEditAreasModal] = useState(false);
   const [areasModalKey, setAreasModalKey] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSaveAreas = useCallback(
+    async (categoriaIds: number[]) => {
+      try {
+        await updateAreas(categoriaIds);
+        addToast("success", p.workAreas.updateSuccess);
+      } catch (error) {
+        addToast("error", friendlyErrorMessage(error, p.workAreas.updateFailed));
+        throw error;
+      }
+    },
+    [updateAreas, addToast, p],
+  );
 
   const [kpis, setKpis] = useState<ProviderKpisResponse | null>(null);
   const [isKpisLoading, setIsKpisLoading] = useState(true);
@@ -1215,6 +1229,7 @@ const ProviderProfileScreen: React.FC = () => {
         key={areasModalKey}
         isOpen={showEditAreasModal}
         onClose={() => setShowEditAreasModal(false)}
+        onSave={handleSaveAreas}
       />
     </div>
   );

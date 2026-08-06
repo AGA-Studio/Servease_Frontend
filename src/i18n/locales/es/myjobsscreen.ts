@@ -44,6 +44,7 @@ export const myjobsscreen = {
   },
   errors: {
     fetchFailed: "No se pudieron cargar los trabajos. Por favor, inténtalo de nuevo.",
+    detailsFailed: "No se pudieron cargar los detalles del trabajo. Por favor, inténtalo de nuevo.",
     cancelFailed: "No se pudo cancelar la postulación. Por favor, inténtalo de nuevo.",
   },
 };
