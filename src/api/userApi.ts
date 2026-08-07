@@ -226,6 +226,46 @@ export interface TrabajoAplicado {
   foto: string | null;
 }
 
+export interface TrabajoDisponible {
+  id_servicio: number;
+  titulo: string;
+  descripcion: string;
+  categoria: string;
+  categoria_id: number;
+  latitud_aprox: string;
+  longitud_aprox: string;
+  fecha: string;
+  tiempo_transcurrido: string;
+  precio_inicial: string;
+  moneda: string | null;
+  estado_id: number;
+  num_postulantes: number;
+  foto: string | null;
+}
+
+export interface TrabajosDisponiblesResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: TrabajoDisponible[];
+}
+
+export async function fetchTrabajosDisponibles(params: {
+  page?: number;
+  pageSize?: number;
+  categoriaId?: number;
+} = {}): Promise<TrabajosDisponiblesResponse> {
+  const qs = new URLSearchParams();
+  qs.set("page", String(params.page ?? 1));
+  qs.set("page_size", String(params.pageSize ?? 10));
+  if (params.categoriaId !== undefined) {
+    qs.set("categoria_id", String(params.categoriaId));
+  }
+  return apiGet<TrabajosDisponiblesResponse>(
+    `/api/usuarios/trabajos-disponibles/?${qs.toString()}`,
+  );
+}
+
 export async function fetchTrabajosAplicados(filters?: {
   estadoId?: number;
   categoriaId?: number;

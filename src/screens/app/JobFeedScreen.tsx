@@ -29,14 +29,14 @@ import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
-import {
-  fetchPostDetails,
-  fetchServiciosCatalog,
-  type ServicioListItem,
-} from "../../api/servicioApi";
+import { fetchPostDetails } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
 import { fetchProviderEarningsSummary } from "../../api/providerApi";
-import { fetchTrabajosAplicados } from "../../api/userApi";
+import {
+  fetchTrabajosAplicados,
+  fetchTrabajosDisponibles,
+  type TrabajoDisponible,
+} from "../../api/userApi";
 import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
 import { mapTrabajoAplicadoToMyJob } from "../../utils/proposals";
 import { getCategoryStyle } from "../../utils/categoryStyle";
@@ -70,18 +70,18 @@ interface FeedJob {
   location: string;
   mainImage: string;
   distanceKm: number | null;
-  raw: ServicioListItem;
+  raw: TrabajoDisponible;
 }
 
-function servicioToFeedJob(item: ServicioListItem): FeedJob {
+function trabajoToFeedJob(item: TrabajoDisponible): FeedJob {
   return {
     id: String(item.id_servicio),
     titulo: item.titulo,
-    categoria_nombre: item.categoria_nombre,
+    categoria_nombre: item.categoria,
     precio_inicial: Number(item.precio_inicial),
     postedAgo: timeAgo(item.fecha),
     location: "",
-    mainImage: item.imagenes[0] ?? "",
+    mainImage: item.foto ?? "",
     distanceKm: null,
     raw: item,
   };
@@ -666,33 +666,14 @@ const JobFeedScreen: React.FC = () => {
     let cancelled = false;
 
     const run = async () => {
-      let items: ServicioListItem[];
-      let count = 0;
-
-      if (filters.category) {
-        const res = await fetchServiciosCatalog({
-          categoriaId: Number(filters.category),
-          estado: "abierto",
-          page,
-          page_size: PAGE_SIZE,
-        });
-        items = res.results;
-        count = res.count;
-      } else {
-        const res = await fetchServiciosCatalog({
-          estado: "abierto",
-          page_size: 10000,
-        });
-        const areaNames = areas.map((a) => a.nombre);
-        items =
-          areaNames.length > 0
-            ? res.results.filter((item) => areaNames.includes(item.categoria_nombre))
-            : res.results;
-      }
-
+      const res = await fetchTrabajosDisponibles({
+        page,
+        pageSize: PAGE_SIZE,
+        categoriaId: filters.category ? Number(filters.category) : undefined,
+      });
       if (cancelled) return;
-      setJobs(items.map(servicioToFeedJob));
-      setTotalItems(count);
+      setJobs(res.results.map(trabajoToFeedJob));
+      setTotalItems(res.count);
     };
 
     run()
@@ -712,7 +693,7 @@ const JobFeedScreen: React.FC = () => {
       cancelled = true;
       setIsLoading(true);
     };
-  }, [filters.category, page, areas, addToast, d.errors.fetchFailed]);
+  }, [filters.category, page, addToast, d.errors.fetchFailed]);
 
   const handleViewDetails = async (job: FeedJob) => {
     setSelectedJob(job);
@@ -745,8 +726,8 @@ const JobFeedScreen: React.FC = () => {
   const jobsWithDistance = useMemo(() => {
     if (!providerCoords) return jobs;
     return jobs.map((job) => {
-      const lat = Number(job.raw.latitud);
-      const lon = Number(job.raw.longitud);
+      const lat = Number(job.raw.latitud_aprox);
+      const lon = Number(job.raw.longitud_aprox);
       if (Number.isNaN(lat) || Number.isNaN(lon)) return job;
       return { ...job, distanceKm: distanceKm(providerCoords, { lat, lon }) };
     });
@@ -814,13 +795,9 @@ const JobFeedScreen: React.FC = () => {
     });
   }, [jobsWithDistance, filters.distance, filters.priceRange]);
 
-  const totalPages = filters.category
-    ? Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
-    : Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginated = filters.category
-    ? visibleJobs
-    : visibleJobs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginated = visibleJobs;
 
   const handlePageChange = useCallback(
     (p: number) => {
