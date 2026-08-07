@@ -7,6 +7,11 @@ export const dashboardscreen = {
     completedJobs: "Completados",
     earnings: "Ganancias",
     averageRating: "Calificación",
+    earningsPeriods: {
+      total: "Total",
+      month: "Mensual",
+      week: "Semanal",
+    },
   },
   availableJobs: "Trabajos Disponibles",
   viewAll: "Ver todo",
@@ -36,6 +41,12 @@ export const dashboardscreen = {
     earnings: {
       title: "Resumen de Ganancias",
       tooltipLabel: "Ganancias",
+      categories: {
+        thisWeek: "Esta Semana",
+        thisMonth: "Este Mes",
+        pending: "Pendiente",
+        projected: "Proyectado",
+      },
     },
     categories: {
       title: "Trabajos por Categoría",

@@ -16,6 +16,7 @@ interface CurrencyContextValue {
   isLoading: boolean;
   error: string | null;
   convertAmount: (amountInMXN: number) => number;
+  convertToMXN: (amountInDisplayCurrency: number) => number;
   formatMoney: (amountInMXN: number) => string;
   refreshRate: () => Promise<void>;
 }
@@ -163,6 +164,14 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
     [currency, effectiveRate],
   );
 
+  const convertToMXN = useCallback(
+    (amountInDisplayCurrency: number) => {
+      if (currency === "MXN") return amountInDisplayCurrency;
+      return amountInDisplayCurrency / effectiveRate;
+    },
+    [currency, effectiveRate],
+  );
+
   const formatMoney = useCallback(
     (amountInMXN: number) => {
       const value = convertAmount(amountInMXN);
@@ -182,6 +191,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
       isLoading,
       error,
       convertAmount,
+      convertToMXN,
       formatMoney,
       refreshRate,
     }),
@@ -192,6 +202,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
       isLoading,
       error,
       convertAmount,
+      convertToMXN,
       formatMoney,
       refreshRate,
     ],

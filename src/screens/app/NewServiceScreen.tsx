@@ -26,6 +26,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ApiError } from "../../api/apiClient";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import { useCookieCached } from "../../hooks/useCookieCached";
 import { getCategoryStyle } from "../../utils/categoryStyle";
 import { createServicio, uploadServiceImage } from "../../api/servicioApi";
 import { invalidateCached } from "../../lib/dataCache";
@@ -597,8 +598,15 @@ const NewServiceScreen: React.FC = () => {
   const { user } = useAuth();
   const { toasts, addToast, removeToast } = useToast();
 
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [categoriasError, setCategoriasError] = useState(false);
+  const {
+    data: categorias = [],
+    error: categoriasErr,
+  } = useCookieCached<Categoria[]>({
+    key: "pv-categorias",
+    fetcher: fetchCategorias,
+    maxAgeSecs: 86400,
+  });
+  const categoriasError = !!categoriasErr;
   const [locationCoords, setLocationCoords] = useState<ApproxCoords | null>(
     null,
   );
@@ -614,23 +622,6 @@ const NewServiceScreen: React.FC = () => {
   const suppressNextSearchRef = useRef(false);
   const locationInputWrapRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchCategorias()
-      .then((list) => {
-        if (!cancelled) setCategorias(list);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchCategorias failed:", error);
-        setCategoriasError(true);
-        addToast("error", ns.validation.categoriesUnavailable);
-      });
-    return () => {
-      cancelled = true;
-    };
-
-  }, []);
 
   const [mobileStep, setMobileStep] = useState(1);
   const [_prevStep, setPrevStep] = useState(1);
@@ -1065,7 +1056,7 @@ const NewServiceScreen: React.FC = () => {
               overflowY: "auto",
             }}
           >
-            {categorias.map((cat) => {
+            {(categorias ?? []).map((cat) => {
               const catStyle = getCategoryStyle(cat.nombre);
               const CatIcon = catStyle.icon;
               const isSelected = form.categoryId === cat.id_categoria;

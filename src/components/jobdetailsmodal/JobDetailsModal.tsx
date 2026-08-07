@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import type { JobDetails } from "../../types/job";
-import type { ProposalStatus } from "../../data/mockJobs";
+import type { ProposalStatus } from "../../types/myjobs";
 import type { PostStatus } from "../../data/mockPosts";
 import Avatar from "../avatar/Avatar";
 import { getCategoryStyle } from "../../utils/categoryStyle";
@@ -287,6 +287,7 @@ const JobDetailsModal: React.FC<Props> = ({
                 maxWidth: 960,
                 maxHeight: "90vh",
                 overflowY: "auto",
+                overflowX: "hidden",
                 background: isDark ? "#1e2d5e" : "#ffffff",
                 borderRadius: 16,
                 display: "flex",
@@ -307,6 +308,9 @@ const JobDetailsModal: React.FC<Props> = ({
                 grid-template-columns: 1fr 340px;
                 gap: 24px;
                 align-items: start;
+              }
+              .jdm-main-grid > * {
+                min-width: 0;
               }
               @media (max-width: 900px) {
                 .jdm-main-grid {
@@ -378,7 +382,7 @@ const JobDetailsModal: React.FC<Props> = ({
                   flexWrap: "wrap",
                 }}
               >
-                <div style={{ flex: 1, minWidth: 260 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <motion.h1
                     className="jdm-title"
                     initial={{ opacity: 0, y: 8 }}
@@ -389,6 +393,8 @@ const JobDetailsModal: React.FC<Props> = ({
                       fontSize: "clamp(1.3rem, 3vw, 1.7rem)",
                       fontWeight: 800,
                       color: "var(--text)",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
                     }}
                   >
                     {job.title}
@@ -599,8 +605,7 @@ const JobDetailsModal: React.FC<Props> = ({
                               style={{
                                 position: "absolute",
                                 left: 12,
-                                top: "50%",
-                                transform: "translateY(-50%)",
+                                top: "calc(50% - 17px)",
                                 width: 34,
                                 height: 34,
                                 borderRadius: "50%",
@@ -624,8 +629,7 @@ const JobDetailsModal: React.FC<Props> = ({
                               style={{
                                 position: "absolute",
                                 right: 12,
-                                top: "50%",
-                                transform: "translateY(-50%)",
+                                top: "calc(50% - 17px)",
                                 width: 34,
                                 height: 34,
                                 borderRadius: "50%",
@@ -745,6 +749,7 @@ const JobDetailsModal: React.FC<Props> = ({
                               color: "var(--text-secondary)",
                               lineHeight: 1.7,
                               whiteSpace: "pre-line",
+                              overflowWrap: "break-word",
                             }}
                           >
                             {job.description}

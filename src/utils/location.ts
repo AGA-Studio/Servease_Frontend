@@ -1,6 +1,29 @@
 
 
 const cache = new Map<string, string>();
+const inFlight = new Map<string, Promise<string>>();
+
+const MAX_CONCURRENT = 2;
+let activeCount = 0;
+const queue: (() => void)[] = [];
+
+function next(): void {
+  const task = queue.shift();
+  if (task) task();
+}
+
+async function runLimited<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeCount >= MAX_CONCURRENT) {
+    await new Promise<void>((resolve) => queue.push(resolve));
+  }
+  activeCount++;
+  try {
+    return await fn();
+  } finally {
+    activeCount--;
+    next();
+  }
+}
 
 export function roundCoord(value: number): number {
 
@@ -57,22 +80,32 @@ export async function getApproxLocation(
   const cached = cache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=16`,
-      { headers: { Accept: "application/json" } },
-    );
+  const existing = inFlight.get(cacheKey);
+  if (existing) return existing;
 
-    if (!response.ok) return "";
+  const promise = runLimited(async () => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=16`,
+        { headers: { Accept: "application/json" } },
+      );
 
-    const data = await response.json();
-    const result = addressToLabel(data?.address ?? {});
-    cache.set(cacheKey, result);
-    return result;
-  } catch (error) {
-    console.error("getApproxLocation failed:", error);
-    return "";
-  }
+      if (!response.ok) return "";
+
+      const data = await response.json();
+      const result = addressToLabel(data?.address ?? {});
+      cache.set(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error("getApproxLocation failed:", error);
+      return "";
+    }
+  }).finally(() => {
+    inFlight.delete(cacheKey);
+  });
+
+  inFlight.set(cacheKey, promise);
+  return promise;
 }
 
 export interface LocationSuggestion {

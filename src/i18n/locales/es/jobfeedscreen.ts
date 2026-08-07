@@ -34,10 +34,10 @@ export const jobfeedscreen = {
     detailsFailed: "No se pudo cargar el detalle de este trabajo. Intenta de nuevo más tarde.",
   },
   statuses: {
-    reviewing: "En Revisión",
-    completed: "Completado",
-    declined: "Rechazado",
-    closed: "Cerrado",
+    accepted: "Aceptado",
+    pending: "Pendiente",
+    rejected: "Rechazado",
+    counteroffer: "Contraoferta",
   },
   categories: {
     locksmith: "Cerrajería",

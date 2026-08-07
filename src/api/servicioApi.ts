@@ -113,6 +113,15 @@ export async function fetchAplicantes(
   return apiGet<Aplicante[]>(`/api/servicios/${idServicio}/aplicantes/`);
 }
 
+export async function cancelarPostulacion(
+  idPostulacion: number,
+): Promise<{ detail: string }> {
+  return apiPatch<{ detail: string }>(
+    `/api/servicios/postulaciones/${idPostulacion}/cancelar/`,
+    {},
+  );
+}
+
 export interface CrearOfertaPayload {
   id_postulacion: number | string;
   monto: number;
@@ -317,34 +326,106 @@ export interface ServicioListItem {
   categoria_nombre: string;
 }
 
+const CATALOG_TTL_MS = 30_000;
+
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+type CatalogCacheEntry = { data: PaginatedResponse<ServicioListItem>; at: number };
+
+const catalogCache = new Map<string, CatalogCacheEntry>();
+const catalogInFlight = new Map<string, Promise<PaginatedResponse<ServicioListItem>>>();
+
+const catalogKey = (filters?: {
+  categoriaId?: number;
+  estado?: string;
+  page?: number;
+  page_size?: number;
+}): string =>
+  `${filters?.categoriaId ?? "all"}|${filters?.estado ?? "all"}|${filters?.page ?? 1}|${filters?.page_size ?? 10}`;
+
+function normalizeCatalogResponse(
+  data: unknown,
+): PaginatedResponse<ServicioListItem> {
+  if (Array.isArray(data)) {
+    return {
+      count: data.length,
+      next: null,
+      previous: null,
+      results: data as ServicioListItem[],
+    };
+  }
+  const paginated = data as PaginatedResponse<ServicioListItem>;
+  return {
+    count: paginated.count ?? 0,
+    next: paginated.next ?? null,
+    previous: paginated.previous ?? null,
+    results: Array.isArray(paginated.results) ? paginated.results : [],
+  };
+}
+
 export async function fetchServiciosCatalog(filters?: {
   categoriaId?: number;
   estado?: string;
-}): Promise<ServicioListItem[]> {
+  page?: number;
+  page_size?: number;
+}): Promise<PaginatedResponse<ServicioListItem>> {
+  const key = catalogKey(filters);
+
+  const cached = catalogCache.get(key);
+  if (cached && Date.now() - cached.at < CATALOG_TTL_MS) {
+    return cached.data;
+  }
+
+  const existing = catalogInFlight.get(key);
+  if (existing) return existing;
+
   const params = new URLSearchParams();
   if (filters?.categoriaId) params.set("categoria_id", String(filters.categoriaId));
   const estado = filters?.estado;
   if (estado) params.set("estado", estado);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.page_size) params.set("page_size", String(filters.page_size));
 
   const url = (p: URLSearchParams) =>
     `/api/servicios/${p.toString() ? `?${p}` : ""}`;
 
-  try {
-    return await apiGet<ServicioListItem[]>(url(params));
-  } catch (err) {
-    if (estado && err instanceof ApiError && err.status === 400) {
-      params.delete("estado");
-      const items = await apiGet<ServicioListItem[]>(url(params));
-      return items.filter((item) => {
-        const raw = item as unknown as {
-          estado?: string;
-          estado_descripcion?: string;
-        };
-        return (raw.estado_descripcion ?? raw.estado) === estado;
-      });
+  const promise = (async () => {
+    try {
+      const raw = await apiGet<unknown>(url(params));
+      return normalizeCatalogResponse(raw);
+    } catch (err) {
+      if (estado && err instanceof ApiError && err.status === 400) {
+        params.delete("estado");
+        const raw = await apiGet<unknown>(url(params));
+        const paginated = normalizeCatalogResponse(raw);
+        paginated.results = paginated.results.filter((item) => {
+          const rawItem = item as unknown as {
+            estado?: string;
+            estado_descripcion?: string;
+          };
+          return (rawItem.estado_descripcion ?? rawItem.estado) === estado;
+        });
+        paginated.count = paginated.results.length;
+        return paginated;
+      }
+      throw err;
     }
-    throw err;
-  }
+  })();
+
+  promise.then((data) => {
+    catalogCache.set(key, { data, at: Date.now() });
+    catalogInFlight.delete(key);
+  }).catch(() => {
+    catalogInFlight.delete(key);
+  });
+
+  catalogInFlight.set(key, promise);
+  return promise;
 }
 
 export async function uploadServiceImage(

@@ -34,10 +34,10 @@ export const jobfeedscreen = {
     detailsFailed: "Couldn't load this job's details. Please try again later.",
   },
   statuses: {
-    reviewing: "Reviewing",
-    completed: "Completed",
-    declined: "Declined",
-    closed: "Closed",
+    accepted: "Accepted",
+    pending: "Pending",
+    rejected: "Rejected",
+    counteroffer: "Counteroffer",
   },
   categories: {
     locksmith: "Locksmith",

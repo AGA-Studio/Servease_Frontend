@@ -15,6 +15,8 @@ export const myjobsscreen = {
   proposalStatuses: {
     accepted: "Propuesta Aceptada",
     pending: "Propuesta Pendiente",
+    rejected: "Propuesta Rechazada",
+    counteroffer: "Contraoferta",
     completed: "Completado",
   },
   actions: {
@@ -42,16 +44,7 @@ export const myjobsscreen = {
   },
   errors: {
     fetchFailed: "No se pudieron cargar los trabajos. Por favor, inténtalo de nuevo.",
-  },
-  categories: {
-    locksmith: "Cerrajería",
-    plumbing: "Plomería",
-    electrical: "Electricidad",
-    cleaning: "Limpieza",
-    painting: "Pintura",
-    carpentry: "Carpintería",
-    moving: "Mudanzas",
-    gardening: "Jardinería",
-    other: "Otro",
+    detailsFailed: "No se pudieron cargar los detalles del trabajo. Por favor, inténtalo de nuevo.",
+    cancelFailed: "No se pudo cancelar la postulación. Por favor, inténtalo de nuevo.",
   },
 };

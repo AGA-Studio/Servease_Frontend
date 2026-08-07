@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, useInView } from "motion/react";
 import {
   Pencil,
@@ -6,7 +6,6 @@ import {
   BadgeCheck,
   Briefcase,
   DollarSign,
-  MessageCircle,
   Star,
   Camera,
   Check,
@@ -20,8 +19,10 @@ import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
 import { uploadProfilePhoto } from "../../api/userApi";
+import { fetchDashboardProveedor, type ProviderKpisResponse } from "../../api/providerApi";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
+import { friendlyErrorMessage } from "../../utils/apiError";
 import Avatar from "../../components/avatar/Avatar";
 import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
 
@@ -47,14 +48,6 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-
-const MOCK_STATS = {
-  completedJobs: 87,
-  totalEarnings: 42800,
-  responseRate: 98,
-  rating: 4.8,
-  reviews: 64,
-};
 
 interface PortfolioItem {
   id: string;
@@ -385,11 +378,50 @@ const ProviderProfileScreen: React.FC = () => {
   const { toasts, addToast, removeToast } = useToast();
 
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
-  const { areas, isLoading: isAreasLoading } = useWorkAreas();
+  const { areas, isLoading: isAreasLoading, update: updateAreas } = useWorkAreas();
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showEditAreasModal, setShowEditAreasModal] = useState(false);
   const [areasModalKey, setAreasModalKey] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSaveAreas = useCallback(
+    async (categoriaIds: number[]) => {
+      try {
+        await updateAreas(categoriaIds);
+        addToast("success", p.workAreas.updateSuccess);
+      } catch (error) {
+        addToast("error", friendlyErrorMessage(error, p.workAreas.updateFailed));
+        throw error;
+      }
+    },
+    [updateAreas, addToast, p],
+  );
+
+  const [kpis, setKpis] = useState<ProviderKpisResponse | null>(null);
+  const [isKpisLoading, setIsKpisLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.id) return;
+    fetchDashboardProveedor(user.id)
+      .then((res) => {
+        if (!cancelled) setKpis(res);
+      })
+      .catch(() => {
+        if (!cancelled) setKpis(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsKpisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const completedJobs = isKpisLoading ? null : (kpis?.completedJobs ?? 0);
+  const totalEarnings = isKpisLoading ? null : (kpis?.earnings ?? 0);
+  const rating = isKpisLoading ? null : (kpis?.rating ?? 0);
+  const reviews = isKpisLoading ? null : (kpis?.reviews ?? 0);
 
   const handleAvailabilityChange = async (next: boolean) => {
     try {
@@ -704,21 +736,21 @@ const ProviderProfileScreen: React.FC = () => {
                 }}
               >
                 <span style={{ color: "#FFB200", fontWeight: 700 }}>
-                  {MOCK_STATS.rating.toFixed(1)}
+                  {rating === null ? "—" : rating.toFixed(1)}
                 </span>
                 <div style={{ display: "flex", gap: 2 }}>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
                       key={i}
                       size={13}
-                      fill={i < Math.round(MOCK_STATS.rating) ? "#FFB200" : "none"}
+                      fill={i < Math.round(rating ?? 0) ? "#FFB200" : "none"}
                       color={
-                        i < Math.round(MOCK_STATS.rating) ? "#FFB200" : "#d6dbe2"
+                        i < Math.round(rating ?? 0) ? "#FFB200" : "#d6dbe2"
                       }
                     />
                   ))}
                 </div>
-                <span>({MOCK_STATS.reviews} {p.reviews.viewAll})</span>
+                <span>({reviews === null ? "—" : reviews} {p.reviews.viewAll})</span>
               </div>
             </div>
           </motion.div>
@@ -745,7 +777,7 @@ const ProviderProfileScreen: React.FC = () => {
                   color: "var(--text)",
                 }}
               >
-                {MOCK_STATS.completedJobs}
+                {completedJobs === null ? "—" : completedJobs}
               </div>
             </StatCard>
 
@@ -762,31 +794,14 @@ const ProviderProfileScreen: React.FC = () => {
                   color: "var(--text)",
                 }}
               >
-                {formatMoney(MOCK_STATS.totalEarnings)}
-              </div>
-            </StatCard>
-
-            <StatCard
-              icon={<MessageCircle size={15} />}
-              label={p.stats.responseRate}
-              index={2}
-              isDark={isDark}
-            >
-              <div
-                style={{
-                  fontSize: "1.9rem",
-                  fontWeight: 800,
-                  color: "var(--text)",
-                }}
-              >
-                {MOCK_STATS.responseRate}%
+                {totalEarnings === null ? "—" : formatMoney(totalEarnings)}
               </div>
             </StatCard>
 
             <StatCard
               icon={<Star size={15} />}
               label={p.stats.overallRating}
-              index={3}
+              index={2}
               isDark={isDark}
               action={<TextButton>{p.stats.seeAll} →</TextButton>}
             >
@@ -800,7 +815,7 @@ const ProviderProfileScreen: React.FC = () => {
                     color: "var(--text)",
                   }}
                 >
-                  {MOCK_STATS.rating.toFixed(1)}
+                  {rating === null ? "—" : rating.toFixed(1)}
                 </span>
                 <div style={{ display: "flex", gap: 2 }}>
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -817,9 +832,9 @@ const ProviderProfileScreen: React.FC = () => {
                     >
                       <Star
                         size={16}
-                        fill={i < Math.round(MOCK_STATS.rating) ? "#FFB200" : "none"}
+                        fill={i < Math.round(rating ?? 0) ? "#FFB200" : "none"}
                         color={
-                          i < Math.round(MOCK_STATS.rating) ? "#FFB200" : "#d6dbe2"
+                          i < Math.round(rating ?? 0) ? "#FFB200" : "#d6dbe2"
                         }
                       />
                     </motion.span>
@@ -1214,6 +1229,7 @@ const ProviderProfileScreen: React.FC = () => {
         key={areasModalKey}
         isOpen={showEditAreasModal}
         onClose={() => setShowEditAreasModal(false)}
+        onSave={handleSaveAreas}
       />
     </div>
   );

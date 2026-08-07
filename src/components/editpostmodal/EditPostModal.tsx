@@ -1,12 +1,13 @@
 
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import CustomizableModal from "../modal/CustomizableModal";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
+import { useCookieCached } from "../../hooks/useCookieCached";
 import {
   editServicio,
   type PostDetails,
@@ -56,23 +57,28 @@ const EditPostModal: React.FC<Props> = ({
     post ? String(Number(post.precio_inicial)) : "",
   );
   const [categoriaId, setCategoriaId] = useState<number | null>(null);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [categoriasError, setCategoriasError] = useState(false);
+  const {
+    data: categorias = [],
+    error: categoriasErr,
+  } = useCookieCached<Categoria[]>({
+    key: "pv-categorias",
+    fetcher: fetchCategorias,
+    maxAgeSecs: 86400,
+    enabled: isOpen && !!post,
+  });
+  const categoriasError = !!categoriasErr;
+  const cats = useMemo(() => categorias ?? [], [categorias]);
+
+  useEffect(() => {
+    if (!post || cats.length === 0) return;
+    const match = cats.find((c) => c.nombre === post.categoria);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCategoriaId(match?.id_categoria ?? null);
+  }, [post, cats]);
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen || !post) return;
-
-    fetchCategorias()
-      .then((list) => {
-        setCategorias(list);
-        const match = list.find((c) => c.nombre === post.categoria);
-        setCategoriaId(match?.id_categoria ?? null);
-      })
-      .catch(() => setCategoriasError(true));
-  }, [isOpen, post]);
 
   if (!post) return null;
 
@@ -301,7 +307,7 @@ const EditPostModal: React.FC<Props> = ({
                       <option value="" disabled>
                         {mp.editModal.categoryLabel}
                       </option>
-                      {categorias.map((c) => (
+                      {cats.map((c) => (
                         <option key={c.id_categoria} value={c.id_categoria}>
                           {c.nombre}
                         </option>

@@ -22,6 +22,8 @@ export interface DashboardJob {
   id: string;
   title: string;
   location: string;
+  latitud?: string | number;
+  longitud?: string | number;
   postedAgo: string;
   description: string;
   budget: string;
@@ -37,6 +39,19 @@ export interface DashboardJob {
   client: JobClient;
 }
 
+export type KpiPeriodKey = "total" | "month" | "week";
+
+export interface KpiPeriodOption {
+  key: KpiPeriodKey;
+  label: string;
+  value: number;
+  trend?: {
+    value: number;
+    label: string;
+    isPositive: boolean;
+  };
+}
+
 export interface KpiData {
   key: string;
   label: string;
@@ -49,6 +64,7 @@ export interface KpiData {
     label: string;
     isPositive: boolean;
   };
+  periodOptions?: KpiPeriodOption[];
 }
 
 export interface EarningsPoint {
