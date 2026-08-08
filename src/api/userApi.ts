@@ -116,6 +116,12 @@ export async function fetchAreasTrabajo(): Promise<AreaTrabajo[]> {
   return apiGet<AreaTrabajo[]>("/api/usuarios/areas-trabajo/");
 }
 
+export async function fetchCategoriasProveedor(
+  userId: string,
+): Promise<AreaTrabajo[]> {
+  return apiGet<AreaTrabajo[]>(`/api/usuarios/${userId}/categorias/`);
+}
+
 export async function updateAreasTrabajo(
   categorias: number[],
 ): Promise<AreaTrabajo[]> {
@@ -136,6 +142,25 @@ export async function fetchPerfilCliente(
   userId: string,
 ): Promise<PerfilCliente> {
   return apiGet<PerfilCliente>(`/api/usuarios/${userId}/perfil-cliente/`);
+}
+
+export interface PerfilProveedor {
+  id_usuario: string;
+  nombre: string;
+  url_foto_perfil: string | null;
+  fecha_registro: string;
+  rating: number | null;
+  num_reviews: number;
+  trabajos_completados: number;
+  descripcion_perfil?: string | null;
+  descripcion?: string | null;
+  bio?: string | null;
+}
+
+export async function fetchPerfilProveedor(
+  userId: string,
+): Promise<PerfilProveedor> {
+  return apiGet<PerfilProveedor>(`/api/usuarios/${userId}/perfil-proveedor/`);
 }
 
 export interface ReviewCliente {
@@ -211,6 +236,71 @@ export async function fetchMisPublicaciones(
   qs.set("page_size", String(params.pageSize ?? 50));
   return apiGet<MisPublicacionesResponse>(
     `/api/usuarios/${userId}/mis-publicaciones/?${qs.toString()}`,
+  );
+}
+
+export interface TrabajoAplicado {
+  id_postulacion: number;
+  id_servicio: number;
+  titulo: string;
+  estado: string;
+  categoria: string;
+  fecha_publicacion: string;
+  tiempo_transcurrido: string;
+  precio_final: string;
+  foto: string | null;
+}
+
+export interface TrabajoDisponible {
+  id_servicio: number;
+  titulo: string;
+  descripcion: string;
+  categoria: string;
+  categoria_id: number;
+  latitud_aprox: string;
+  longitud_aprox: string;
+  fecha: string;
+  tiempo_transcurrido: string;
+  precio_inicial: string;
+  moneda: string | null;
+  estado_id: number;
+  num_postulantes: number;
+  foto: string | null;
+}
+
+export interface TrabajosDisponiblesResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: TrabajoDisponible[];
+}
+
+export async function fetchTrabajosDisponibles(params: {
+  page?: number;
+  pageSize?: number;
+  categoriaId?: number;
+} = {}): Promise<TrabajosDisponiblesResponse> {
+  const qs = new URLSearchParams();
+  qs.set("page", String(params.page ?? 1));
+  qs.set("page_size", String(params.pageSize ?? 10));
+  if (params.categoriaId !== undefined) {
+    qs.set("categoria_id", String(params.categoriaId));
+  }
+  return apiGet<TrabajosDisponiblesResponse>(
+    `/api/usuarios/trabajos-disponibles/?${qs.toString()}`,
+  );
+}
+
+export async function fetchTrabajosAplicados(filters?: {
+  estadoId?: number;
+  categoriaId?: number;
+}): Promise<TrabajoAplicado[]> {
+  const qs = new URLSearchParams();
+  if (filters?.estadoId !== undefined) qs.set("estado_id", String(filters.estadoId));
+  if (filters?.categoriaId !== undefined) qs.set("categoria_id", String(filters.categoriaId));
+  const suffix = qs.toString();
+  return apiGet<TrabajoAplicado[]>(
+    `/api/usuarios/trabajos-aplicados/${suffix ? `?${suffix}` : ""}`,
   );
 }
 

@@ -1,47 +1,24 @@
 
-
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bell, CheckCheck, BellOff, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bell, CheckCheck, BellOff, ChevronRight, X } from "lucide-react";
 import { useI18n } from "../../../i18n";
 import IconTooltip from "../../tooltip/IconTooltip";
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  timeAgo: string;
-  read: boolean;
-  dotColor: string;
-}
-
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "1",
-    title: "New counteroffer",
-    message:
-      "Mike S. submitted a counteroffer for 'Emergency Plumber'. Price: $450",
-    timeAgo: "10 min ago",
-    read: false,
-    dotColor: "#2EBCCC",
-  },
-  {
-    id: "2",
-    title: "Service completed",
-    message: "'Urgent Locksmith' service was successfully completed.",
-    timeAgo: "2 hours ago",
-    read: false,
-    dotColor: "#4AA825",
-  },
-  {
-    id: "3",
-    title: "New message",
-    message: "Sara J. sent you a message about 'Children's Party'.",
-    timeAgo: "Yesterday",
-    read: true,
-    dotColor: "#FFB200",
-  },
-];
+import { useAuth } from "../../../context/AuthContext";
+import {
+  fetchNotificaciones,
+  marcarNotificacionLeida,
+  marcarTodasNotificacionesLeidas,
+  type Notificacion,
+} from "../../../api/notificacionApi";
+import {
+  toNotificationItem,
+  resolveNotificationPath,
+  type NotificationItem,
+} from "../../../utils/notifications";
+import { ROUTES } from "../../../router/routes";
+import { useRealtimeChannel } from "../../../hooks/useRealtimeChannel";
 
 interface Colors {
   cardBg: string;
@@ -57,17 +34,20 @@ const NotificationRow = ({
   isLast,
   isDark,
   c,
+  onClick,
 }: {
   notif: NotificationItem;
   isLast: boolean;
   isDark: boolean;
   c: Colors;
+  onClick: () => void;
 }) => {
   const [hovered, setHovered] = useState(false);
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
       style={{
         display: "flex",
         alignItems: "flex-start",
@@ -157,24 +137,53 @@ interface Props {
 const TRANSITION_MS = 210;
 
 const NotificationsPopover = ({ isDark }: Props) => {
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimatedIn, setIsAnimatedIn] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
+  const [viewAllHovered, setViewAllHovered] = useState(false);
   const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 500 : false,
   );
-  const [viewAllHovered, setViewAllHovered] = useState(false);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const { t } = useI18n();
   const h = t("homescreen");
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchNotificaciones()
+      .then((data) => {
+        if (!cancelled) setNotifications(data.map(toNotificationItem));
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("fetchNotificaciones failed:", error);
+        setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useRealtimeChannel<Notificacion>({
+    table: "notificacion",
+    event: "INSERT",
+    filter: user ? `id_usuario=eq.${user.id}` : undefined,
+    enabled: !!user,
+    onChange: (payload) => {
+      const nueva = toNotificationItem(payload.new as Notificacion);
+      setNotifications((prev) => [nueva, ...prev]);
+    },
+  });
 
   const c: Colors = {
     cardBg: isDark ? "#1e2d5e" : "#ffffff",
@@ -238,11 +247,36 @@ const NotificationsPopover = ({ isDark }: Props) => {
     };
   }, [isOpen, close, updatePosition]);
 
-  const markAllRead = () =>
+  const markAllRead = () => {
+    const previous = notifications;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    marcarTodasNotificacionesLeidas().catch((error) => {
+      console.error("marcarTodasNotificacionesLeidas failed:", error);
+      setNotifications(previous);
+    });
+  };
+
+  const markRead = (id: number) => {
+    const previous = notifications;
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+    marcarNotificacionLeida(id).catch((error) => {
+      console.error("marcarNotificacionLeida failed:", error);
+      setNotifications(previous);
+    });
+  };
+
+  const handleNotificationClick = (notif: NotificationItem) => {
+    if (!notif.read) markRead(notif.id);
+    close();
+    navigate(resolveNotificationPath(notif, user?.role));
+  };
 
   return (
     <>
+      <style>{`@keyframes notif-spin { to { transform: rotate(360deg); } }`}</style>
+
       <IconTooltip
         label={h.tooltips.notifications}
         isDark={isDark}
@@ -306,7 +340,7 @@ const NotificationsPopover = ({ isDark }: Props) => {
               right: panelPos.right,
               left: isMobile ? 8 : "auto",
               zIndex: 9999,
-              width: isMobile ? "calc(100vw - 16px)" : 380,
+              width: isMobile ? "calc(100vw - 16px)" : 420,
               background: c.cardBg,
               borderRadius: 16,
               border: `1px solid ${c.divider}`,
@@ -331,7 +365,7 @@ const NotificationsPopover = ({ isDark }: Props) => {
                 gap: 8,
                 padding: "16px 20px",
                 borderBottom: `1px solid ${c.divider}`,
-                flexWrap: "nowrap",
+                flexShrink: 0,
               }}
             >
               <div
@@ -371,40 +405,82 @@ const NotificationsPopover = ({ isDark }: Props) => {
                 </span>
               </div>
 
-              <button
-                onClick={markAllRead}
+              <div
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "#2EBCCC",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  gap: 4,
-                  fontFamily: "inherit",
-                  padding: "5px 8px",
-                  borderRadius: 8,
-                  opacity: unreadCount > 0 ? 1 : 0,
-                  pointerEvents: unreadCount > 0 ? "auto" : "none",
-                  transition: "opacity 0.2s, background 0.2s",
-                  whiteSpace: "nowrap",
+                  gap: 8,
                   flexShrink: 0,
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(46,188,204,0.12)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "none")
-                }
               >
-                <CheckCheck size={13} style={{ flexShrink: 0 }} />
-                {h.notifications.markAllRead}
-              </button>
+                <button
+                  onClick={markAllRead}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#2EBCCC",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: unreadCount > 0 ? "flex" : "none",
+                    alignItems: "center",
+                    gap: 4,
+                    fontFamily: "inherit",
+                    padding: "5px 8px",
+                    borderRadius: 8,
+                    transition: "background 0.2s",
+                    whiteSpace: "nowrap",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(46,188,204,0.12)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "none")
+                  }
+                >
+                  <CheckCheck size={13} />
+                  {h.notifications.markAllRead}
+                </button>
+
+                <button
+                  onClick={close}
+                  aria-label="close"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: c.secondary,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 6,
+                    borderRadius: 8,
+                    fontFamily: "inherit",
+                    transition: "color 0.2s, background 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#2EBCCC";
+                    e.currentTarget.style.background = isDark
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(0,0,0,0.04)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = c.secondary;
+                    e.currentTarget.style.background = "none";
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+            <div
+              style={{
+                maxHeight: isMobile ? "55vh" : 420,
+                overflowY: "auto",
+              }}
+            >
               {notifications.length === 0 ? (
                 <div
                   style={{
@@ -423,7 +499,7 @@ const NotificationsPopover = ({ isDark }: Props) => {
                     color={c.secondary}
                     style={{ opacity: 0.45 }}
                   />
-                  {h.notifications.empty}
+                  {loadError ? h.notifications.loadFailed : h.notifications.empty}
                 </div>
               ) : (
                 notifications.map((notif, i) => (
@@ -433,6 +509,7 @@ const NotificationsPopover = ({ isDark }: Props) => {
                     isLast={i === notifications.length - 1}
                     isDark={isDark}
                     c={c}
+                    onClick={() => handleNotificationClick(notif)}
                   />
                 ))
               )}
@@ -445,6 +522,10 @@ const NotificationsPopover = ({ isDark }: Props) => {
               }}
             >
               <button
+                onClick={() => {
+                  close();
+                  navigate(ROUTES.APP.NOTIFICATIONS);
+                }}
                 onMouseEnter={() => setViewAllHovered(true)}
                 onMouseLeave={() => setViewAllHovered(false)}
                 style={{

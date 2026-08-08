@@ -10,6 +10,8 @@ import {
 import type { EarningsPoint } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { useCurrency } from "../../../../context/CurrencyContext";
+import EmptyState from "../../../../components/emptystate/EmptyState";
+import { BarChart3 } from "lucide-react";
 
 interface EarningsChartProps {
   data: EarningsPoint[] | undefined;
@@ -56,6 +58,14 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
         </span>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
+        {!data || data.length === 0 ? (
+          <EmptyState
+            icon={<BarChart3 size={22} color="#2EBCCC" />}
+            isDark={isDark}
+            title={d.empty.categories.title}
+            subtitle={d.empty.categories.description}
+          />
+        ) : (
         <ResponsiveContainer width="100%" height="100%" minHeight={200}>
           <AreaChart
             data={data}
@@ -74,8 +84,10 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
               tickLine={false}
               tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
               tickFormatter={(month) => {
-                const key = month.toLowerCase() as keyof typeof d.months;
-                return d.months?.[key] ?? month;
+                const key = month as keyof typeof d.charts.earnings.categories;
+                return d.charts.earnings.categories?.[key]
+                  ?? (d.months?.[month.toLowerCase() as keyof typeof d.months]
+                  ?? month);
               }}
               dy={10}
             />
@@ -115,6 +127,7 @@ export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
             />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

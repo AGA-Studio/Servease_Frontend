@@ -1,6 +1,7 @@
 
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Clock,
@@ -16,7 +17,7 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import FilterSelect from "../../components/filterselect/FilterSelect";
 import type { ThemeMode } from "../../theme/theme";
-import type { JobDetails, JobClient } from "../../types/job";
+import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import EmptyState from "../../components/emptystate/EmptyState";
 import RatingModal, { type RatingData } from "../../components/ratingmodal/RatingModal";
@@ -24,23 +25,28 @@ import CompleteServiceModal from "../../components/completeservicemodal/Complete
 import PaymentWaitingModal, {
   type PaymentWaitStatus,
 } from "../../components/completeservicemodal/PaymentWaitingModal";
-import { timeAgo } from "../../utils/servicio";
+import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
+import { getApproxLocation } from "../../utils/location";
 import { friendlyErrorMessage } from "../../utils/apiError";
 import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
 import {
   cancelarPago,
   cancelPostulacion,
   completarServicio,
-  fetchMisTrabajos,
   fetchPagoEnCursoProveedor,
   fetchPagoEstado,
   fetchPostDetails,
   iniciarPago,
-  type MiTrabajo,
   type PagoEstado,
 } from "../../api/servicioApi";
+import { fetchTrabajosAplicados, type TrabajoAplicado } from "../../api/userApi";
 
-type ProposalStatus = "accepted" | "pending" | "completed";
+type ProposalStatus =
+  | "accepted"
+  | "pending"
+  | "rejected"
+  | "counteroffer"
+  | "completed";
 type PaymentMethod = "efectivo" | "tarjeta";
 
 interface DisplayJob {
@@ -56,25 +62,30 @@ interface DisplayJob {
   imageUrl?: string;
 }
 
-function mapTrabajoToDisplay(job: MiTrabajo): DisplayJob {
+function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
+  const estado = job.estado.trim().toLowerCase();
   const proposalStatus: ProposalStatus =
-    job.servicio_estado === "completado"
-      ? "completed"
-      : job.estado === "aceptada"
-        ? "accepted"
-        : "pending";
+    estado === "aceptado" || estado === "aceptada"
+      ? "accepted"
+      : estado === "rechazada" || estado === "rechazado"
+        ? "rejected"
+        : estado === "contraoferta"
+          ? "counteroffer"
+          : estado === "completado"
+            ? "completed"
+            : "pending";
 
   return {
     id: String(job.id_postulacion),
     idServicio: job.id_servicio,
     idPostulacion: job.id_postulacion,
     title: job.titulo,
-    category: job.categoria_nombre,
+    category: job.categoria,
     proposalStatus,
-    postedAgo: timeAgo(job.fecha),
-    budget: Number(job.precio_acordado),
-    currency: job.moneda,
-    imageUrl: job.imagenes[0],
+    postedAgo: timeAgo(job.fecha_publicacion),
+    budget: Number(job.precio_final),
+    currency: "MXN",
+    imageUrl: job.foto ?? undefined,
   };
 }
 
@@ -103,32 +114,6 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 const PAGE_SIZE = 8;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
-const FALLBACK_CLIENT: JobClient = {
-  name: "",
-  avatar: "",
-  rating: 0,
-  reviewCount: 0,
-  memberSince: "",
-  jobsPosted: 0,
-};
-
-const mapDisplayJobToDetails = (job: DisplayJob): JobDetails => ({
-  id: job.id,
-  title: job.title,
-  category: job.category,
-  location: "Tijuana, Mexico",
-  when: "",
-  urgency: "",
-  postedAgo: job.postedAgo,
-  price: job.budget,
-  priceRange: `$${job.budget.toLocaleString()} ${job.currency}`,
-  description: job.title,
-  mainImage: job.imageUrl ?? "",
-  thumbnails: job.imageUrl ? [job.imageUrl] : [],
-  client: FALLBACK_CLIENT,
-  proposalCount: 0,
-});
-
 const ProposalBadge = ({
   status,
   isDark,
@@ -149,6 +134,16 @@ const ProposalBadge = ({
         label: d.proposalStatuses.pending,
         bg: isDark ? "rgba(255,178,0,0.18)" : "rgba(255,178,0,0.12)",
         color: "#FFB200",
+      },
+      rejected: {
+        label: d.proposalStatuses.rejected,
+        bg: isDark ? "rgba(239,68,68,0.18)" : "rgba(239,68,68,0.12)",
+        color: "#EF4444",
+      },
+      counteroffer: {
+        label: d.proposalStatuses.counteroffer,
+        bg: isDark ? "rgba(168,85,247,0.18)" : "rgba(168,85,247,0.12)",
+        color: "#A855F7",
       },
       completed: {
         label: d.proposalStatuses.completed,
@@ -241,12 +236,14 @@ const AnimatedJobCard = ({
   job,
   index,
   isDark,
+  isLoadingDetails,
   onViewDetails,
   onMarkCompleted,
 }: {
   job: DisplayJob;
   index: number;
   isDark: boolean;
+  isLoadingDetails: boolean;
   onViewDetails: (job: DisplayJob) => void;
   onMarkCompleted: (job: DisplayJob) => void;
 }) => {
@@ -390,6 +387,7 @@ const AnimatedJobCard = ({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onViewDetails(job)}
+            disabled={isLoadingDetails}
             style={{
               flex: 1,
               padding: "10px 0",
@@ -399,7 +397,8 @@ const AnimatedJobCard = ({
               color: "var(--text)",
               fontWeight: 700,
               fontSize: "0.875rem",
-              cursor: "pointer",
+              cursor: isLoadingDetails ? "default" : "pointer",
+              opacity: isLoadingDetails ? 0.6 : 1,
               fontFamily: "inherit",
               letterSpacing: "0.01em",
               transition: "border-color 160ms ease-out, color 160ms ease-out",
@@ -416,6 +415,22 @@ const AnimatedJobCard = ({
             }}
           >
             {d.actions.viewDetails}
+            {isLoadingDetails && (
+              <motion.span
+                animate={{ rotate: 360 }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+                style={{
+                  width: 13,
+                  height: 13,
+                  marginLeft: 6,
+                  borderRadius: "50%",
+                  border: "2px solid currentColor",
+                  borderTopColor: "transparent",
+                  display: "inline-block",
+                  verticalAlign: "middle",
+                }}
+              />
+            )}
           </motion.button>
 
           {job.proposalStatus === "accepted" && (
@@ -564,12 +579,16 @@ const MyJobsScreen: React.FC = () => {
   const d = t("myjobsscreen");
   const { toasts, addToast, removeToast } = useToast();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [selectedJob, setSelectedJob] = useState<DisplayJob | null>(null);
+  const [selectedJobDetails, setSelectedJobDetails] = useState<JobDetails | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -595,14 +614,14 @@ const MyJobsScreen: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    fetchMisTrabajos()
+    fetchTrabajosAplicados()
       .then((data) => {
         if (cancelled) return;
-        setJobs(data.map(mapTrabajoToDisplay));
+        setJobs(data.map(mapTrabajoAplicadoToDisplay));
       })
       .catch((error) => {
         if (cancelled) return;
-        console.error("fetchMisTrabajos failed:", error);
+        console.error("fetchTrabajosAplicados failed:", error);
         addToast("error", friendlyErrorMessage(error, d.errors.fetchFailed));
       })
       .finally(() => {
@@ -693,10 +712,43 @@ const MyJobsScreen: React.FC = () => {
     [totalPages, safePage]
   );
 
-  const handleViewDetails = useCallback((job: DisplayJob) => {
-    setSelectedJob(job);
-    setIsDetailsOpen(true);
-  }, []);
+  const handleViewDetails = useCallback(
+    async (job: DisplayJob) => {
+      setSelectedJob(job);
+      setSelectedJobDetails(null);
+      setIsDetailsLoading(true);
+      setIsDetailsOpen(true);
+      try {
+        const details = await fetchPostDetails(job.idServicio);
+        const location = await getApproxLocation(
+          details.latitud,
+          details.longitud,
+        );
+        setSelectedJobDetails(mapPostDetailsToJobDetails(details, location));
+      } catch (error) {
+        console.error("fetchPostDetails failed:", error);
+        addToast("error", friendlyErrorMessage(error, d.errors.detailsFailed));
+        setIsDetailsOpen(false);
+      } finally {
+        setIsDetailsLoading(false);
+      }
+    },
+    [addToast, d],
+  );
+
+  // Deep-link from a notification: /app/my-jobs?serviceId=X auto-opens that job's detail.
+  useEffect(() => {
+    const serviceId = searchParams.get("serviceId");
+    if (!serviceId || jobs.length === 0) return;
+    const job = jobs.find((j) => j.idServicio === Number(serviceId));
+    if (job) handleViewDetails(job);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("serviceId");
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, searchParams]);
 
   const handleCancelProposal = useCallback(
     async (job: DisplayJob) => {
@@ -885,6 +937,8 @@ const MyJobsScreen: React.FC = () => {
     { value: "all", label: d.filters.allStatuses },
     { value: "accepted", label: d.proposalStatuses.accepted },
     { value: "pending", label: d.proposalStatuses.pending },
+    { value: "rejected", label: d.proposalStatuses.rejected },
+    { value: "counteroffer", label: d.proposalStatuses.counteroffer },
     { value: "completed", label: d.proposalStatuses.completed },
   ];
 
@@ -1231,6 +1285,7 @@ const MyJobsScreen: React.FC = () => {
                     job={job}
                     index={i}
                     isDark={isDark}
+                    isLoadingDetails={isDetailsLoading && selectedJob?.id === job.id}
                     onViewDetails={handleViewDetails}
                     onMarkCompleted={handleMarkCompletedClick}
                   />
@@ -1262,8 +1317,11 @@ const MyJobsScreen: React.FC = () => {
 
       <JobDetailsModal
         isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        job={selectedJob ? mapDisplayJobToDetails(selectedJob) : null}
+        onClose={() => {
+          setIsDetailsOpen(false);
+          setSelectedJobDetails(null);
+        }}
+        job={selectedJobDetails}
         proposalStatus={
           selectedJob?.proposalStatus === "completed" ? undefined : selectedJob?.proposalStatus
         }

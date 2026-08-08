@@ -9,6 +9,7 @@ export const homescreen = {
   myActivePost: "My Active Posts",
   viewAll: "View All",
   recentActivity: "Recent Activity",
+  loadOlder: "Load older activity",
   searchPlaceholder:
     "Find a provider or service (e.g. Plumber, Electrician, Cleaning...)",
   serviceCard: {
@@ -28,6 +29,7 @@ export const homescreen = {
     markAllRead: "Mark all as read",
     viewAll: "View all notifications",
     empty: "No new notifications",
+    loadFailed: "Couldn't load notifications.",
   },
   tooltips: {
     notifications: "Notifications",

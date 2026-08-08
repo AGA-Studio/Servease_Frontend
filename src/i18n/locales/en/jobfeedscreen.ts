@@ -29,15 +29,17 @@ export const jobfeedscreen = {
   noAreasSubtitle: "Add your categories in your profile to see relevant jobs.",
   noAppliedJobs: "You haven't applied to any jobs yet.",
   actionUnavailable: "Applying to services isn't available yet.",
+  applySuccess: "Your application was submitted successfully.",
+  applyFailed: "Could not submit your application. Please try again later.",
   errors: {
     fetchFailed: "Couldn't load available jobs. Please try again later.",
     detailsFailed: "Couldn't load this job's details. Please try again later.",
   },
   statuses: {
-    reviewing: "Reviewing",
-    completed: "Completed",
-    declined: "Declined",
-    closed: "Closed",
+    accepted: "Accepted",
+    pending: "Pending",
+    rejected: "Rejected",
+    counteroffer: "Counteroffer",
   },
   categories: {
     locksmith: "Locksmith",

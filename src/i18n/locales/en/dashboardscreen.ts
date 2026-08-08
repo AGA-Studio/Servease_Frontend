@@ -7,6 +7,11 @@ export const dashboardscreen = {
     completedJobs: "Completed",
     earnings: "Earnings",
     averageRating: "Rating",
+    earningsPeriods: {
+      total: "Total",
+      month: "Monthly",
+      week: "Weekly",
+    },
   },
   availableJobs: "Available Jobs",
   viewAll: "View All",
@@ -36,6 +41,12 @@ export const dashboardscreen = {
     earnings: {
       title: "Earnings Overview",
       tooltipLabel: "Earnings",
+      categories: {
+        thisWeek: "This Week",
+        thisMonth: "This Month",
+        pending: "Pending",
+        projected: "Projected",
+      },
     },
     categories: {
       title: "Jobs by Category",
@@ -73,6 +84,8 @@ export const dashboardscreen = {
     tomorrow: "Tomorrow",
     thisWeek: "This week",
   },
+  applySuccess: "Your application was submitted successfully.",
+  applyFailed: "Could not submit your application. Please try again later.",
   empty: {
     jobs: {
       title: "No jobs available",

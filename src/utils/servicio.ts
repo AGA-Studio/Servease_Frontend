@@ -47,6 +47,7 @@ export function mapPostDetailsToJobDetails(
     mainImage: details.imagenes[0] ?? "",
     thumbnails: details.imagenes,
     client: {
+      id: details.cliente_id,
       name: details.nombre_cliente,
       avatar: details.url_foto_perfil ?? "",
       rating: details.rating_cliente,
@@ -59,5 +60,14 @@ export function mapPostDetailsToJobDetails(
         : "",
       jobsPosted: details.total_publicaciones_cliente,
     },
+    provider: details.proveedor_asignado
+      ? {
+          id: details.proveedor_asignado.id_usuario,
+          name: details.proveedor_asignado.nombre,
+          avatar: details.proveedor_asignado.url_foto_perfil ?? "",
+          rating: details.proveedor_asignado.rating,
+          reviewCount: details.proveedor_asignado.num_reviews,
+        }
+      : null,
   };
 }

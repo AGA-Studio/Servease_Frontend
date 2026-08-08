@@ -63,14 +63,21 @@ const ToastContainer: React.FC<ToastContainerProps> = ({
               transition: { duration: 0.18, ease: EASE_IN },
             }}
             transition={{ duration: 0.3, ease: EASE_OUT }}
+            onClick={() => {
+              toast.onClick?.();
+              onRemove(toast.id);
+            }}
             style={{
               pointerEvents: "auto",
+              position: "relative",
               display: "flex",
               alignItems: "center",
               gap: 10,
               maxWidth: 420,
-              padding: "8px 16px 8px 8px",
+              padding: "8px 16px 10px 8px",
               borderRadius: 999,
+              overflow: "hidden",
+              cursor: toast.onClick ? "pointer" : "default",
               background: isDark ? "#1e2d5e" : "#ffffff",
               border: `1.5px solid ${isDark ? "rgba(46,188,204,0.45)" : "rgba(46,188,204,0.35)"}`,
               boxShadow: isDark
@@ -107,7 +114,10 @@ const ToastContainer: React.FC<ToastContainerProps> = ({
             </p>
             <motion.button
               className="st-close-btn"
-              onClick={() => onRemove(toast.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(toast.id);
+              }}
               whileTap={{ scale: 0.88 }}
               style={{
                 background: "none",
@@ -122,6 +132,21 @@ const ToastContainer: React.FC<ToastContainerProps> = ({
             >
               <X size={14} />
             </motion.button>
+
+            <motion.div
+              key={`${toast.id}-bar`}
+              initial={{ width: "100%" }}
+              animate={{ width: "0%" }}
+              transition={{ duration: toast.duration / 1000, ease: "linear" }}
+              style={{
+                position: "absolute",
+                left: 0,
+                bottom: 0,
+                height: 3,
+                background: "#2EBCCC",
+                opacity: 0.55,
+              }}
+            />
           </motion.div>
         ))}
       </AnimatePresence>

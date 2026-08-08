@@ -11,6 +11,7 @@ export const postdetailsscreen = {
   today: "Hoy",
   asap: "Lo antes posible",
   aboutClient: "Sobre el Cliente",
+  aboutProvider: "Sobre el Proveedor",
   memberSince: "Miembro Desde",
   jobsPosted: "Trabajos Publicados",
   viewProfile: "Ver Perfil",

@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 
 type ChangeEvent = "INSERT" | "UPDATE" | "DELETE" | "*";
 
-interface UseRealtimeChannelParams<T extends Record<string, unknown>> {
+interface UseRealtimeChannelParams<T extends object> {
   table: string;
   event?: ChangeEvent;
   /** Postgres realtime filter, e.g. "servicio_id=eq.7". Omit to receive all rows. */
@@ -17,7 +17,7 @@ interface UseRealtimeChannelParams<T extends Record<string, unknown>> {
  * Subscribes to Supabase Realtime postgres_changes for a table while mounted.
  * RLS on the underlying table governs which rows the subscriber can actually receive.
  */
-export function useRealtimeChannel<T extends Record<string, unknown>>({
+export function useRealtimeChannel<T extends object>({
   table,
   event = "*",
   filter,

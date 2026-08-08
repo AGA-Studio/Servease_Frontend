@@ -1,10 +1,19 @@
 export interface JobClient {
+  id: string;
   name: string;
   avatar: string;
   rating: number;
   reviewCount: number;
   memberSince: string;
   jobsPosted: number;
+}
+
+export interface JobProvider {
+  id: string;
+  name: string;
+  avatar: string;
+  rating: number | null;
+  reviewCount: number;
 }
 
 export interface JobDetails {
@@ -25,6 +34,7 @@ export interface JobDetails {
   mainImage: string;
   thumbnails: string[];
   client: JobClient;
+  provider?: JobProvider | null;
   distance?: string;
   proposalCount?: number;
 }

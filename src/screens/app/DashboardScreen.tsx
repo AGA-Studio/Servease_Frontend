@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ThemeMode } from "../../theme/theme";
+import { ROUTES } from "../../router/routes";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
 import { useAvailability } from "../../context/AvailabilityContext";
@@ -14,6 +16,14 @@ import { JobsByCategoryChart } from "./dashboard/components/JobsByCategoryChart"
 import { AvailableJobsFeed } from "./dashboard/components/AvailableJobsFeed";
 import { RecentActivity } from "./dashboard/components/RecentActivity";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
+import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
+import type { DashboardJob } from "../../types/dashboard";
+import type { JobDetails } from "../../types/job";
+import type { ApplyJobData } from "../../components/applyjobmodal/ApplyJobModal";
+import { getApproxLocation } from "../../utils/location";
+import { postularServicio } from "../../api/servicioApi";
+import { ApiError } from "../../api/apiClient";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -40,19 +50,21 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 
 const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { areas } = useWorkAreas();
-  const workAreaIds = useMemo(
-    () => areas.map((a) => a.id_categoria),
+  const areaNames = useMemo(
+    () => areas.map((a) => a.nombre),
     [areas],
   );
-  const { data, status, error, refresh } = useDashboardData(
+  const { data, status, error, refresh, isLive } = useDashboardData(
     user?.id,
-    workAreaIds.length > 0 ? workAreaIds : undefined,
+    areaNames.length > 0 ? areaNames : undefined,
   );
   const { disponible, setDisponible } = useAvailability();
   const { toasts, addToast, removeToast } = useToast();
   const { t } = useI18n();
+  const d = t("dashboardscreen");
   const p = t("profile").provider;
   const isLoading = status === "loading" || status === "idle";
 
@@ -61,6 +73,84 @@ const DashboardScreen: React.FC = () => {
       addToast("error", p.availabilityUpdateFailed),
     );
   };
+
+  const [selectedJob, setSelectedJob] = useState<DashboardJob | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+
+  const handleViewDetails = async (job: DashboardJob) => {
+    setSelectedJob(job);
+    setIsDetailsOpen(true);
+
+    if (job.latitud !== undefined && job.longitud !== undefined) {
+      try {
+        const location = await getApproxLocation(job.latitud, job.longitud);
+        setSelectedJob((prev) =>
+          prev && prev.id === job.id ? { ...prev, location } : prev,
+        );
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handleApply = (job: DashboardJob) => {
+    setSelectedJob(job);
+    setIsApplyOpen(true);
+  };
+
+  const handleApplySubmit = async (data: ApplyJobData) => {
+    if (!selectedJob) return;
+    setIsApplying(true);
+    try {
+      await postularServicio(selectedJob.id, {
+        precio_propuesto: data.price,
+        mensaje: data.coverLetter || undefined,
+      });
+      setIsApplyOpen(false);
+      addToast("success", d.applySuccess);
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof ApiError ? err.message : d.applyFailed,
+      );
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const selectedJobDetails: JobDetails | null = useMemo(
+    () =>
+      selectedJob
+        ? {
+            id: selectedJob.id,
+            title: selectedJob.title,
+            category: selectedJob.category,
+            location: selectedJob.location,
+            latitud:
+              selectedJob.latitud !== undefined
+                ? Number(selectedJob.latitud)
+                : null,
+            longitud:
+              selectedJob.longitud !== undefined
+                ? Number(selectedJob.longitud)
+                : null,
+            when: selectedJob.when,
+            urgency: selectedJob.urgency,
+            postedAgo: selectedJob.postedAgo,
+            price: selectedJob.price,
+            currency: selectedJob.currency,
+            priceRange: selectedJob.priceRange,
+            description: selectedJob.description,
+            mainImage: selectedJob.mainImage,
+            thumbnails: selectedJob.thumbnails,
+            client: selectedJob.client,
+            proposalCount: selectedJob.proposalCount,
+          }
+        : null,
+    [selectedJob],
+  );
 
   return (
     <>
@@ -275,21 +365,43 @@ const DashboardScreen: React.FC = () => {
               <div className="ds-main-grid">
                 <AvailableJobsFeed
                   jobs={data?.availableJobs}
-                  isLoading={isLoading}
+                  isLoading={isLoading || !isLive}
                   isDark={isDark}
                   disponible={disponible}
                   onActivate={handleActivate}
+                  onViewDetails={handleViewDetails}
+                  onApply={handleApply}
                 />
                 <RecentActivity
                   activities={data?.recentActivity}
                   isLoading={isLoading}
                   isDark={isDark}
+                  onLoadOlder={() => navigate(ROUTES.APP.NOTIFICATIONS)}
                 />
               </div>
             </>
           )}
         </div>
       </div>
+
+      <JobDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        job={selectedJobDetails}
+        onApply={() => {
+          setIsDetailsOpen(false);
+          setIsApplyOpen(true);
+        }}
+      />
+
+      <ApplyJobModal
+        isOpen={isApplyOpen}
+        onClose={() => setIsApplyOpen(false)}
+        jobTitle={selectedJob?.title ?? ""}
+        clientPrice={selectedJob?.price ?? 0}
+        isSubmitting={isApplying}
+        onSubmit={handleApplySubmit}
+      />
 
       <ToastContainer
         toasts={toasts}
