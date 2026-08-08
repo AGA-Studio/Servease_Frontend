@@ -116,6 +116,12 @@ export async function fetchAreasTrabajo(): Promise<AreaTrabajo[]> {
   return apiGet<AreaTrabajo[]>("/api/usuarios/areas-trabajo/");
 }
 
+export async function fetchCategoriasProveedor(
+  userId: string,
+): Promise<AreaTrabajo[]> {
+  return apiGet<AreaTrabajo[]>(`/api/usuarios/${userId}/categorias/`);
+}
+
 export async function updateAreasTrabajo(
   categorias: number[],
 ): Promise<AreaTrabajo[]> {
@@ -136,6 +142,25 @@ export async function fetchPerfilCliente(
   userId: string,
 ): Promise<PerfilCliente> {
   return apiGet<PerfilCliente>(`/api/usuarios/${userId}/perfil-cliente/`);
+}
+
+export interface PerfilProveedor {
+  id_usuario: string;
+  nombre: string;
+  url_foto_perfil: string | null;
+  fecha_registro: string;
+  rating: number | null;
+  num_reviews: number;
+  trabajos_completados: number;
+  descripcion_perfil?: string | null;
+  descripcion?: string | null;
+  bio?: string | null;
+}
+
+export async function fetchPerfilProveedor(
+  userId: string,
+): Promise<PerfilProveedor> {
+  return apiGet<PerfilProveedor>(`/api/usuarios/${userId}/perfil-proveedor/`);
 }
 
 export interface ReviewCliente {

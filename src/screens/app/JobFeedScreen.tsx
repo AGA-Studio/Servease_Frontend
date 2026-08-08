@@ -1289,7 +1289,29 @@ const JobFeedScreen: React.FC = () => {
                     {d.viewAll}
                   </button>
                 </div>
-                {isLoadingApplied ? null : appliedJobs.length === 0 ? (
+                {isLoadingApplied ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      marginTop: 10,
+                    }}
+                  >
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ opacity: [0.6, 1, 0.6] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                        style={{
+                          height: 58,
+                          borderRadius: 12,
+                          background: isDark ? "#273570" : "#e5e7eb",
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : appliedJobs.length === 0 ? (
                   <EmptyState
                     icon={<Send size={20} color="#2EBCCC" />}
                     isDark={isDark}

@@ -4,6 +4,7 @@ export const sidebar = {
   myPost: "Mis Publicaciones",
   newService: "Nuevo Servicio",
   messages: "Mensajes",
+  notifications: "Notificaciones",
   jobFeed: "Trabajos",
   myJobs: "Mis Trabajos",
   clientAccount: "Cuenta Cliente",

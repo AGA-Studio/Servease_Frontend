@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Check } from "lucide-react";
+import { X, Check, Tags } from "lucide-react";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useWorkAreas } from "../../context/WorkAreasContext";
@@ -9,6 +9,7 @@ import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import { useCookieCached } from "../../hooks/useCookieCached";
 import CustomizableModal from "../modal/CustomizableModal";
 import { getCategoryStyle } from "../../utils/categoryStyle";
+import EmptyState from "../emptystate/EmptyState";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -164,16 +165,27 @@ const EditAreasModal: React.FC<Props> = ({ isOpen, onClose, onSave }) => {
             </p>
 
             {loadingCategories ? (
-              <div
-                style={{
-                  padding: "24px 0",
-                  textAlign: "center",
-                  color: "var(--text-secondary)",
-                  fontSize: "0.85rem",
-                }}
-              >
-                ...
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                    style={{
+                      height: 44,
+                      borderRadius: 10,
+                      background: isDark ? "#253168" : "#F8FAFC",
+                    }}
+                  />
+                ))}
               </div>
+            ) : (allCategories ?? []).length === 0 ? (
+              <EmptyState
+                icon={<Tags size={22} color="#2EBCCC" />}
+                isDark={isDark}
+                title={p.editModal.noCategories}
+                size="compact"
+              />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {(allCategories ?? []).map((cat) => {

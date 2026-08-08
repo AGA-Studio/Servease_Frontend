@@ -74,6 +74,13 @@ export interface PostDetails {
   num_reviews_cliente: number;
   total_publicaciones_cliente: number;
   fecha_final: string | null;
+  proveedor_asignado: {
+    id_usuario: string;
+    nombre: string;
+    url_foto_perfil: string | null;
+    rating: number | null;
+    num_reviews: number;
+  } | null;
 }
 
 export async function fetchPostDetails(
@@ -93,7 +100,7 @@ export interface UltimaOferta {
 export interface Aplicante {
   id_postulacion: number;
   servicio_id: number;
-  estado_solicitud: string;
+  estado_solicitud: string | null;
   precio_propuesto: string;
   mensaje_proveedor: string;
   presupuesto_acordado: string | null;

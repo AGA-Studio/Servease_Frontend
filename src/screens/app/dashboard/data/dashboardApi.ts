@@ -1,6 +1,8 @@
 import type {
   DashboardData,
   DashboardJob,
+  DashboardActivity,
+  DashboardActivityType,
   KpiData,
   CategoryBreakdown,
   EarningsPoint,
@@ -16,11 +18,38 @@ import {
   type ProviderEarningsSummaryResponse,
   type ProviderKpisResponse,
 } from "../../../../api/providerApi";
+import { fetchNotificaciones } from "../../../../api/notificacionApi";
+import { dotColorForTipo } from "../../../../utils/notifications";
 import { timeAgo } from "../../../../utils/servicio";
 import { getCookie, setCookie } from "../../../../lib/cookieUtils";
 import { getCategoryStyle } from "../../../../utils/categoryStyle";
 
+const ACTIVITY_TYPE_BY_TIPO: Record<string, DashboardActivityType> = {
+  postulacion: "applied",
+  oferta: "hired",
+  servicio: "completed",
+  mensaje: "message",
+  calificacion: "review",
+};
+
+async function fetchRecentActivity(): Promise<DashboardActivity[]> {
+  try {
+    const data = await fetchNotificaciones();
+    return data.slice(0, 5).map((n) => ({
+      id: String(n.id_notificacion),
+      type: ACTIVITY_TYPE_BY_TIPO[n.tipo] ?? "message",
+      timeAgo: timeAgo(n.fecha),
+      content: n.contenido ?? n.titulo,
+      dotColor: dotColorForTipo(n.tipo),
+    }));
+  } catch (err) {
+    console.error("fetchNotificaciones (recent activity) failed:", err);
+    return [];
+  }
+}
+
 const MOCK_CLIENT: JobClient = {
+  id: "",
   name: "",
   avatar: "",
   rating: 0,
@@ -227,9 +256,10 @@ export async function fetchDashboardData(
     }
   })();
 
-  const [availableItems, providerData] = await Promise.all([
+  const [availableItems, providerData, recentActivity] = await Promise.all([
     availablePromise,
     providerDataPromise,
+    fetchRecentActivity(),
   ]);
 
   const jobsByCategory = deriveJobsByCategory(availableItems);
@@ -250,6 +280,6 @@ export async function fetchDashboardData(
     earnings: earningsPoints,
     jobsByCategory,
     availableJobs,
-    recentActivity: [],
+    recentActivity,
   };
 }

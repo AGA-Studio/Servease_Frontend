@@ -16,7 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "motion/react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useI18n } from "../../i18n";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
@@ -863,6 +863,7 @@ const MyPostScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useI18n();
   const mp = t("myposts");
   const { toasts, addToast, removeToast } = useToast();
@@ -1036,6 +1037,24 @@ const MyPostScreen: React.FC = () => {
     },
     [addToast, mp.errors.generic],
   );
+
+  // Deep-link from a notification: /app/my-post?serviceId=X auto-opens that
+  // post's details modal, then strips the id from the URL.
+  useEffect(() => {
+    const serviceId = searchParams.get("serviceId");
+    if (!serviceId || posts.length === 0) return;
+    const post = posts.find((p) => p.id === serviceId);
+    if (post) handleViewDetails(post);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("serviceId");
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts, searchParams]);
 
   const handleDeleteClick = useCallback((post: MyPost) => {
     setDeleteTarget(post);

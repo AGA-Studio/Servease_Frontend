@@ -11,6 +11,7 @@ export const postdetailsscreen = {
   today: "Today",
   asap: "ASAP",
   aboutClient: "About the Client",
+  aboutProvider: "About the Provider",
   memberSince: "Member Since",
   jobsPosted: "Jobs Posted",
   viewProfile: "View Profile",

@@ -10,6 +10,8 @@ export const messagesscreen = {
   selectChatTitle: "Select a chat",
   selectChatSubtitle: "Choose a conversation from the list to see messages",
   noResults: "No chats found",
+  noMessagesTitle: "No messages yet",
+  noMessagesSubtitle: "Send the first message to start the conversation.",
   
   
   // --- NEW KEYS (Step 3) ---
@@ -32,5 +34,16 @@ export const messagesscreen = {
   fileInvalidType: "Invalid file type. Only images and documents are allowed.",
   fileTooLarge: "File exceeds the 10MB limit.",
   retry: "Retry",
+
+  // Splitting chats by role (accounts that are both client and provider)
+  asCliente: "As Client",
+  asProveedor: "As Provider",
+
+  // Relative time since the service was posted
+  today: "Today",
+  oneDayAgo: "1 day ago",
+  daysAgo: "{n} days ago",
+  monthsAgo: "{n} months ago",
+  yearsAgo: "{n} years ago",
 };
 

@@ -22,10 +22,14 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import { useAuth } from "../../context/AuthContext";
 import Avatar from "../../components/avatar/Avatar";
+import EmptyState from "../../components/emptystate/EmptyState";
 import { chatApi } from "../../api/chatApi";
+import { buildClientProfileViewPath, buildProviderProfileViewPath } from "../../router/routes";
 import type {
   ConversacionItem,
   ConversacionDetail,
@@ -42,11 +46,14 @@ const MessagesScreen: React.FC = () => {
   const { t } = useI18n();
   const d = t("messagesscreen");
   const { isDark } = useThemeMode();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Estados de datos API
   const [chats, setChats] = useState<ConversacionItem[]>([]);
   const [filteredChats, setFilteredChats] = useState<ConversacionItem[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string>("");
+  const [roleTab, setRoleTab] = useState<"cliente" | "proveedor">("cliente");
   const [currentChatDetail, setCurrentChatDetail] = useState<ConversacionDetail | null>(null);
   const [messages, setMessages] = useState<Mensaje[]>([]);
 
@@ -61,7 +68,7 @@ const MessagesScreen: React.FC = () => {
 
   // Estados de Realtime e Indicadores
   const [isOtherTyping, setIsOtherTyping] = useState<boolean>(false);
-  const [otherTypingUser, setOtherTypingUser] = useState<string>("");
+  const [otherHasRead, setOtherHasRead] = useState<boolean>(false);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [messagesError, setMessagesError] = useState<string | null>(null);
@@ -74,7 +81,7 @@ const MessagesScreen: React.FC = () => {
   // Referencias y Timers
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef<boolean>(false);
 
   const [isMobile, setIsMobile] = useState<boolean>(
@@ -125,6 +132,9 @@ const MessagesScreen: React.FC = () => {
     setUserInfoLoading(true);
     setMessagesError(null);
     setIsOtherTyping(false);
+    // El check azul solo debe encenderse con un read_receipt real de esta sesión,
+    // no con el campo `leido` del historial (poco confiable, ver handleReadReceipt).
+    setOtherHasRead(false);
 
     try {
       const [mensajesRes, detailRes] = await Promise.all([
@@ -136,6 +146,10 @@ const MessagesScreen: React.FC = () => {
       const listaMensajes = mensajesRes.results || [];
       setMessages(listaMensajes);
       setCurrentChatDetail(detailRes);
+
+      // Marca la conversación como leída en BD y limpia el badge de no-leídos
+      // de forma persistente (no solo local/optimista).
+      chatApi.marcarLeido(conversacionId).catch(() => {});
     } catch (err: any) {
       console.error("Error al obtener historial de mensajes:", err);
       setMessagesError(d.errorLoadingMessages || "Error al cargar mensajes");
@@ -151,18 +165,36 @@ const MessagesScreen: React.FC = () => {
     }
   }, [selectedChatId, fetchMensajesAndDetail]);
 
-  // Refetch periódico o al enfocar pantalla para capturar ediciones/borrados
+  // Refetch periódico o al enfocar pantalla para capturar ediciones/borrados.
+  // También sirve de fallback de "tiempo real": mientras el canal privado de
+  // Supabase Realtime no autorice la conexión (ver useConversationChannel),
+  // esto simula mensajes en vivo refrescando cada pocos segundos.
   useEffect(() => {
-    const handleFocus = () => {
+    const refreshOpenChat = () => {
       if (selectedChatId) {
         chatApi.getMensajes(selectedChatId).then((res) => {
           if (res.results) setMessages(res.results);
         }).catch(() => {});
       }
     };
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    window.addEventListener("focus", refreshOpenChat);
+
+    const pollTimer = selectedChatId ? setInterval(refreshOpenChat, 4000) : null;
+
+    return () => {
+      window.removeEventListener("focus", refreshOpenChat);
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [selectedChatId]);
+
+  // Igual, refresca la lista de conversaciones (badges/preview) sin necesidad
+  // de abrir el chat, mientras el realtime real no esté disponible.
+  useEffect(() => {
+    const pollTimer = setInterval(() => {
+      fetchConversaciones(searchQuery);
+    }, 10000);
+    return () => clearInterval(pollTimer);
+  }, [fetchConversaciones, searchQuery]);
 
   // Auto-scroll al último mensaje
   useEffect(() => {
@@ -179,22 +211,21 @@ const MessagesScreen: React.FC = () => {
     });
   }, []);
 
-  const handleTypingStart = useCallback((payload: TypingPayload) => {
+  const handleTypingStart = useCallback((_payload: TypingPayload) => {
     setIsOtherTyping(true);
-    setOtherTypingUser(payload.user_name || "");
   }, []);
 
   const handleTypingStop = useCallback(() => {
     setIsOtherTyping(false);
-    setOtherTypingUser("");
   }, []);
 
-  const handleReadReceipt = useCallback((payload: ReadReceiptPayload) => {
+  const handleReadReceipt = useCallback((_payload: ReadReceiptPayload) => {
+    // Actualiza en vivo los mensajes propios como leídos (además del valor
+    // que ya trae `leido` por mensaje desde la BD tras el fetch inicial).
+    setOtherHasRead(true);
     setMessages((prev) =>
       prev.map((msg) =>
-        msg.sender === "user"
-          ? { ...msg, estado_entrega: "leido", leido: true }
-          : msg
+        msg.sender === "user" ? { ...msg, estado_entrega: "leido", leido: true } : msg
       )
     );
   }, []);
@@ -334,7 +365,58 @@ const MessagesScreen: React.FC = () => {
     }
   };
 
+  // --- 7. ROL DE LA CONVERSACIÓN (cliente / proveedor) ---
+  // Las cuentas con rol "provider"/"admin" pueden actuar como cliente (al publicar
+  // un servicio) y como proveedor (al aplicar a uno), así que sus chats se separan.
+  const showRoleTabs = user?.role === "provider" || user?.role === "admin";
+
+  const getChatRole = useCallback(
+    (chat: ConversacionItem): "cliente" | "proveedor" | "unknown" => {
+      if (!user) return "unknown";
+      if (chat.proveedor_id && chat.proveedor_id === user.id) return "proveedor";
+      if (chat.cliente_id && chat.cliente_id === user.id) return "cliente";
+      return "unknown";
+    },
+    [user]
+  );
+
+  const visibleChats = showRoleTabs
+    ? filteredChats.filter((chat) => {
+        const role = getChatRole(chat);
+        return role === "unknown" || role === roleTab;
+      })
+    : filteredChats;
+
+  const handleSelectChat = (chatId: string) => {
+    setSelectedChatId(chatId);
+    // Marca como leído localmente al abrir; el backend no expone aún un
+    // endpoint explícito de "marcar leído", así que limpiamos el contador aquí.
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
+    setFilteredChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
+  };
+
   const currentChat = chats.find((c) => c.id === selectedChatId);
+
+  // El "otro" participante (para rating/reviews en el panel derecho): el que
+  // no es el usuario logueado, según cliente_id/proveedor_id de la conversación.
+  // Como una cuenta proveedor también puede ser cliente (según con quién esté
+  // chateando), el rol del otro se decide por conversación, no por user.role.
+  const otherIsProvider = user?.id === currentChatDetail?.cliente_id;
+  const otherParticipant =
+    currentChatDetail &&
+    (otherIsProvider ? currentChatDetail.proveedor : currentChatDetail.cliente);
+
+  const formatTimeAgo = (isoDate: string): string => {
+    const diffMs = Date.now() - new Date(isoDate).getTime();
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (days <= 0) return d.today || "Hoy";
+    if (days === 1) return d.oneDayAgo || "Hace 1 día";
+    if (days < 30) return (d.daysAgo || "Hace {n} días").replace("{n}", String(days));
+    const months = Math.floor(days / 30);
+    if (months < 12) return (d.monthsAgo || "Hace {n} meses").replace("{n}", String(months));
+    const years = Math.floor(months / 12);
+    return (d.yearsAgo || "Hace {n} años").replace("{n}", String(years));
+  };
 
   // --- PANEL DERECHO (INFORMACIÓN DEL USUARIO / SERVICIO) ---
   const userInfoContent = userInfoLoading ? (
@@ -366,11 +448,17 @@ const MessagesScreen: React.FC = () => {
         <h3 className="font-bold text-lg text-[var(--msg-text)] truncate">{currentChat.name}</h3>
         <p className="text-sm text-[var(--msg-text-muted)] mb-4 truncate">{currentChat.professionKey}</p>
 
-        <div className="flex items-center gap-1.5 text-xs text-[var(--msg-text)] mb-8">
-          <Star className="w-4 h-4 fill-[#2EBCCC] text-[#2EBCCC]" />
-          <span className="font-bold text-[#2EBCCC]">4.9</span>
-          <span className="text-[var(--msg-text-muted)]">(124 {d.reviews})</span>
-        </div>
+        {otherParticipant && (
+          <div className="flex items-center gap-1.5 text-xs text-[var(--msg-text)] mb-8">
+            <Star className="w-4 h-4 fill-[#2EBCCC] text-[#2EBCCC]" />
+            <span className="font-bold text-[#2EBCCC]">
+              {otherParticipant.rating != null ? otherParticipant.rating.toFixed(1) : "—"}
+            </span>
+            <span className="text-[var(--msg-text-muted)]">
+              ({otherParticipant.num_reviews} {d.reviews})
+            </span>
+          </div>
+        )}
 
         <div className="w-full flex-1 mb-8">
           <span className="block text-[11px] font-bold tracking-wider text-[var(--msg-text-muted)] uppercase mb-4">
@@ -384,10 +472,13 @@ const MessagesScreen: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm font-bold text-[var(--msg-text)]">
-                  {currentChatDetail?.servicio_detalles?.titulo || "Servicio Contratado"}
+                  {currentChatDetail?.servicio?.titulo ||
+                    currentChatDetail?.servicio_titulo ||
+                    currentChat?.servicio_titulo ||
+                    "Servicio Contratado"}
                 </p>
                 <p className="text-xs text-[var(--msg-text-muted)] mt-0.5">
-                  {currentChatDetail?.servicio_detalles?.ubicacion || "Ubicación acordada"}
+                  {currentChatDetail?.servicio?.categoria || currentChat?.professionKey || ""}
                 </p>
               </div>
             </div>
@@ -399,8 +490,8 @@ const MessagesScreen: React.FC = () => {
               <div>
                 <p className="text-sm font-bold text-[var(--msg-text)]">{d.timePosted}</p>
                 <p className="text-xs text-[var(--msg-text-muted)] mt-0.5">
-                  {currentChatDetail?.fecha_creacion
-                    ? new Date(currentChatDetail.fecha_creacion).toLocaleDateString()
+                  {currentChatDetail?.servicio?.fecha
+                    ? formatTimeAgo(currentChatDetail.servicio.fecha)
                     : "Reciente"}
                 </p>
               </div>
@@ -408,7 +499,17 @@ const MessagesScreen: React.FC = () => {
           </div>
         </div>
 
-        <button className="w-full mt-auto py-3.5 bg-[#2EBCCC] hover:bg-[#239aaa] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-md">
+        <button
+          onClick={() => {
+            if (!otherParticipant) return;
+            navigate(
+              otherIsProvider
+                ? buildProviderProfileViewPath(otherParticipant.id_usuario)
+                : buildClientProfileViewPath(otherParticipant.id_usuario)
+            );
+          }}
+          className="w-full mt-auto py-3.5 bg-[#2EBCCC] hover:bg-[#239aaa] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-md"
+        >
           <span>{d.seeProfile}</span>
           <User className="w-4 h-4" />
         </button>
@@ -446,6 +547,34 @@ const MessagesScreen: React.FC = () => {
             selectedChatId ? "hidden lg:flex" : "flex"
           }`}
         >
+          {showRoleTabs && (
+            <div className="px-5 pt-4 pb-1 border-b border-[var(--msg-border)]">
+              <div className="relative flex bg-[var(--msg-input)] rounded-full p-1">
+                {(["cliente", "proveedor"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setRoleTab(tab)}
+                    className={`relative z-10 flex-1 py-2 text-xs font-bold rounded-full transition-colors ${
+                      roleTab === tab
+                        ? "text-white"
+                        : "text-[var(--msg-text-muted)] hover:text-[var(--msg-text)]"
+                    }`}
+                  >
+                    {roleTab === tab && (
+                      <motion.span
+                        layoutId="msg-role-tab-active"
+                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                        className="absolute inset-0 -z-10 bg-[#2EBCCC] rounded-full"
+                      />
+                    )}
+                    {tab === "cliente" ? d.asCliente || "Como Cliente" : d.asProveedor || "Como Proveedor"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="p-5 border-b border-[var(--msg-border)]">
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 grid place-items-center">
@@ -523,7 +652,7 @@ const MessagesScreen: React.FC = () => {
                   <span>{d.retry || "Reintentar"}</span>
                 </button>
               </div>
-            ) : filteredChats.length === 0 ? (
+            ) : visibleChats.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -534,8 +663,9 @@ const MessagesScreen: React.FC = () => {
               </motion.div>
             ) : (
               <AnimatePresence initial={false}>
-                {filteredChats.map((chat, i) => {
+                {visibleChats.map((chat, i) => {
                   const isSelected = selectedChatId === chat.id;
+                  const isUnread = chat.unreadCount > 0 && !isSelected;
                   return (
                     <motion.div
                       key={chat.id}
@@ -544,28 +674,58 @@ const MessagesScreen: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: 0.18, delay: i * 0.03 }}
-                      onClick={() => setSelectedChatId(chat.id)}
+                      onClick={() => handleSelectChat(chat.id)}
                       className={`flex items-center gap-3.5 py-4 pr-4 pl-3 cursor-pointer transition-colors border-l-4 ${
                         isSelected
                           ? "bg-[#2EBCCC]/[0.1] border-[#2EBCCC]"
+                          : isUnread
+                          ? "bg-[var(--msg-input)]/60 border-transparent hover:bg-[var(--msg-input)]"
                           : "border-transparent hover:bg-[var(--msg-input)]"
                       }`}
                     >
-                      <Avatar photoUrl={chat.avatar} name={chat.name} size={48} className="flex-shrink-0 ml-1" />
+                      <div className="relative flex-shrink-0 ml-1">
+                        <Avatar photoUrl={chat.avatar} name={chat.name} size={48} />
+                        {isUnread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#2EBCCC] rounded-full border-2 border-[var(--msg-card)]" />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline gap-1 mb-0.5">
-                          <h4 className="font-bold text-sm text-[var(--msg-text)] truncate">{chat.name}</h4>
-                          <span className={`text-[11px] ${isSelected ? "text-[#2EBCCC] font-bold" : "text-[var(--msg-text-muted)]"}`}>
+                          <h4
+                            className={`text-sm truncate ${
+                              isUnread ? "font-extrabold text-[var(--msg-text)]" : "font-bold text-[var(--msg-text)]"
+                            }`}
+                          >
+                            {chat.name}
+                          </h4>
+                          <span
+                            className={`text-[11px] flex-shrink-0 ${
+                              isSelected
+                                ? "text-[#2EBCCC] font-bold"
+                                : isUnread
+                                ? "text-[#2EBCCC] font-bold"
+                                : "text-[var(--msg-text-muted)]"
+                            }`}
+                          >
                             {chat.timeAgoKey}
                           </span>
                         </div>
+                        {chat.servicio_titulo && (
+                          <p className="text-[11px] text-[#2EBCCC] font-semibold truncate">{chat.servicio_titulo}</p>
+                        )}
                         <p className="text-xs text-[var(--msg-text-muted)] truncate">{chat.professionKey}</p>
-                        <p className="text-xs text-[var(--msg-text-muted)] opacity-80 truncate mt-1">
+                        <p
+                          className={`text-xs truncate mt-1 ${
+                            isUnread
+                              ? "text-[var(--msg-text)] font-semibold opacity-100"
+                              : "text-[var(--msg-text-muted)] opacity-80"
+                          }`}
+                        >
                           {chat.lastMessagePreview}
                         </p>
                       </div>
-                      {chat.unreadCount > 0 && (
-                        <span className="w-5 h-5 bg-[#2EBCCC] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      {isUnread && (
+                        <span className="w-5 h-5 bg-[#2EBCCC] text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0">
                           {chat.unreadCount}
                         </span>
                       )}
@@ -600,8 +760,8 @@ const MessagesScreen: React.FC = () => {
               className="flex-1 flex flex-col min-h-0"
             >
               {/* Encabezado Superior */}
-              <div className="h-[84px] px-8 bg-[var(--msg-card)] border-b border-[var(--msg-border)] flex items-center justify-between z-10">
-                <div className="flex items-center gap-4">
+              <div className="min-h-[84px] px-8 py-3 bg-[var(--msg-card)] border-b border-[var(--msg-border)] flex items-center justify-between z-10">
+                <div className="flex items-center gap-4 min-w-0">
                   <button
                     onClick={() => setSelectedChatId("")}
                     className="lg:hidden p-1.5 rounded-lg text-[var(--msg-text-muted)] hover:bg-[var(--msg-input)]"
@@ -609,8 +769,8 @@ const MessagesScreen: React.FC = () => {
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <Avatar photoUrl={currentChat.avatar} name={currentChat.name} size={48} />
-                  <div>
-                    <h3 className="font-bold text-base text-[var(--msg-text)] leading-none mb-1.5">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-base text-[var(--msg-text)] leading-none mb-1.5 truncate">
                       {currentChat.name}
                     </h3>
                     <p className="text-xs text-[var(--msg-text-muted)]">
@@ -622,6 +782,20 @@ const MessagesScreen: React.FC = () => {
                         currentChat.professionKey
                       )}
                     </p>
+                    {(() => {
+                      const servicioTitulo =
+                        currentChatDetail?.servicio?.titulo ||
+                        currentChatDetail?.servicio_titulo ||
+                        currentChat?.servicio_titulo;
+                      return (
+                        servicioTitulo && (
+                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-[#2EBCCC]/10 text-[#2EBCCC] text-[10px] font-bold truncate max-w-full">
+                            <Paintbrush className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{servicioTitulo}</span>
+                          </span>
+                        )
+                      );
+                    })()}
                   </div>
                 </div>
                 <button
@@ -668,6 +842,14 @@ const MessagesScreen: React.FC = () => {
                       <span>{d.retry || "Reintentar"}</span>
                     </button>
                   </div>
+                ) : messages.length === 0 ? (
+                  <EmptyState
+                    icon={<MessageCircle size={22} color="#2EBCCC" />}
+                    isDark={isDark}
+                    title={d.noMessagesTitle}
+                    subtitle={d.noMessagesSubtitle}
+                    size="compact"
+                  />
                 ) : (
                   <>
                     <div className="flex justify-center mb-6">
@@ -759,9 +941,9 @@ const MessagesScreen: React.FC = () => {
                                   {isUser && (
                                     <CheckCheck
                                       className={`w-4 h-4 ${
-                                        msg.estado_entrega === "leido" || msg.leido
+                                        otherHasRead || msg.estado_entrega === "leido" || msg.leido
                                           ? "text-blue-400 font-bold"
-                                          : "text-[#2EBCCC]"
+                                          : "text-[var(--msg-text-muted)]"
                                       }`}
                                     />
                                   )}

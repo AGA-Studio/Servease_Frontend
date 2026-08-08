@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { motion, useInView } from "motion/react";
 import {
   Pencil,
-  MoreHorizontal,
   BadgeCheck,
   ClipboardList,
   Star,
@@ -15,7 +14,7 @@ import {
   Triangle,
   Camera,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n";
 import { ROUTES } from "../../router/routes";
@@ -35,6 +34,7 @@ import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
 import { timeAgo, mapEstadoToStatus } from "../../utils/servicio";
 import ReviewsModal from "../../components/reviewsmodal/ReviewsModal";
 import Avatar from "../../components/avatar/Avatar";
+import EmptyState from "../../components/emptystate/EmptyState";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -188,6 +188,7 @@ const StatCard = ({
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.4, delay: 0.15 + index * 0.06, ease: EASE }}
+    className="cp-stat-card"
     style={{
       borderRadius: 16,
       background: isDark ? "rgba(255,255,255,0.04)" : "#F7FAFB",
@@ -231,12 +232,14 @@ const PostRow = ({
   isDark,
   statusLabels,
   postedLabel,
+  isOwnProfile,
 }: {
   post: RecentPost;
   index: number;
   isDark: boolean;
   statusLabels: Record<PostStatus, string>;
   postedLabel: string;
+  isOwnProfile: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -40px 0px" });
@@ -250,6 +253,7 @@ const PostRow = ({
       transition={{ duration: 0.35, delay: index * 0.05, ease: EASE }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
+      className="cp-post-row"
       style={{
         display: "flex",
         alignItems: "center",
@@ -265,62 +269,68 @@ const PostRow = ({
         transition: "background 0.18s",
       }}
     >
-      <motion.div
-        animate={{ scale: hovered ? 1.08 : 1 }}
-        transition={{ duration: 0.2, ease: EASE }}
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 12,
-          background: isDark ? "rgba(46,188,204,0.16)" : "rgba(46,188,204,0.1)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flex: "none",
-          color: "#2EBCCC",
-        }}
-      >
-        {post.icon}
-      </motion.div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
+      <div className="cp-post-row-main" style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
+        <motion.div
+          animate={{ scale: hovered ? 1.08 : 1 }}
+          transition={{ duration: 0.2, ease: EASE }}
           style={{
-            fontWeight: 700,
-            fontSize: "0.94rem",
-            color: "var(--text)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {post.title}
-        </div>
-        <div
-          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 12,
+            background: isDark ? "rgba(46,188,204,0.16)" : "rgba(46,188,204,0.1)",
             display: "flex",
             alignItems: "center",
-            gap: 6,
-            marginTop: 3,
-            color: "var(--text-secondary)",
-            fontSize: "0.78rem",
+            justifyContent: "center",
+            flex: "none",
+            color: "#2EBCCC",
           }}
         >
-          <Clock size={12} />
-          {postedLabel} {post.postedAgo}
+          {post.icon}
+        </motion.div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: "0.94rem",
+              color: "var(--text)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {post.title}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 3,
+              color: "var(--text-secondary)",
+              fontSize: "0.78rem",
+            }}
+          >
+            <Clock size={12} />
+            {postedLabel} {post.postedAgo}
+          </div>
         </div>
       </div>
-      <div
-        style={{
-          fontWeight: 800,
-          fontSize: "1rem",
-          color: "var(--text)",
-          flex: "none",
-        }}
-      >
-        {post.price}
-      </div>
-      <div style={{ flex: "none" }}>
-        <StatusPill status={post.status} isDark={isDark} labels={statusLabels} />
+      <div className="cp-post-row-meta" style={{ display: "flex", alignItems: "center", gap: 16, flex: "none" }}>
+        <div
+          style={{
+            fontWeight: 800,
+            fontSize: "1rem",
+            color: "var(--text)",
+            flex: "none",
+          }}
+        >
+          {post.price}
+        </div>
+        {isOwnProfile && (
+          <div style={{ flex: "none" }}>
+            <StatusPill status={post.status} isDark={isDark} labels={statusLabels} />
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -330,6 +340,11 @@ const ClientProfileScreen: React.FC = () => {
   const { isDark } = useTheme();
   const { user, profile, updateProfile } = useAuth();
   const navigate = useNavigate();
+  const { id: routeClientId } = useParams<{ id?: string }>();
+  // Sin :id en la ruta => es el propio perfil del cliente logueado (editable).
+  // Con :id (ej. /app/clients/:id, usado por el proveedor) => solo lectura.
+  const isOwnProfile = !routeClientId;
+  const targetUserId = routeClientId ?? user?.id;
   const { t, locale } = useI18n();
   const p = t("profile").client;
   const languageLabel = locale === "es" ? "Español" : "English";
@@ -337,8 +352,8 @@ const ClientProfileScreen: React.FC = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { data: perfilCliente, isLoading: isLoadingStats } = useCachedResource(
-    user?.id ? `perfil-cliente:${user.id}` : null,
-    () => fetchPerfilCliente(user!.id),
+    targetUserId ? `perfil-cliente:${targetUserId}` : null,
+    () => fetchPerfilCliente(targetUserId!),
   );
   const stats = {
     postedJobs: perfilCliente?.num_publicaciones ?? 0,
@@ -348,24 +363,28 @@ const ClientProfileScreen: React.FC = () => {
 
   const { data: recentServicios, isLoading: isLoadingRecentPosts } =
     useCachedResource(
-      user?.id ? `ultimas-publicaciones:${user.id}` : null,
-      () => fetchUltimasPublicacionesCliente(user!.id),
+      targetUserId ? `ultimas-publicaciones:${targetUserId}` : null,
+      () => fetchUltimasPublicacionesCliente(targetUserId!),
     );
   const recentPosts = (recentServicios ?? []).map(servicioToRecentPost);
 
   const [isReviewsOpen, setIsReviewsOpen] = useState(false);
 
   const { data: reviews, isLoading: isLoadingReviews } = useCachedResource(
-    isReviewsOpen && user?.id ? `reviews:${user.id}` : null,
-    () => fetchReviewsCliente(user!.id),
+    isReviewsOpen && targetUserId ? `reviews:${targetUserId}` : null,
+    () => fetchReviewsCliente(targetUserId!),
   );
 
-  const fullName = user
-    ? `${user.firstName} ${user.lastnameP}${user.lastnameM ? ` ${user.lastnameM}` : ""}`
-    : "";
+  const fullName = isOwnProfile
+    ? user
+      ? `${user.firstName} ${user.lastnameP}${user.lastnameM ? ` ${user.lastnameM}` : ""}`
+      : ""
+    : perfilCliente?.nombre ?? "";
 
-  const memberSince = profile?.fecha_registro
-    ? new Date(profile.fecha_registro).toLocaleDateString(undefined, {
+  const avatarUrl = isOwnProfile ? profile?.url_foto_perfil : perfilCliente?.url_foto_perfil;
+
+  const memberSince = perfilCliente?.fecha_registro
+    ? new Date(perfilCliente.fecha_registro).toLocaleDateString(undefined, {
         month: "long",
         year: "numeric",
       })
@@ -396,11 +415,28 @@ const ClientProfileScreen: React.FC = () => {
   };
 
   return (
-    <div className="page-enter" style={{ padding: "32px 40px 56px", maxWidth: 1200, margin: "0 auto" }}>
+    <div className="page-enter cp-page" style={{ padding: "32px 40px 56px", maxWidth: 1200, margin: "0 auto" }}>
       <style>{`
         .cp-btn-ghost { transition: background 0.18s, transform 0.12s ease; }
         .cp-btn-ghost:active { transform: scale(0.95); }
         .cp-star { transition: transform 0.2s ease; }
+
+        @media (max-width: 600px) {
+          .cp-page { padding: 18px 14px 40px !important; }
+          .cp-hero-body { padding: 0 18px 24px !important; }
+          .cp-hero-actions { gap: 8px !important; }
+          .cp-hero-edit-label { display: none !important; }
+          .cp-hero-edit-btn { padding: 0 !important; width: 38px !important; height: 38px !important; justify-content: center !important; }
+          .cp-fullname { font-size: 1.35rem !important; }
+          .cp-stats-grid { grid-template-columns: 1fr !important; margin-top: 20px !important; }
+          .cp-stat-card { padding: 16px 18px !important; }
+          .cp-panel { padding: 18px !important; }
+          .cp-post-row { flex-wrap: wrap !important; row-gap: 8px !important; }
+          .cp-post-row-meta { width: 100% !important; justify-content: space-between !important; padding-left: 58px !important; }
+        }
+        @media (max-width: 400px) {
+          .cp-post-row-meta { padding-left: 0 !important; }
+        }
       `}</style>
 
       {}
@@ -433,55 +469,37 @@ const ClientProfileScreen: React.FC = () => {
                 "radial-gradient(600px 200px at 85% -20%, rgba(255,255,255,.18), transparent)",
             }}
           />
-          <div style={{ position: "absolute", top: 20, right: 24, display: "flex", gap: 10 }}>
-            <motion.button
-              className="cp-btn-ghost"
-              onClick={() => setIsEditOpen(true)}
-              whileHover={{ scale: 1.03, background: "rgba(255,255,255,0.22)" }}
-              whileTap={{ scale: 0.96 }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 18px",
-                borderRadius: 11,
-                border: "1px solid rgba(255,255,255,.35)",
-                background: "rgba(255,255,255,.14)",
-                backdropFilter: "blur(6px)",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: "0.875rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <Pencil size={15} />
-              {p.editProfile}
-            </motion.button>
-            <motion.button
-              className="cp-btn-ghost"
-              whileHover={{ scale: 1.05, background: "rgba(255,255,255,0.22)" }}
-              whileTap={{ scale: 0.94 }}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 11,
-                border: "1px solid rgba(255,255,255,.35)",
-                background: "rgba(255,255,255,.14)",
-                backdropFilter: "blur(6px)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: "#fff",
-              }}
-            >
-              <MoreHorizontal size={18} />
-            </motion.button>
-          </div>
+          {isOwnProfile && (
+            <div className="cp-hero-actions" style={{ position: "absolute", top: 20, right: 24, display: "flex", gap: 10 }}>
+              <motion.button
+                className="cp-btn-ghost cp-hero-edit-btn"
+                onClick={() => setIsEditOpen(true)}
+                whileHover={{ scale: 1.03, background: "rgba(255,255,255,0.22)" }}
+                whileTap={{ scale: 0.96 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 18px",
+                  borderRadius: 11,
+                  border: "1px solid rgba(255,255,255,.35)",
+                  background: "rgba(255,255,255,.14)",
+                  backdropFilter: "blur(6px)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Pencil size={15} />
+                <span className="cp-hero-edit-label">{p.editProfile}</span>
+              </motion.button>
+            </div>
+          )}
         </div>
 
-        <div style={{ padding: "0 36px 32px", display: "flex", flexDirection: "column" }}>
+        <div className="cp-hero-body" style={{ padding: "0 36px 32px", display: "flex", flexDirection: "column" }}>
           <motion.div
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -495,9 +513,9 @@ const ClientProfileScreen: React.FC = () => {
             }}
           >
             <Avatar
-              photoUrl={profile?.url_foto_perfil}
-              name={user?.firstName}
-              lastName={user?.lastnameP}
+              photoUrl={avatarUrl}
+              name={isOwnProfile ? user?.firstName : perfilCliente?.nombre}
+              lastName={isOwnProfile ? user?.lastnameP : undefined}
               size={112}
               style={{
                 fontSize: "2.2rem",
@@ -507,37 +525,41 @@ const ClientProfileScreen: React.FC = () => {
               }}
               alt={fullName}
             />
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              style={{ display: "none" }}
-            />
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={isUploadingPhoto}
-              style={{
-                position: "absolute",
-                bottom: 2,
-                right: 2,
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                border: "3px solid var(--sidebar-bg)",
-                background: "#2EBCCC",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: isUploadingPhoto ? "default" : "pointer",
-                fontFamily: "inherit",
-              }}
-              aria-label={p.changePhoto ?? "Cambiar foto de perfil"}
-            >
-              <Camera size={14} />
-            </button>
+            {isOwnProfile && (
+              <>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isUploadingPhoto}
+                  style={{
+                    position: "absolute",
+                    bottom: 2,
+                    right: 2,
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    border: "3px solid var(--sidebar-bg)",
+                    background: "#2EBCCC",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: isUploadingPhoto ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                  aria-label={p.changePhoto ?? "Cambiar foto de perfil"}
+                >
+                  <Camera size={14} />
+                </button>
+              </>
+            )}
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -545,7 +567,7 @@ const ClientProfileScreen: React.FC = () => {
             transition={{ duration: 0.4, delay: 0.2, ease: EASE }}
             style={{ marginTop: 14 }}
           >
-            <div style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--text)", letterSpacing: "-0.02em" }}>
+            <div className="cp-fullname" style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--text)", letterSpacing: "-0.02em" }}>
               {fullName}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
@@ -559,6 +581,7 @@ const ClientProfileScreen: React.FC = () => {
           {}
           {isLoadingStats ? (
             <div
+              className="cp-stats-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -572,6 +595,7 @@ const ClientProfileScreen: React.FC = () => {
             </div>
           ) : (
             <div
+              className="cp-stats-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -651,6 +675,7 @@ const ClientProfileScreen: React.FC = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3, ease: EASE }}
+          className="cp-panel"
           style={{
             borderRadius: 20,
             background: "var(--sidebar-bg)",
@@ -664,7 +689,7 @@ const ClientProfileScreen: React.FC = () => {
             {p.personalInfo.title}
           </div>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: 1.7, margin: 0 }}>
-            {profile?.descripcion_perfil || p.personalInfo.defaultBio}
+            {(isOwnProfile ? profile?.descripcion_perfil : undefined) || p.personalInfo.defaultBio}
           </p>
           <div style={{ height: 1, background: "var(--divider)", margin: "22px 0" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -678,28 +703,30 @@ const ClientProfileScreen: React.FC = () => {
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                {p.personalInfo.phone}
-              </span>
-              <span style={{ color: "var(--text)", fontWeight: 700, fontSize: "0.85rem" }}>
-                {profile?.celular || p.personalInfo.phoneNotSet}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                 {p.personalInfo.language}
               </span>
               <span style={{ color: "var(--text)", fontWeight: 700, fontSize: "0.85rem" }}>
                 {languageLabel}
               </span>
             </div>
+            {isOwnProfile && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                  {p.personalInfo.phone}
+                </span>
+                <span style={{ color: "var(--text)", fontWeight: 700, fontSize: "0.85rem" }}>
+                  {profile?.celular || p.personalInfo.phoneNotSet}
+                </span>
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.35, ease: EASE }}
+          className="cp-panel"
           style={{
             borderRadius: 20,
             background: "var(--sidebar-bg)",
@@ -715,14 +742,18 @@ const ClientProfileScreen: React.FC = () => {
               alignItems: "center",
               justifyContent: "space-between",
               marginBottom: 6,
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
             <div style={{ fontSize: "1.02rem", fontWeight: 800, color: "var(--text)" }}>
               {p.recentPosts.title}
             </div>
-            <TextButton onClick={() => navigate(ROUTES.APP.MY_POST)}>
-              {p.recentPosts.viewAll}
-            </TextButton>
+            {isOwnProfile && (
+              <TextButton onClick={() => navigate(ROUTES.APP.MY_POST)}>
+                {p.recentPosts.viewAll}
+              </TextButton>
+            )}
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {isLoadingRecentPosts ? (
@@ -763,17 +794,12 @@ const ClientProfileScreen: React.FC = () => {
                 </div>
               ))
             ) : recentPosts.length === 0 ? (
-              <p
-                style={{
-                  color: "var(--text-secondary)",
-                  fontSize: "0.9rem",
-                  textAlign: "center",
-                  padding: "24px 8px",
-                  margin: 0,
-                }}
-              >
-                {p.recentPosts.empty}
-              </p>
+              <EmptyState
+                icon={<ClipboardList size={22} color="#2EBCCC" />}
+                isDark={isDark}
+                title={p.recentPosts.empty}
+                size="compact"
+              />
             ) : (
               recentPosts.map((post, i) => (
                 <PostRow
@@ -783,6 +809,7 @@ const ClientProfileScreen: React.FC = () => {
                   isDark={isDark}
                   statusLabels={statusLabels}
                   postedLabel={p.recentPosts.postedAgo}
+                  isOwnProfile={isOwnProfile}
                 />
               ))
             )}
@@ -792,16 +819,18 @@ const ClientProfileScreen: React.FC = () => {
 
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
 
-      <EditPersonalInfoModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        profile={profile}
-        onSaved={(updated) => {
-          updateProfile(updated);
-          addToast("success", p.success.profileUpdated);
-        }}
-        onError={(message) => addToast("error", message)}
-      />
+      {isOwnProfile && (
+        <EditPersonalInfoModal
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          profile={profile}
+          onSaved={(updated) => {
+            updateProfile(updated);
+            addToast("success", p.success.profileUpdated);
+          }}
+          onError={(message) => addToast("error", message)}
+        />
+      )}
 
       <ReviewsModal
         isOpen={isReviewsOpen}

@@ -121,6 +121,10 @@ export const profile = {
       deleteTitle: "Eliminar proyecto",
       deleteBody: "¿Eliminar este proyecto? Esta acción no se puede deshacer.",
       deleteSuccess: "Proyecto eliminado.",
+      detailModal: {
+        postedOn: "Publicado el",
+        noDescription: "Este proyecto no tiene descripción.",
+      },
     },
     reviews: {
       title: "Reseñas",
@@ -145,6 +149,7 @@ export const profile = {
       editModal: {
         title: "Editar Áreas de Trabajo",
         subtitle: "Selecciona las categorías en las que trabajas.",
+        noCategories: "No hay categorías disponibles por el momento.",
         save: "Guardar",
         cancel: "Cancelar",
         confirmSave: {

@@ -9,7 +9,7 @@ import { postoffers } from "../../i18n/locales/en/postoffers";
 import EmptyState from "../../components/emptystate/EmptyState";
 
 type PostOffersStrings = typeof postoffers;
-import { ROUTES } from "../../router/routes";
+import { ROUTES, buildProviderProfileViewPath } from "../../router/routes";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
@@ -35,6 +35,7 @@ type Tab = "all" | "pending" | "countered" | "declined";
 
 interface Applicant {
   id: number;
+  proveedorId: string;
   name: string;
   avatar: string;
   rating: string;
@@ -48,8 +49,8 @@ interface Applicant {
   previousOfferAmount: number | null;
 }
 
-function mapEstadoSolicitud(estado: string, hasOferta: boolean): ApplicantStatus {
-  const e = estado.toLowerCase();
+function mapEstadoSolicitud(estado: string | null, hasOferta: boolean): ApplicantStatus {
+  const e = (estado ?? "").toLowerCase();
   if (e.includes("acept")) return "accepted";
   if (e.includes("rechaz") || e.includes("declin")) return "declined";
   if (hasOferta || e.includes("contra")) return "countered";
@@ -59,6 +60,7 @@ function mapEstadoSolicitud(estado: string, hasOferta: boolean): ApplicantStatus
 function aplicanteToApplicant(a: Aplicante): Applicant {
   return {
     id: a.id_postulacion,
+    proveedorId: a.proveedor_id,
     name: a.nombre_proveedor,
     avatar: a.url_foto_perfil ?? "",
     rating: a.rating.toFixed(1),
@@ -132,6 +134,7 @@ const ApplicantCard = ({
   po: PostOffersStrings;
 }) => {
   const a = applicant;
+  const navigate = useNavigate();
   const isBidView = a.status === "new";
   const isCounteredView = a.status === "countered";
   const isAcceptedView = a.status === "accepted";
@@ -192,7 +195,7 @@ const ApplicantCard = ({
           </div>
           <a
             href="#"
-            onClick={(e) => e.preventDefault()}
+            onClick={(e) => { e.preventDefault(); navigate(buildProviderProfileViewPath(a.proveedorId)); }}
             style={{
               fontSize: "0.84rem",
               fontWeight: 600,
@@ -375,7 +378,7 @@ const ApplicantCard = ({
           </div>
           <a
             href="#"
-            onClick={(e) => e.preventDefault()}
+            onClick={(e) => { e.preventDefault(); navigate(buildProviderProfileViewPath(a.proveedorId)); }}
             style={{
               fontSize: "0.8rem",
               fontWeight: 600,

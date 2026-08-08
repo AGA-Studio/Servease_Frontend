@@ -5,6 +5,8 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Menu, Plus } from "lucide-react";
 import Sidebar from "../components/sidebar/Sidebar";
 import MobileSidebar from "../components/sidebar/MobileSidebar";
+import NotificationsPopover from "../components/popover/notificationspopover/NotificationsPopover";
+import { useIsMobile } from "../hooks/useIsMobile";
 import ServeaseLogoDark from "../assets/Servease-Icono-Modo-Oscuro.svg";
 import ServeaseLogo from "../assets/Servease-Icono.svg";
 import { useI18n } from "../i18n";
@@ -24,6 +26,7 @@ import {
   fetchPendienteCalificar,
   fetchPostDetails,
 } from "../api/servicioApi";
+import type { Notificacion } from "../api/notificacionApi";
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(
@@ -41,6 +44,7 @@ const useTheme = () => {
 
 const AppLayout: React.FC = () => {
   const isDark = useTheme();
+  const isMobile = useIsMobile(767);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,7 +177,7 @@ const AppLayout: React.FC = () => {
       fetchAplicantes(row.id_servicio)
         .then((aplicantes) => {
           const aceptado = aplicantes.find((a) =>
-            a.estado_solicitud.toLowerCase().includes("acept"),
+            a.estado_solicitud?.toLowerCase().includes("acept"),
           );
           setRatingPrompt({
             idServicio: row.id_servicio,
@@ -186,6 +190,26 @@ const AppLayout: React.FC = () => {
         .catch((error) => {
           console.error("fetchAplicantes failed:", error);
         });
+    },
+  });
+
+  // Global: any new notification for the logged-in user pops a toast,
+  // regardless of which screen they're on. Clicking it jumps to the
+  // notifications page with that entry highlighted.
+  useRealtimeChannel<Notificacion>({
+    table: "notificacion",
+    event: "INSERT",
+    filter: user ? `id_usuario=eq.${user.id}` : undefined,
+    enabled: !!user,
+    onChange: (payload) => {
+      const n = payload.new as Notificacion;
+      addToast("info", n.contenido ?? n.titulo, {
+        duration: 8000,
+        onClick: () =>
+          navigate(ROUTES.APP.NOTIFICATIONS, {
+            state: { highlightId: n.id_notificacion },
+          }),
+      });
     },
   });
 
@@ -255,6 +279,8 @@ const AppLayout: React.FC = () => {
                 Servease
               </span>
             </div>
+
+            {isMobile && <NotificationsPopover isDark={isDark} />}
 
             {!isOnNewService && (
               <button

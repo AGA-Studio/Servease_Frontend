@@ -19,7 +19,6 @@ import SearchBar from "../../components/searchbar/SearchBar";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
-import NotificationsPopover from "../../components/popover/notificationspopover/NotificationsPopover";
 import { useNavigate } from "react-router-dom";
 import { ROUTES, buildPostOffersPath } from "../../router/routes";
 import {
@@ -28,6 +27,8 @@ import {
   type HomeCliente,
 } from "../../api/userApi";
 import { fetchPostDetails } from "../../api/servicioApi";
+import { fetchNotificaciones } from "../../api/notificacionApi";
+import { dotColorForTipo } from "../../utils/notifications";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import type { JobDetails } from "../../types/job";
 import { getApproxLocation } from "../../utils/location";
@@ -93,37 +94,6 @@ function servicioToPost(servicio: HomeCliente): Post {
     raw: servicio,
   };
 }
-
-const ACTIVITIES: Activity[] = [
-  {
-    id: "1",
-    timeAgo: "10 mins ago",
-    content: " submitted a counteroffer for 'Emergency Plumber'.",
-    highlight: "Mike S.",
-    extra: "Price: $450",
-    dotColor: "#2EBCCC",
-  },
-  {
-    id: "2",
-    timeAgo: "2 hours ago",
-    content: " service successfully completed.",
-    highlight: "'Urgent locksmith'",
-    dotColor: "#4AA825",
-  },
-  {
-    id: "3",
-    timeAgo: "Yesterday",
-    content: "You posted a new job: 'Urgent locksmith'.",
-    dotColor: "#989898",
-  },
-  {
-    id: "4",
-    timeAgo: "2 days ago",
-    content: " sent you a message about 'Children's Party'.",
-    highlight: "Sara J.",
-    dotColor: "#FFB200",
-  },
-];
 
 const PostIcon = ({
   category,
@@ -537,6 +507,34 @@ const HomeScreen: React.FC = () => {
     () => fetchHomeCliente(user!.id),
   );
 
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchNotificaciones()
+      .then((data) => {
+        if (cancelled) return;
+        setActivities(
+          data.slice(0, 5).map((n) => ({
+            id: String(n.id_notificacion),
+            timeAgo: timeAgo(n.fecha),
+            content: n.contenido ?? n.titulo,
+            dotColor: dotColorForTipo(n.tipo),
+          })),
+        );
+      })
+      .catch((error) => {
+        console.error("fetchNotificaciones (recent activity) failed:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingActivities(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [locations, setLocations] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -885,8 +883,6 @@ const HomeScreen: React.FC = () => {
               flexShrink: 0,
             }}
           >
-            <NotificationsPopover isDark={isDark} />
-
             <button
               onClick={() => navigate(ROUTES.APP.NEW_SERVICE)}
               className="post-btn"
@@ -1143,7 +1139,35 @@ const HomeScreen: React.FC = () => {
                   padding: "20px",
                 }}
               >
-                {ACTIVITIES.length === 0 ? (
+                {isLoadingActivities ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} style={{ display: "flex", gap: 14 }}>
+                        <motion.div
+                          animate={{ opacity: [0.6, 1, 0.6] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            background: isDark ? "#273570" : "#e5e7eb",
+                            flexShrink: 0,
+                          }}
+                        />
+                        <motion.div
+                          animate={{ opacity: [0.6, 1, 0.6] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                          style={{
+                            flex: 1,
+                            height: 32,
+                            borderRadius: 8,
+                            background: isDark ? "#273570" : "#e5e7eb",
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : activities.length === 0 ? (
                   <EmptyState
                     icon={<Inbox size={22} color="#2EBCCC" />}
                     isDark={isDark}
@@ -1156,14 +1180,14 @@ const HomeScreen: React.FC = () => {
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 0 }}
                 >
-                  {ACTIVITIES.map((act, i) => (
+                  {activities.map((act, i) => (
                     <div
                       key={act.id}
                       className="hs-activity-row"
                       style={{
                         display: "flex",
                         gap: 14,
-                        paddingBottom: i < ACTIVITIES.length - 1 ? 18 : 0,
+                        paddingBottom: i < activities.length - 1 ? 18 : 0,
                       }}
                     >
                       <div
@@ -1174,7 +1198,7 @@ const HomeScreen: React.FC = () => {
                         }}
                       >
                         <ActivityDot color={act.dotColor} isFirst={i === 0} />
-                        {i < ACTIVITIES.length - 1 && (
+                        {i < activities.length - 1 && (
                           <div
                             style={{
                               width: 2,
@@ -1235,6 +1259,7 @@ const HomeScreen: React.FC = () => {
 
                 <button
                   className="load-btn"
+                  onClick={() => navigate(ROUTES.APP.NOTIFICATIONS)}
                   style={{
                     width: "100%",
                     marginTop: 18,
@@ -1250,7 +1275,7 @@ const HomeScreen: React.FC = () => {
                     transition: "all 0.2s",
                   }}
                 >
-                  Load older activity
+                  {h.loadOlder}
                 </button>
                 </>
                 )}

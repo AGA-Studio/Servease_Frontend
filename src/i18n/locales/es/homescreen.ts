@@ -9,6 +9,7 @@ export const homescreen = {
   myActivePost: "Mis Publicaciones Activas",
   viewAll: "Ver todo",
   recentActivity: "Actividad Reciente",
+  loadOlder: "Cargar actividad anterior",
   searchPlaceholder:
     "Encuentra un proveedor o servicio (ej. Plomero, Electricista, Limpieza...)",
   serviceCard: {
@@ -28,10 +29,7 @@ export const homescreen = {
     markAllRead: "Marcar todo como leído",
     viewAll: "Ver todas las notificaciones",
     empty: "Sin nuevas notificaciones",
-    loading: "Cargando...",
-    loadOlder: "Cargar más antiguas",
-    error: "No se pudieron cargar las notificaciones.",
-    retry: "Reintentar",
+    loadFailed: "No se pudieron cargar las notificaciones.",
   },
   tooltips: {
     notifications: "Notificaciones",

@@ -4,6 +4,7 @@ import {
   FileText,
   PlusSquare,
   MessageSquare,
+  Bell,
   Briefcase,
   ClipboardCheck,
 } from "lucide-react";
@@ -48,6 +49,12 @@ export const NAV_ITEMS: NavItem[] = [
     key: "messages",
     icon: React.createElement(MessageSquare, { size: 19 }),
     to: ROUTES.APP.MESSAGES,
+    group: "client",
+  },
+  {
+    key: "notifications",
+    icon: React.createElement(Bell, { size: 19 }),
+    to: ROUTES.APP.NOTIFICATIONS,
     group: "client",
   },
   {

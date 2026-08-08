@@ -37,6 +37,8 @@ export const useConversationChannel = ({
     const channelName = `conversacion-${conversacionId}`;
     let isSubscribed = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
 
     const setupAndSubscribe = async () => {
       // 1. Limpiar cualquier instancia previa del canal en el cliente de Supabase
@@ -55,7 +57,19 @@ export const useConversationChannel = ({
       const token = data.session?.access_token;
 
       if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          console.log(
+            `[Realtime] Token para ${channelName} -> role=${payload.role} sub=${payload.sub} exp=${new Date(
+              payload.exp * 1000
+            ).toISOString()}`
+          );
+        } catch {
+          console.warn(`[Realtime] No se pudo decodificar el JWT para ${channelName}`);
+        }
         await supabase.realtime.setAuth(token);
+      } else {
+        console.warn(`[Realtime] Sin sesión activa al abrir ${channelName}; se usará auth por defecto (anon)`);
       }
 
       if (!isSubscribed) return;
@@ -81,9 +95,27 @@ export const useConversationChannel = ({
         })
         .subscribe((status, err) => {
           if (status === "SUBSCRIBED") {
+            retryCount = 0;
             console.log(`[Realtime] Conectado exitosamente a ${channelName}`);
-          } else if (status === "CHANNEL_ERROR") {
-            console.warn(`[Realtime] Error de permisos/autorización en ${channelName}:`, err || status);
+            return;
+          }
+
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            console.warn(
+              `[Realtime] ${status} en ${channelName} (intento ${retryCount + 1}). ` +
+                `Si esto se repite siempre, revisar en el backend/Supabase las políticas de ` +
+                `Realtime Authorization (RLS de realtime.messages) para canales privados — ` +
+                `sin eso el canal nunca conecta y no llegan mensajes/typing en vivo.`,
+              err || status
+            );
+            if (!isSubscribed) return;
+            retryCount += 1;
+            const delay = Math.min(1000 * 2 ** retryCount, 15000);
+            retryTimer = setTimeout(() => {
+              if (isSubscribed) setupAndSubscribe();
+            }, delay);
+          } else if (status === "CLOSED") {
+            console.log(`[Realtime] Canal cerrado ${channelName}`);
           }
         });
     };
@@ -93,6 +125,7 @@ export const useConversationChannel = ({
     // Cleanup al desmontar o cambiar de conversación
     return () => {
       isSubscribed = false;
+      if (retryTimer) clearTimeout(retryTimer);
       if (channel) {
         supabase.removeChannel(channel);
       }

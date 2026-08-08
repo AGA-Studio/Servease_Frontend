@@ -9,6 +9,7 @@ interface Props {
   isDark: boolean;
   isActive: boolean;
   onClick: () => void;
+  badgeCount?: number;
 }
 
 const SidebarNavLink: React.FC<Props> = ({
@@ -17,6 +18,7 @@ const SidebarNavLink: React.FC<Props> = ({
   isDark,
   isActive,
   onClick,
+  badgeCount = 0,
 }) => {
   const [hovered, setHovered] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
@@ -92,6 +94,19 @@ const SidebarNavLink: React.FC<Props> = ({
           }}
         >
           {item.icon}
+          {badgeCount > 0 && (
+            <span
+              className="absolute rounded-full"
+              style={{
+                top: -3,
+                right: -4,
+                width: 8,
+                height: 8,
+                background: "#FF4444",
+                border: `2px solid ${isActive ? "#2EBCCC" : isDark ? "#1B244C" : "#FFFFFF"}`,
+              }}
+            />
+          )}
         </span>
 
         {!isCollapsed && (

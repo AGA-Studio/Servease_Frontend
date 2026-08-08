@@ -1,7 +1,9 @@
 
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCurrency } from "../../context/CurrencyContext";
+import { useAuth } from "../../context/AuthContext";
 import CustomizableModal from "../modal/CustomizableModal";
 import {
   MapPin,
@@ -22,6 +24,7 @@ import type { PostStatus } from "../../data/mockPosts";
 import Avatar from "../avatar/Avatar";
 import { getCategoryStyle } from "../../utils/categoryStyle";
 import LocationMap from "../map/LocationMap";
+import { buildClientProfileViewPath, buildProviderProfileViewPath } from "../../router/routes";
 
 const CATEGORY_KEY: Record<string, string> = {
   Locksmith: "locksmith",
@@ -210,6 +213,11 @@ const JobDetailsModal: React.FC<Props> = ({
   const { isDark } = useThemeMode();
   const { t } = useI18n();
   const { formatMoney } = useCurrency();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  // El botón "Ver Perfil" del cliente solo navega para cuentas proveedor/admin:
+  // son las únicas que tienen acceso a la ruta de solo-lectura /app/clients/:id.
+  const canViewClientProfile = user?.role === "provider" || user?.role === "admin";
   const d = t("postdetailsscreen");
   const mp = t("myposts");
   const [selectedThumb, setSelectedThumb] = useState(0);
@@ -784,6 +792,7 @@ const JobDetailsModal: React.FC<Props> = ({
                             gap: 20,
                           }}
                         >
+                          {canViewClientProfile && (
                           <motion.div
                             className="jdm-sidebar-card"
                             variants={itemVariants}
@@ -916,9 +925,95 @@ const JobDetailsModal: React.FC<Props> = ({
                               </div>
                             </div>
 
+                            {canViewClientProfile && (
+                              <motion.button
+                                whileHover={{ x: 2 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => navigate(buildClientProfileViewPath(job.client.id))}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  color: "#2EBCCC",
+                                  fontSize: "0.85rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  padding: 0,
+                                }}
+                              >
+                                {d.viewProfile}
+                              </motion.button>
+                            )}
+                          </motion.div>
+                          )}
+
+                          {!canViewClientProfile && job.provider && (
+                          <motion.div
+                            className="jdm-sidebar-card"
+                            variants={itemVariants}
+                            style={{
+                              background: "var(--card-bg)",
+                              borderRadius: 16,
+                              border: "1px solid var(--divider)",
+                              padding: 24,
+                            }}
+                          >
+                            <h3
+                              style={{
+                                margin: "0 0 18px",
+                                fontSize: "0.78rem",
+                                fontWeight: 800,
+                                color: "var(--text-secondary)",
+                                textTransform: "uppercase",
+                                letterSpacing: 0.5,
+                              }}
+                            >
+                              {d.aboutProvider}
+                            </h3>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 14,
+                                marginBottom: 18,
+                              }}
+                            >
+                              <Avatar photoUrl={job.provider.avatar} name={job.provider.name} size={56} />
+                              <div>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontSize: "1rem",
+                                    fontWeight: 700,
+                                    color: "var(--text)",
+                                  }}
+                                >
+                                  {job.provider.name}
+                                </p>
+                                <p
+                                  style={{
+                                    margin: "4px 0 0",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontSize: "0.8rem",
+                                    color: "var(--text-secondary)",
+                                  }}
+                                >
+                                  <Star size={13} color="#FFB200" fill="#FFB200" />
+                                  <span style={{ color: "var(--text)", fontWeight: 700 }}>
+                                    {job.provider.rating != null ? job.provider.rating.toFixed(1) : "—"}
+                                  </span>
+                                  ({job.provider.reviewCount} {d.reviews})
+                                </p>
+                              </div>
+                            </div>
+
                             <motion.button
                               whileHover={{ x: 2 }}
                               transition={{ duration: 0.2 }}
+                              onClick={() => navigate(buildProviderProfileViewPath(job.provider!.id))}
                               style={{
                                 background: "none",
                                 border: "none",
@@ -933,6 +1028,7 @@ const JobDetailsModal: React.FC<Props> = ({
                               {d.viewProfile}
                             </motion.button>
                           </motion.div>
+                          )}
 
                           <motion.div
                             className="jdm-map-card"

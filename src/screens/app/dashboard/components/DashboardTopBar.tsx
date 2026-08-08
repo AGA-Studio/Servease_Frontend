@@ -1,21 +1,17 @@
 import { RefreshCw } from "lucide-react";
 import SearchBar from "../../../../components/searchbar/SearchBar";
-import NotificationsPopover from "../../../../components/popover/notificationspopover/NotificationsPopover";
 import IconTooltip from "../../../../components/tooltip/IconTooltip";
 import { useI18n } from "../../../../i18n";
 import { useAuth } from "../../../../context/AuthContext";
-import type { Notification } from "../../../../api/notificationApi";
 
 interface DashboardTopBarProps {
   isDark: boolean;
   onRefresh?: () => void;
-  onNotificationNavigate?: (n: Notification) => void;
 }
 
 export const DashboardTopBar = ({
   isDark,
   onRefresh,
-  onNotificationNavigate,
 }: DashboardTopBarProps) => {
   const { t } = useI18n();
   const d = t("dashboardscreen");
@@ -123,11 +119,6 @@ export const DashboardTopBar = ({
               </button>
             )}
           </IconTooltip>
-
-          <NotificationsPopover
-            isDark={isDark}
-            onNavigate={onNotificationNavigate}
-          />
         </div>
       </div>
     </div>

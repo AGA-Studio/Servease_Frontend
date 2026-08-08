@@ -26,7 +26,7 @@ import { paymentwaitingmodal } from "./paymentwaitingmodal";
 import { cardpaymentmodal } from "./cardpaymentmodal";
 import { clientratingmodal } from "./clientratingmodal";
 import { notfoundscreen } from "./notfoundscreen";
-import { notifications } from "./notifications";
+import { notificationsscreen } from "./notificationsscreen";
 export const en = {
   auth,
   common,
@@ -56,5 +56,5 @@ export const en = {
   cardpaymentmodal,
   clientratingmodal,
   notfoundscreen,
-  notifications,
+  notificationsscreen,
 };

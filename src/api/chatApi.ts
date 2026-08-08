@@ -11,19 +11,34 @@ export interface ConversacionItem {
   timeAgoKey: string; // ej: "now", "2h ago", "1d ago"
   unreadCount: number;
   servicio_id?: number | null;
+  servicio_titulo?: string | null;
   archivada?: boolean;
+  proveedor_id?: string;
+  cliente_id?: string;
+}
+
+export interface UsuarioConversacion {
+  id_usuario: string;
+  nombre: string;
+  apellido_pa: string;
+  url_foto_perfil: string | null;
+  rating: number | null;
+  num_reviews: number;
+}
+
+export interface ServicioConversacion {
+  id: number;
+  titulo: string;
+  fecha: string;
+  categoria: string | null;
 }
 
 export interface ConversacionDetail extends ConversacionItem {
-  proveedor_id?: string;
-  cliente_id?: string;
-  fecha_creacion?: string;
-  // Agrega aquí campos adicionales del servicio si el backend los provee
-  servicio_detalles?: {
-    titulo?: string;
-    ubicacion?: string;
-    fecha?: string;
-  };
+  estado?: number;
+  fecha_inicio?: string;
+  cliente?: UsuarioConversacion;
+  proveedor?: UsuarioConversacion;
+  servicio?: ServicioConversacion;
 }
 
 export interface MensajeAttachment {
@@ -119,6 +134,12 @@ export const chatApi = {
     return apiPost<void>(`/api/mensajeria/conversaciones/${conversacionId}/typing/`, {
       action,
     });
+  },
+
+  // 5b. Marca la conversación como leída por el usuario actual (limpia badge
+  // de no-leídos en BD y dispara el broadcast "read_receipt" al otro usuario).
+  marcarLeido: async (conversacionId: string): Promise<void> => {
+    return apiPatch<void>(`/api/mensajeria/conversaciones/${conversacionId}/leido/`, {});
   },
 
   // 6. Obtener historial de mensajes de una conversación

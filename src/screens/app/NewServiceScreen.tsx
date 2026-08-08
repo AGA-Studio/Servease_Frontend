@@ -50,10 +50,35 @@ import {
   stripControlChars,
 } from "../../utils/validation";
 import { ROUTES } from "../../router/routes";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import "./animations.newservice.css";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+const MODAL_EASE = [0.23, 1, 0.32, 1] as const;
+
+const modalOverlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+const modalPanelVariants = {
+  hidden: { opacity: 0, scale: 0.94, y: 12 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { duration: 0.25, ease: MODAL_EASE },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.96,
+    y: 8,
+    transition: { duration: 0.15, ease: MODAL_EASE },
+  },
+};
 
 function formatThousands(raw: string): string {
   if (!raw) return "";
@@ -164,15 +189,17 @@ function CustomDateTimePicker({
   );
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
+    if (isMobile) return;
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [isMobile]);
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
@@ -201,6 +228,225 @@ function CustomDateTimePicker({
   const displayValue = selectedDay
     ? `${MONTHS[viewMonth]} ${selectedDay}, ${viewYear}  ${selectedHour}:${selectedMinute}`
     : "";
+
+  const pickerBody = (
+    <>
+      <div style={{ padding: "14px 16px 8px" }}>
+        <div className="flex items-center justify-between mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (viewMonth === 0) {
+                setViewMonth(11);
+                setViewYear((y) => y - 1);
+              } else setViewMonth((m) => m - 1);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: accentColor,
+              padding: 4,
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: "0.9rem",
+              color: textColor,
+            }}
+          >
+            {MONTHS[viewMonth]} {viewYear}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (viewMonth === 11) {
+                setViewMonth(0);
+                setViewYear((y) => y + 1);
+              } else setViewMonth((m) => m + 1);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: accentColor,
+              padding: 4,
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 mb-1">
+          {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+            <div
+              key={d}
+              style={{
+                textAlign: "center",
+                fontSize: "0.7rem",
+                fontWeight: 600,
+                color: mutedColor,
+                padding: "4px 0",
+              }}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-y-1">
+          {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+            <div key={`e-${i}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+            (day) => {
+              const isSelected = selectedDay === day;
+              const isToday =
+                now.getDate() === day &&
+                now.getMonth() === viewMonth &&
+                now.getFullYear() === viewYear;
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDay(day);
+                    commit(day, selectedHour, selectedMinute);
+                  }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    margin: "0 auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "50%",
+                    border:
+                      isToday && !isSelected
+                        ? `1.5px solid ${accentColor}`
+                        : "none",
+                    background: isSelected ? accentColor : "transparent",
+                    color: isSelected ? "#fff" : textColor,
+                    fontSize: "0.8rem",
+                    fontWeight: isSelected ? 700 : 400,
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                    fontFamily: "inherit",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected)
+                      e.currentTarget.style.background =
+                        "rgba(46,188,204,0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected)
+                      e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {day}
+                </button>
+              );
+            },
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderTop: `1px solid ${border}`,
+          padding: "10px 16px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <Clock size={14} style={{ color: accentColor, flexShrink: 0 }} />
+        <span
+          style={{
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            color: textColor,
+            minWidth: 36,
+          }}
+        >
+          Time
+        </span>
+        <select
+          value={selectedHour}
+          onChange={(e) => {
+            setSelectedHour(e.target.value);
+            if (selectedDay)
+              commit(selectedDay, e.target.value, selectedMinute);
+          }}
+          style={{
+            background: isDark ? "#273570" : "#F8FAFC",
+            border: `1.5px solid ${border}`,
+            color: textColor,
+            borderRadius: 8,
+            padding: "5px 8px",
+            fontSize: "0.82rem",
+            fontFamily: "inherit",
+            cursor: "pointer",
+            outline: "none",
+          }}
+        >
+          {HOURS.map((h) => (
+            <option key={h} value={h}>
+              {h}
+            </option>
+          ))}
+        </select>
+        <span style={{ color: mutedColor, fontWeight: 700 }}>:</span>
+        <select
+          value={selectedMinute}
+          onChange={(e) => {
+            setSelectedMinute(e.target.value);
+            if (selectedDay)
+              commit(selectedDay, selectedHour, e.target.value);
+          }}
+          style={{
+            background: isDark ? "#273570" : "#F8FAFC",
+            border: `1.5px solid ${border}`,
+            color: textColor,
+            borderRadius: 8,
+            padding: "5px 8px",
+            fontSize: "0.82rem",
+            fontFamily: "inherit",
+            cursor: "pointer",
+            outline: "none",
+          }}
+        >
+          {MINUTES.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          style={{
+            marginLeft: "auto",
+            background: accentColor,
+            border: "none",
+            color: "#fff",
+            borderRadius: 8,
+            padding: "5px 14px",
+            fontWeight: 700,
+            fontSize: "0.8rem",
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          Done
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div ref={ref} className="relative w-full">
@@ -237,7 +483,7 @@ function CustomDateTimePicker({
         style={{ color: accentColor }}
       />
 
-      {open && (
+      {open && !isMobile && (
         <div
           className="ns-dropdown-open absolute z-30 mt-2 rounded-2xl shadow-2xl overflow-hidden"
           style={{
@@ -247,222 +493,51 @@ function CustomDateTimePicker({
             right: 0,
           }}
         >
-          <div style={{ padding: "14px 16px 8px" }}>
-            <div className="flex items-center justify-between mb-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (viewMonth === 0) {
-                    setViewMonth(11);
-                    setViewYear((y) => y - 1);
-                  } else setViewMonth((m) => m - 1);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: accentColor,
-                  padding: 4,
-                }}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span
-                style={{
-                  fontWeight: 700,
-                  fontSize: "0.9rem",
-                  color: textColor,
-                }}
-              >
-                {MONTHS[viewMonth]} {viewYear}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (viewMonth === 11) {
-                    setViewMonth(0);
-                    setViewYear((y) => y + 1);
-                  } else setViewMonth((m) => m + 1);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: accentColor,
-                  padding: 4,
-                }}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 mb-1">
-              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-                <div
-                  key={d}
-                  style={{
-                    textAlign: "center",
-                    fontSize: "0.7rem",
-                    fontWeight: 600,
-                    color: mutedColor,
-                    padding: "4px 0",
-                  }}
-                >
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-y-1">
-              {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                <div key={`e-${i}`} />
-              ))}
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-                (day) => {
-                  const isSelected = selectedDay === day;
-                  const isToday =
-                    now.getDate() === day &&
-                    now.getMonth() === viewMonth &&
-                    now.getFullYear() === viewYear;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDay(day);
-                        commit(day, selectedHour, selectedMinute);
-                      }}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        margin: "0 auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: "50%",
-                        border:
-                          isToday && !isSelected
-                            ? `1.5px solid ${accentColor}`
-                            : "none",
-                        background: isSelected ? accentColor : "transparent",
-                        color: isSelected ? "#fff" : textColor,
-                        fontSize: "0.8rem",
-                        fontWeight: isSelected ? 700 : 400,
-                        cursor: "pointer",
-                        transition: "background 0.15s",
-                        fontFamily: "inherit",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected)
-                          e.currentTarget.style.background =
-                            "rgba(46,188,204,0.15)";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected)
-                          e.currentTarget.style.background = "transparent";
-                      }}
-                    >
-                      {day}
-                    </button>
-                  );
-                },
-              )}
-            </div>
-          </div>
-
-          <div
-            style={{
-              borderTop: `1px solid ${border}`,
-              padding: "10px 16px 14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <Clock size={14} style={{ color: accentColor, flexShrink: 0 }} />
-            <span
-              style={{
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                color: textColor,
-                minWidth: 36,
-              }}
-            >
-              Time
-            </span>
-            <select
-              value={selectedHour}
-              onChange={(e) => {
-                setSelectedHour(e.target.value);
-                if (selectedDay)
-                  commit(selectedDay, e.target.value, selectedMinute);
-              }}
-              style={{
-                background: isDark ? "#273570" : "#F8FAFC",
-                border: `1.5px solid ${border}`,
-                color: textColor,
-                borderRadius: 8,
-                padding: "5px 8px",
-                fontSize: "0.82rem",
-                fontFamily: "inherit",
-                cursor: "pointer",
-                outline: "none",
-              }}
-            >
-              {HOURS.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </select>
-            <span style={{ color: mutedColor, fontWeight: 700 }}>:</span>
-            <select
-              value={selectedMinute}
-              onChange={(e) => {
-                setSelectedMinute(e.target.value);
-                if (selectedDay)
-                  commit(selectedDay, selectedHour, e.target.value);
-              }}
-              style={{
-                background: isDark ? "#273570" : "#F8FAFC",
-                border: `1.5px solid ${border}`,
-                color: textColor,
-                borderRadius: 8,
-                padding: "5px 8px",
-                fontSize: "0.82rem",
-                fontFamily: "inherit",
-                cursor: "pointer",
-                outline: "none",
-              }}
-            >
-              {MINUTES.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              style={{
-                marginLeft: "auto",
-                background: accentColor,
-                border: "none",
-                color: "#fff",
-                borderRadius: 8,
-                padding: "5px 14px",
-                fontWeight: 700,
-                fontSize: "0.8rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Done
-            </button>
-          </div>
+          {pickerBody}
         </div>
       )}
+
+      {isMobile &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                key="date-picker-overlay"
+                variants={modalOverlayVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 flex items-center justify-center"
+                style={{
+                  zIndex: 1000,
+                  padding: 16,
+                  background: "rgba(27,36,76,0.6)",
+                  backdropFilter: "blur(4px)",
+                }}
+                onClick={() => setOpen(false)}
+              >
+                <motion.div
+                  key="date-picker-panel"
+                  variants={modalPanelVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full rounded-2xl shadow-2xl overflow-hidden"
+                  style={{
+                    maxWidth: 340,
+                    background: popBg,
+                    border: `1.5px solid ${border}`,
+                  }}
+                >
+                  {pickerBody}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -1411,7 +1486,9 @@ const NewServiceScreen: React.FC = () => {
               resolveCurrentLocation();
             }}
             disabled={isLocatingCurrent}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold text-white flex items-center gap-1.5"
+            className={`absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-bold text-white items-center gap-1.5 ${
+              locationCoords ? "hidden md:flex" : "flex"
+            }`}
             style={{ background: "#2EBCCC", opacity: isLocatingCurrent ? 0.7 : 1 }}
           >
             <Crosshair size={13} />
@@ -1721,10 +1798,15 @@ const NewServiceScreen: React.FC = () => {
                         alt=""
                         className="w-full h-full object-cover"
                       />
+                      {/* Desktop: full-overlay reveal on hover */}
                       <div
-                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        className="absolute inset-0 hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         style={{ background: "rgba(0,0,0,0.55)" }}
                       >
+                        <DeletePhotoButton onDelete={() => setPhotoToRemove(i)} />
+                      </div>
+                      {/* Mobile: no hover, so the delete affordance stays visible */}
+                      <div className="absolute top-1 right-1 flex md:hidden">
                         <DeletePhotoButton onDelete={() => setPhotoToRemove(i)} />
                       </div>
                     </motion.div>

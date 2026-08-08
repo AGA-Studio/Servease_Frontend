@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { motion, useInView } from "motion/react";
 import {
   Pencil,
@@ -21,6 +22,12 @@ import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
 import { uploadProfilePhoto } from "../../api/userApi";
 import { fetchReviewsCliente, type ReviewCliente } from "../../api/userApi";
+import {
+  fetchPerfilProveedor,
+  fetchCategoriasProveedor,
+  type PerfilProveedor,
+  type AreaTrabajo,
+} from "../../api/userApi";
 import { fetchDashboardProveedor, type ProviderKpisResponse } from "../../api/providerApi";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
@@ -28,8 +35,10 @@ import { friendlyErrorMessage } from "../../utils/apiError";
 import Avatar from "../../components/avatar/Avatar";
 import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
 import PortafolioModal from "../../components/portafoliomodal/PortafolioModal";
+import PortfolioItemModal from "../../components/portfolioitemmodal/PortfolioItemModal";
 import { CustomizableModal } from "../../components/modal/CustomizableModal";
 import ReviewsModal from "../../components/reviewsmodal/ReviewsModal";
+import EmptyState from "../../components/emptystate/EmptyState";
 import { timeAgo } from "../../utils/servicio";
 import {
   fetchPortafolio,
@@ -168,10 +177,12 @@ const PortfolioCard = ({
   item,
   index,
   onDelete,
+  onClick,
 }: {
   item: PortfolioItem;
   index: number;
   onDelete?: () => void;
+  onClick?: () => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -40px 0px" });
@@ -185,6 +196,19 @@ const PortfolioCard = ({
       transition={{ duration: 0.35, delay: index * 0.08, ease: EASE }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       style={{
         borderRadius: 14,
         overflow: "hidden",
@@ -195,6 +219,7 @@ const PortfolioCard = ({
           : "0 1px 4px rgba(0,0,0,0.04)",
         transform: hovered ? "translateY(-2px)" : "none",
         transition: "box-shadow 0.2s, transform 0.2s",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
       <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
@@ -364,6 +389,11 @@ const ReviewRow = ({ review, index }: { review: Review; index: number }) => {
 const ProviderProfileScreen: React.FC = () => {
   const { isDark } = useTheme();
   const { user, profile, updateProfile } = useAuth();
+  const { id: routeProviderId } = useParams<{ id?: string }>();
+  // Sin :id en la ruta => perfil propio del proveedor logueado (editable).
+  // Con :id (ej. /app/providers/:id, usado por el cliente) => solo lectura.
+  const isOwnProfile = !routeProviderId;
+  const targetUserId = routeProviderId ?? user?.id;
   const { t, locale } = useI18n();
   const { formatMoney } = useCurrency();
   const p = t("profile").provider;
@@ -380,6 +410,7 @@ const ProviderProfileScreen: React.FC = () => {
   const [isPortfolioLoading, setIsPortfolioLoading] = useState(true);
   const [showPortafolioModal, setShowPortafolioModal] = useState(false);
   const [portafolioModalKey, setPortafolioModalKey] = useState(0);
+  const [selectedPortfolioItem, setSelectedPortfolioItem] = useState<PortafolioApiItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number;
     title: string;
@@ -408,19 +439,22 @@ const ProviderProfileScreen: React.FC = () => {
   }));
 
   const refreshPortfolio = async () => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     try {
-      const data = await fetchPortafolio(user.id);
+      const data = await fetchPortafolio(targetUserId);
       setPortfolio(data);
     } catch (err) {
       console.error("fetchPortafolio failed:", err);
     }
   };
 
+  // GET .../portafolio/ y .../reviews/ son públicos (sin chequeo de dueño en
+  // backend), por eso sirven igual para el propio perfil y para el de un
+  // tercero — basta con pedirlos por targetUserId en vez de user.id.
   useEffect(() => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     let cancelled = false;
-    fetchPortafolio(user.id)
+    fetchPortafolio(targetUserId)
       .then((data) => {
         if (!cancelled) setPortfolio(data);
       })
@@ -433,12 +467,12 @@ const ProviderProfileScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [targetUserId]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     let cancelled = false;
-    fetchReviewsCliente(user.id)
+    fetchReviewsCliente(targetUserId)
       .then((data) => {
         if (!cancelled) setReviewsList(data);
       })
@@ -451,7 +485,7 @@ const ProviderProfileScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [targetUserId]);
 
   const handleDeletePortafolio = async () => {
     if (!deleteTarget) return;
@@ -491,8 +525,11 @@ const ProviderProfileScreen: React.FC = () => {
   const [isKpisLoading, setIsKpisLoading] = useState(true);
 
   useEffect(() => {
+    // El dashboard de KPIs (con ganancias) es privado del dueño — el backend
+    // lo rechaza para cualquier otro id_usuario, así que solo se pide en el
+    // propio perfil.
+    if (!isOwnProfile || !user?.id) return;
     let cancelled = false;
-    if (!user?.id) return;
     fetchDashboardProveedor(user.id)
       .then((res) => {
         if (!cancelled) setKpis(res);
@@ -506,12 +543,70 @@ const ProviderProfileScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [isOwnProfile, user?.id]);
 
-  const completedJobs = isKpisLoading ? null : (kpis?.completedJobs ?? 0);
-  const totalEarnings = isKpisLoading ? null : (kpis?.earnings ?? 0);
-  const rating = isKpisLoading ? null : (kpis?.rating ?? 0);
-  const reviews = isKpisLoading ? null : (kpis?.reviews ?? 0);
+  // Perfil público (sin ganancias) para cuando se ve el perfil de otro
+  // proveedor — usa la misma info que el dashboard de KPIs necesita para
+  // trabajos completados/rating/reviews, pero por un endpoint público.
+  const [perfilProveedor, setPerfilProveedor] = useState<PerfilProveedor | null>(null);
+  const [isPerfilLoading, setIsPerfilLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOwnProfile || !targetUserId) return;
+    let cancelled = false;
+    fetchPerfilProveedor(targetUserId)
+      .then((res) => {
+        if (!cancelled) setPerfilProveedor(res);
+      })
+      .catch(() => {
+        if (!cancelled) setPerfilProveedor(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsPerfilLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, targetUserId]);
+
+  // Áreas de trabajo de otro proveedor (endpoint público) — useWorkAreas()
+  // solo sirve para el propio usuario logueado.
+  const [otherAreas, setOtherAreas] = useState<AreaTrabajo[]>([]);
+  const [isOtherAreasLoading, setIsOtherAreasLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOwnProfile || !targetUserId) return;
+    let cancelled = false;
+    fetchCategoriasProveedor(targetUserId)
+      .then((data) => {
+        if (!cancelled) setOtherAreas(data);
+      })
+      .catch(() => {
+        if (!cancelled) setOtherAreas([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsOtherAreasLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, targetUserId]);
+
+  const effectiveAreas = isOwnProfile ? areas : otherAreas;
+  const effectiveAreasLoading = isOwnProfile ? isAreasLoading : isOtherAreasLoading;
+
+  const completedJobs = isOwnProfile
+    ? isKpisLoading ? null : (kpis?.completedJobs ?? 0)
+    : isPerfilLoading ? null : (perfilProveedor?.trabajos_completados ?? 0);
+  const totalEarnings = isOwnProfile
+    ? (isKpisLoading ? null : (kpis?.earnings ?? 0))
+    : null;
+  const rating = isOwnProfile
+    ? isKpisLoading ? null : (kpis?.rating ?? 0)
+    : isPerfilLoading ? null : (perfilProveedor?.rating ?? 0);
+  const reviews = isOwnProfile
+    ? isKpisLoading ? null : (kpis?.reviews ?? 0)
+    : isPerfilLoading ? null : (perfilProveedor?.num_reviews ?? 0);
 
   const handleAvailabilityChange = async (next: boolean) => {
     try {
@@ -536,20 +631,34 @@ const ProviderProfileScreen: React.FC = () => {
     }
   };
 
-  const fullName = user
-    ? `${user.firstName} ${user.lastnameP}${user.lastnameM ? ` ${user.lastnameM}` : ""}`
-    : "";
+  const fullName = isOwnProfile
+    ? user
+      ? `${user.firstName} ${user.lastnameP}${user.lastnameM ? ` ${user.lastnameM}` : ""}`
+      : ""
+    : perfilProveedor?.nombre ?? "";
 
-  const memberSince = profile?.fecha_registro
-    ? new Date(profile.fecha_registro).toLocaleDateString(undefined, {
+  const avatarUrl = isOwnProfile ? profile?.url_foto_perfil : perfilProveedor?.url_foto_perfil;
+
+  const memberSinceRaw = isOwnProfile ? profile?.fecha_registro : perfilProveedor?.fecha_registro;
+  const memberSince = memberSinceRaw
+    ? new Date(memberSinceRaw).toLocaleDateString(undefined, {
         month: "long",
         year: "numeric",
       })
     : "—";
 
+  const profileDescription = isOwnProfile
+    ? profile?.descripcion_perfil?.trim() || ""
+    : (
+        perfilProveedor?.descripcion_perfil?.trim() ||
+        perfilProveedor?.descripcion?.trim() ||
+        perfilProveedor?.bio?.trim() ||
+        ""
+      );
+
   const languageLabel = locale === "es" ? "Español" : "English";
 
-  const services = areas.map((area) => {
+  const services = effectiveAreas.map((area) => {
     const style = getCategoryStyle(area.nombre);
     const Icon = style.icon;
     return {
@@ -629,65 +738,67 @@ const ProviderProfileScreen: React.FC = () => {
                 "radial-gradient(600px 200px at 85% -20%, rgba(255,255,255,.18), transparent)",
             }}
           />
-          <div
-            style={{
-              position: "absolute",
-              top: 20,
-              right: 24,
-              display: "flex",
-              gap: 10,
-            }}
-          >
-            <motion.button
-              className="pp-btn-ghost"
-              whileHover={{
-                scale: 1.03,
-                background: "rgba(255,255,255,0.22)",
-              }}
-              whileTap={{ scale: 0.96 }}
+          {isOwnProfile && (
+            <div
               style={{
+                position: "absolute",
+                top: 20,
+                right: 24,
                 display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 18px",
-                borderRadius: 11,
-                border: "1px solid rgba(255,255,255,.35)",
-                background: "rgba(255,255,255,.14)",
-                backdropFilter: "blur(6px)",
-                color: "#fff",
-                fontWeight: 600,
-                fontSize: "0.875rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
+                gap: 10,
               }}
             >
-              <Pencil size={15} />
-              {p.editProfile}
-            </motion.button>
-            <motion.button
-              className="pp-btn-ghost"
-              whileHover={{
-                scale: 1.05,
-                background: "rgba(255,255,255,0.22)",
-              }}
-              whileTap={{ scale: 0.94 }}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 11,
-                border: "1px solid rgba(255,255,255,.35)",
-                background: "rgba(255,255,255,.14)",
-                backdropFilter: "blur(6px)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: "#fff",
-              }}
-            >
-              <MoreHorizontal size={18} />
-            </motion.button>
-          </div>
+              <motion.button
+                className="pp-btn-ghost"
+                whileHover={{
+                  scale: 1.03,
+                  background: "rgba(255,255,255,0.22)",
+                }}
+                whileTap={{ scale: 0.96 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 18px",
+                  borderRadius: 11,
+                  border: "1px solid rgba(255,255,255,.35)",
+                  background: "rgba(255,255,255,.14)",
+                  backdropFilter: "blur(6px)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Pencil size={15} />
+                {p.editProfile}
+              </motion.button>
+              <motion.button
+                className="pp-btn-ghost"
+                whileHover={{
+                  scale: 1.05,
+                  background: "rgba(255,255,255,0.22)",
+                }}
+                whileTap={{ scale: 0.94 }}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 11,
+                  border: "1px solid rgba(255,255,255,.35)",
+                  background: "rgba(255,255,255,.14)",
+                  backdropFilter: "blur(6px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#fff",
+                }}
+              >
+                <MoreHorizontal size={18} />
+              </motion.button>
+            </div>
+          )}
         </div>
 
         <div
@@ -710,9 +821,9 @@ const ProviderProfileScreen: React.FC = () => {
             }}
           >
             <Avatar
-              photoUrl={profile?.url_foto_perfil}
-              name={user?.firstName}
-              lastName={user?.lastnameP}
+              photoUrl={avatarUrl}
+              name={isOwnProfile ? user?.firstName : perfilProveedor?.nombre}
+              lastName={isOwnProfile ? user?.lastnameP : undefined}
               size={112}
               style={{
                 fontSize: "2.2rem",
@@ -722,37 +833,41 @@ const ProviderProfileScreen: React.FC = () => {
               }}
               alt={fullName}
             />
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              style={{ display: "none" }}
-            />
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={isUploadingPhoto}
-              style={{
-                position: "absolute",
-                bottom: 2,
-                right: 2,
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                border: "3px solid var(--sidebar-bg)",
-                background: "#2EBCCC",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: isUploadingPhoto ? "default" : "pointer",
-                fontFamily: "inherit",
-              }}
-              aria-label={p.changePhoto}
-            >
-              <Camera size={14} />
-            </button>
+            {isOwnProfile && (
+              <>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={isUploadingPhoto}
+                  style={{
+                    position: "absolute",
+                    bottom: 2,
+                    right: 2,
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    border: "3px solid var(--sidebar-bg)",
+                    background: "#2EBCCC",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: isUploadingPhoto ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                  aria-label={p.changePhoto}
+                >
+                  <Camera size={14} />
+                </button>
+              </>
+            )}
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -791,31 +906,33 @@ const ProviderProfileScreen: React.FC = () => {
                   {p.verifiedProvider}
                 </span>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  padding: "4px 10px",
-                  borderRadius: 20,
-                  background: disponible
-                    ? "rgba(74,168,37,0.12)"
-                    : "rgba(255,0,0,0.08)",
-                  color: disponible ? "#4AA825" : "#FF0000",
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                }}
-              >
-                {disponible ? (
-                  <>
-                    <Check size={12} /> {p.availableForWork}
-                  </>
-                ) : (
-                  <>
-                    <X size={12} /> {p.currentlyUnavailable}
-                  </>
-                )}
-              </div>
+              {isOwnProfile && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    background: disponible
+                      ? "rgba(74,168,37,0.12)"
+                      : "rgba(255,0,0,0.08)",
+                    color: disponible ? "#4AA825" : "#FF0000",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {disponible ? (
+                    <>
+                      <Check size={12} /> {p.availableForWork}
+                    </>
+                  ) : (
+                    <>
+                      <X size={12} /> {p.currentlyUnavailable}
+                    </>
+                  )}
+                </div>
+              )}
               <div
                 style={{
                   display: "flex",
@@ -871,29 +988,31 @@ const ProviderProfileScreen: React.FC = () => {
               </div>
             </StatCard>
 
-            <StatCard
-              icon={<DollarSign size={15} />}
-              label={p.stats.totalEarnings}
-              index={1}
-              isDark={isDark}
-            >
-              <div
-                style={{
-                  fontSize: "1.9rem",
-                  fontWeight: 800,
-                  color: "var(--text)",
-                }}
+            {isOwnProfile && (
+              <StatCard
+                icon={<DollarSign size={15} />}
+                label={p.stats.totalEarnings}
+                index={1}
+                isDark={isDark}
               >
-                {totalEarnings === null ? "—" : formatMoney(totalEarnings)}
-              </div>
-            </StatCard>
+                <div
+                  style={{
+                    fontSize: "1.9rem",
+                    fontWeight: 800,
+                    color: "var(--text)",
+                  }}
+                >
+                  {totalEarnings === null ? "—" : formatMoney(totalEarnings)}
+                </div>
+              </StatCard>
+            )}
 
             <StatCard
               icon={<Star size={15} />}
               label={p.stats.overallRating}
               index={2}
               isDark={isDark}
-              action={<TextButton>{p.stats.seeAll} →</TextButton>}
+              action={<TextButton onClick={() => setShowReviewsModal(true)}>{p.stats.seeAll} →</TextButton>}
             >
               <div
                 style={{ display: "flex", alignItems: "center", gap: 10 }}
@@ -986,7 +1105,7 @@ const ProviderProfileScreen: React.FC = () => {
                 margin: 0,
               }}
             >
-              {profile?.descripcion_perfil || p.about.defaultBio}
+              {profileDescription || p.about.defaultBio}
             </p>
             <div
               style={{ height: 1, background: "var(--divider)", margin: "22px 0" }}
@@ -994,28 +1113,6 @@ const ProviderProfileScreen: React.FC = () => {
             <div
               style={{ display: "flex", flexDirection: "column", gap: 14 }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span
-                  style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}
-                >
-                  {p.about.yearsExperience}
-                </span>
-                <span
-                  style={{
-                    color: "var(--text)",
-                    fontWeight: 700,
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  8
-                </span>
-              </div>
               <div
                 style={{
                   display: "flex",
@@ -1038,28 +1135,54 @@ const ProviderProfileScreen: React.FC = () => {
                   {languageLabel}
                 </span>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span
-                  style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}
-                >
-                  {p.about.hourlyRate}
-                </span>
-                <span
-                  style={{
-                    color: "var(--text)",
-                    fontWeight: 700,
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  {formatMoney(450)}
-                </span>
-              </div>
+              {isOwnProfile && (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span
+                      style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}
+                    >
+                      {p.about.yearsExperience}
+                    </span>
+                    <span
+                      style={{
+                        color: "var(--text)",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      8
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span
+                      style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}
+                    >
+                      {p.about.hourlyRate}
+                    </span>
+                    <span
+                      style={{
+                        color: "var(--text)",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      {formatMoney(450)}
+                    </span>
+                  </div>
+                </>
+              )}
               <div
                 style={{
                   display: "flex",
@@ -1086,7 +1209,7 @@ const ProviderProfileScreen: React.FC = () => {
             </div>
           </motion.div>
 
-          {}
+          {isOwnProfile && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1131,6 +1254,7 @@ const ProviderProfileScreen: React.FC = () => {
               />
             </div>
           </motion.div>
+          )}
 
           {}
           <motion.div
@@ -1163,39 +1287,56 @@ const ProviderProfileScreen: React.FC = () => {
               >
                 {p.workAreas.title}
               </div>
-              <motion.button
-                className="pp-btn-ghost"
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => { setAreasModalKey((k) => k + 1); setShowEditAreasModal(true); }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 14px",
-                  borderRadius: 999,
-                  border: "none",
-                  background: isDark
-                    ? "rgba(46,188,204,0.15)"
-                    : "rgba(46,188,204,0.1)",
-                  color: "#2EBCCC",
-                  fontSize: "0.78rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                <Pencil size={13} />
-                {p.workAreas.edit}
-              </motion.button>
+              {isOwnProfile && (
+                <motion.button
+                  className="pp-btn-ghost"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => { setAreasModalKey((k) => k + 1); setShowEditAreasModal(true); }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    border: "none",
+                    background: isDark
+                      ? "rgba(46,188,204,0.15)"
+                      : "rgba(46,188,204,0.1)",
+                    color: "#2EBCCC",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Pencil size={13} />
+                  {p.workAreas.edit}
+                </motion.button>
+              )}
             </div>
-            {isAreasLoading ? (
-              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                ...
+            {effectiveAreasLoading ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                    style={{
+                      width: 90 + i * 20,
+                      height: 34,
+                      borderRadius: 999,
+                      background: isDark ? "#273570" : "#e5e7eb",
+                    }}
+                  />
+                ))}
               </div>
             ) : services.length === 0 ? (
-              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                {p.workAreas.empty}
-              </div>
+              <EmptyState
+                icon={<Briefcase size={22} color="#2EBCCC" />}
+                isDark={isDark}
+                title={p.workAreas.empty}
+                size="compact"
+              />
             ) : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {services.map((service, i) => (
@@ -1258,14 +1399,16 @@ const ProviderProfileScreen: React.FC = () => {
               >
                 {p.portfolio.title}
               </div>
-              <TextButton
-                onClick={() => {
-                  setPortafolioModalKey((k) => k + 1);
-                  setShowPortafolioModal(true);
-                }}
-              >
-                + {p.portfolio.add}
-              </TextButton>
+              {isOwnProfile && (
+                <TextButton
+                  onClick={() => {
+                    setPortafolioModalKey((k) => k + 1);
+                    setShowPortafolioModal(true);
+                  }}
+                >
+                  + {p.portfolio.add}
+                </TextButton>
+              )}
             </div>
             {isPortfolioLoading ? (
               <div
@@ -1302,11 +1445,20 @@ const ProviderProfileScreen: React.FC = () => {
                     key={item.id}
                     item={item}
                     index={i}
-                    onDelete={() =>
-                      setDeleteTarget({
-                        id: item.id_portafolio,
-                        title: item.title,
-                      })
+                    onClick={() => {
+                      const full = portfolio.find(
+                        (p) => p.id_portafolio === item.id_portafolio,
+                      );
+                      if (full) setSelectedPortfolioItem(full);
+                    }}
+                    onDelete={
+                      isOwnProfile
+                        ? () =>
+                            setDeleteTarget({
+                              id: item.id_portafolio,
+                              title: item.title,
+                            })
+                        : undefined
                     }
                   />
                 ))}
@@ -1390,32 +1542,42 @@ const ProviderProfileScreen: React.FC = () => {
         isDark={isDark}
         strings={p.reviewsModal}
       />
-      <EditAreasModal
-        key={areasModalKey}
-        isOpen={showEditAreasModal}
-        onClose={() => setShowEditAreasModal(false)}
-        onSave={handleSaveAreas}
-      />
+      {isOwnProfile && (
+        <>
+          <EditAreasModal
+            key={areasModalKey}
+            isOpen={showEditAreasModal}
+            onClose={() => setShowEditAreasModal(false)}
+            onSave={handleSaveAreas}
+          />
 
-      <PortafolioModal
-        key={portafolioModalKey}
-        isOpen={showPortafolioModal}
-        onClose={() => setShowPortafolioModal(false)}
-        onCreated={() => {
-          refreshPortfolio();
-          addToast("success", p.portfolio.createSuccess);
-        }}
-      />
+          <PortafolioModal
+            key={portafolioModalKey}
+            isOpen={showPortafolioModal}
+            onClose={() => setShowPortafolioModal(false)}
+            onCreated={() => {
+              refreshPortfolio();
+              addToast("success", p.portfolio.createSuccess);
+            }}
+          />
 
-      <CustomizableModal
-        isOpen={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
-        variant="warning"
-        title={p.portfolio.deleteTitle}
-        subtitle={p.portfolio.deleteBody}
-        confirmText={p.portfolio.delete}
-        onConfirm={handleDeletePortafolio}
-        isSubmitting={isDeleting}
+          <CustomizableModal
+            isOpen={deleteTarget !== null}
+            onClose={() => setDeleteTarget(null)}
+            variant="warning"
+            title={p.portfolio.deleteTitle}
+            subtitle={p.portfolio.deleteBody}
+            confirmText={p.portfolio.delete}
+            onConfirm={handleDeletePortafolio}
+            isSubmitting={isDeleting}
+          />
+        </>
+      )}
+
+      <PortfolioItemModal
+        isOpen={selectedPortfolioItem !== null}
+        onClose={() => setSelectedPortfolioItem(null)}
+        item={selectedPortfolioItem}
       />
     </div>
   );

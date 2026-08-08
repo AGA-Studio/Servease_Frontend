@@ -120,6 +120,10 @@ export const profile = {
       deleteTitle: "Delete project",
       deleteBody: "Delete this project? This action cannot be undone.",
       deleteSuccess: "Project deleted.",
+      detailModal: {
+        postedOn: "Posted on",
+        noDescription: "No description provided for this project.",
+      },
     },
     reviews: {
       title: "Reviews",
@@ -144,6 +148,7 @@ export const profile = {
       editModal: {
         title: "Edit Work Areas",
         subtitle: "Select the categories you work in.",
+        noCategories: "No categories available right now.",
         save: "Save",
         cancel: "Cancel",
         confirmSave: {

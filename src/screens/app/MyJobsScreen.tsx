@@ -1,6 +1,7 @@
 
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Clock,
@@ -578,6 +579,8 @@ const MyJobsScreen: React.FC = () => {
   const d = t("myjobsscreen");
   const { toasts, addToast, removeToast } = useToast();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -732,6 +735,20 @@ const MyJobsScreen: React.FC = () => {
     },
     [addToast, d],
   );
+
+  // Deep-link from a notification: /app/my-jobs?serviceId=X auto-opens that job's detail.
+  useEffect(() => {
+    const serviceId = searchParams.get("serviceId");
+    if (!serviceId || jobs.length === 0) return;
+    const job = jobs.find((j) => j.idServicio === Number(serviceId));
+    if (job) handleViewDetails(job);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("serviceId");
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, searchParams]);
 
   const handleCancelProposal = useCallback(
     async (job: DisplayJob) => {

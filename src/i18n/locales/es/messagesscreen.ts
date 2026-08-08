@@ -10,6 +10,8 @@ export const messagesscreen = {
   selectChatTitle: "Selecciona un chat",
   selectChatSubtitle: "Elige una conversación de la lista para ver los mensajes",
   noResults: "No se encontraron chats",
+  noMessagesTitle: "Sin mensajes todavía",
+  noMessagesSubtitle: "Escribe el primer mensaje para comenzar la conversación.",
   
   // --- NUEVAS KEYS (Paso 3) ---
   typing: "está escribiendo...",
@@ -31,4 +33,15 @@ export const messagesscreen = {
   fileInvalidType: "Tipo de archivo no permitido. Solo imágenes y documentos.",
   fileTooLarge: "El archivo excede el límite permitido de 10MB.",
   retry: "Reintentar",
+
+  // Separación de chats por rol (cuentas que son cliente y proveedor a la vez)
+  asCliente: "Como Cliente",
+  asProveedor: "Como Proveedor",
+
+  // Tiempo relativo de publicación del servicio
+  today: "Hoy",
+  oneDayAgo: "Hace 1 día",
+  daysAgo: "Hace {n} días",
+  monthsAgo: "Hace {n} meses",
+  yearsAgo: "Hace {n} años",
 };

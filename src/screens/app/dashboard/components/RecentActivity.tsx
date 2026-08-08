@@ -8,6 +8,7 @@ interface RecentActivityProps {
   activities: DashboardActivity[] | undefined;
   isLoading: boolean;
   isDark: boolean;
+  onLoadOlder?: () => void;
 }
 
 const ActivityDot = ({
@@ -33,6 +34,7 @@ export const RecentActivity = ({
   activities,
   isLoading,
   isDark,
+  onLoadOlder,
 }: RecentActivityProps) => {
   const { t } = useI18n();
   const d = t("dashboardscreen");
@@ -165,6 +167,7 @@ export const RecentActivity = ({
 
           <button
             className="load-btn"
+            onClick={onLoadOlder}
             style={{
               width: "100%",
               marginTop: 18,
