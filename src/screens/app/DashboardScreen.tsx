@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
@@ -19,7 +20,13 @@ import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
 import type { DashboardJob } from "../../types/dashboard";
 import type { JobDetails } from "../../types/job";
 import type { ApplyJobData } from "../../components/applyjobmodal/ApplyJobModal";
+import type { Notification } from "../../api/notificationApi";
+import { fetchPostDetails } from "../../api/servicioApi";
+import { mapPostDetailsToJobDetails } from "../../utils/servicio";
 import { getApproxLocation } from "../../utils/location";
+import { postularServicio } from "../../api/servicioApi";
+import { ApiError } from "../../api/apiClient";
+import { ROUTES } from "../../router/routes";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -46,6 +53,7 @@ const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
 
 const DashboardScreen: React.FC = () => {
   const { isDark } = useTheme();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { areas } = useWorkAreas();
   const areaNames = useMemo(
@@ -59,6 +67,7 @@ const DashboardScreen: React.FC = () => {
   const { disponible, setDisponible } = useAvailability();
   const { toasts, addToast, removeToast } = useToast();
   const { t } = useI18n();
+  const d = t("dashboardscreen");
   const p = t("profile").provider;
   const isLoading = status === "loading" || status === "idle";
 
@@ -71,6 +80,43 @@ const DashboardScreen: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<DashboardJob | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [notifJobDetails, setNotifJobDetails] = useState<JobDetails | null>(
+    null,
+  );
+  const [isNotifDetailsOpen, setIsNotifDetailsOpen] = useState(false);
+
+  const handleNotificationNavigate = async (n?: Notification) => {
+    if (!n) return;
+    const tipo = n.tipo ?? "";
+    const refTabla = n.referencia_tabla;
+    const refId = n.referencia_id;
+
+    if (tipo === "mensaje" || refTabla === "mensaje") {
+      navigate(ROUTES.APP.MESSAGES);
+      return;
+    }
+    if (tipo === "postulacion" || refTabla === "postulacion") {
+      navigate(ROUTES.APP.MY_JOBS);
+      return;
+    }
+    if (
+      (tipo === "contraoferta" || tipo === "counteroffer") &&
+      refId != null
+    ) {
+      try {
+        const details = await fetchPostDetails(refId);
+        const location = await getApproxLocation(
+          details.latitud,
+          details.longitud,
+        );
+        setNotifJobDetails(mapPostDetailsToJobDetails(details, location));
+        setIsNotifDetailsOpen(true);
+      } catch (err) {
+        console.error("fetchPostDetails failed:", err);
+      }
+    }
+  };
 
   const handleViewDetails = async (job: DashboardJob) => {
     setSelectedJob(job);
@@ -93,9 +139,24 @@ const DashboardScreen: React.FC = () => {
     setIsApplyOpen(true);
   };
 
-  const handleApplySubmit = (data: ApplyJobData) => {
-    console.log("Submit proposal:", { jobId: selectedJob?.id, ...data });
-    setIsApplyOpen(false);
+  const handleApplySubmit = async (data: ApplyJobData) => {
+    if (!selectedJob) return;
+    setIsApplying(true);
+    try {
+      await postularServicio(selectedJob.id, {
+        precio_propuesto: data.price,
+        mensaje: data.coverLetter || undefined,
+      });
+      setIsApplyOpen(false);
+      addToast("success", d.applySuccess);
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof ApiError ? err.message : d.applyFailed,
+      );
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const selectedJobDetails: JobDetails | null = useMemo(
@@ -299,7 +360,11 @@ const DashboardScreen: React.FC = () => {
       `}</style>
 
       <div className="ds-root page-enter">
-        <DashboardTopBar isDark={isDark} onRefresh={refresh} />
+        <DashboardTopBar
+          isDark={isDark}
+          onRefresh={refresh}
+          onNotificationNavigate={handleNotificationNavigate}
+        />
 
         <div
           className="ds-content"
@@ -376,7 +441,14 @@ const DashboardScreen: React.FC = () => {
         onClose={() => setIsApplyOpen(false)}
         jobTitle={selectedJob?.title ?? ""}
         clientPrice={selectedJob?.price ?? 0}
+        isSubmitting={isApplying}
         onSubmit={handleApplySubmit}
+      />
+
+      <JobDetailsModal
+        isOpen={isNotifDetailsOpen}
+        onClose={() => setIsNotifDetailsOpen(false)}
+        job={notifJobDetails}
       />
 
       <ToastContainer

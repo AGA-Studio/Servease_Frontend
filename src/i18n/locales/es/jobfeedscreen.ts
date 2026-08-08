@@ -29,6 +29,8 @@ export const jobfeedscreen = {
   noAreasSubtitle: "Agrega tus categorías en tu perfil para ver trabajos relevantes.",
   noAppliedJobs: "Aún no has aplicado a ningún trabajo.",
   actionUnavailable: "Aplicar a servicios todavía no está disponible.",
+  applySuccess: "Tu postulación fue enviada exitosamente.",
+  applyFailed: "No se pudo enviar la postulación. Intenta de nuevo más tarde.",
   errors: {
     fetchFailed: "No se pudieron cargar los trabajos disponibles. Intenta de nuevo más tarde.",
     detailsFailed: "No se pudo cargar el detalle de este trabajo. Intenta de nuevo más tarde.",

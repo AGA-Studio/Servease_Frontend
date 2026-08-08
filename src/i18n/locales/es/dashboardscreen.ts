@@ -101,6 +101,8 @@ export const dashboardscreen = {
     tomorrow: "Mañana",
     thisWeek: "Esta semana",
   },
+  applySuccess: "Tu postulación fue enviada exitosamente.",
+  applyFailed: "No se pudo enviar la postulación. Intenta de nuevo más tarde.",
   error: {
     title: "Algo salió mal",
     retry: "Reintentar",

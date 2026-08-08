@@ -84,6 +84,8 @@ export const dashboardscreen = {
     tomorrow: "Tomorrow",
     thisWeek: "This week",
   },
+  applySuccess: "Your application was submitted successfully.",
+  applyFailed: "Could not submit your application. Please try again later.",
   empty: {
     jobs: {
       title: "No jobs available",

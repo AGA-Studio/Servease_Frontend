@@ -28,6 +28,10 @@ export const homescreen = {
     markAllRead: "Marcar todo como leído",
     viewAll: "Ver todas las notificaciones",
     empty: "Sin nuevas notificaciones",
+    loading: "Cargando...",
+    loadOlder: "Cargar más antiguas",
+    error: "No se pudieron cargar las notificaciones.",
+    retry: "Reintentar",
   },
   tooltips: {
     notifications: "Notificaciones",

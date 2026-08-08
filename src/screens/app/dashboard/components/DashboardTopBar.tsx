@@ -4,13 +4,19 @@ import NotificationsPopover from "../../../../components/popover/notificationspo
 import IconTooltip from "../../../../components/tooltip/IconTooltip";
 import { useI18n } from "../../../../i18n";
 import { useAuth } from "../../../../context/AuthContext";
+import type { Notification } from "../../../../api/notificationApi";
 
 interface DashboardTopBarProps {
   isDark: boolean;
   onRefresh?: () => void;
+  onNotificationNavigate?: (n: Notification) => void;
 }
 
-export const DashboardTopBar = ({ isDark, onRefresh }: DashboardTopBarProps) => {
+export const DashboardTopBar = ({
+  isDark,
+  onRefresh,
+  onNotificationNavigate,
+}: DashboardTopBarProps) => {
   const { t } = useI18n();
   const d = t("dashboardscreen");
   const { user } = useAuth();
@@ -118,7 +124,10 @@ export const DashboardTopBar = ({ isDark, onRefresh }: DashboardTopBarProps) => 
             )}
           </IconTooltip>
 
-          <NotificationsPopover isDark={isDark} />
+          <NotificationsPopover
+            isDark={isDark}
+            onNavigate={onNotificationNavigate}
+          />
         </div>
       </div>
     </div>

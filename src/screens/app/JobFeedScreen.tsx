@@ -24,19 +24,21 @@ import { ROUTES } from "../../router/routes";
 import type { JobDetails } from "../../types/job";
 import type { MyJob, ProposalStatus } from "../../types/myjobs";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
-import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
+import ApplyJobModal, {
+  type ApplyJobData,
+} from "../../components/applyjobmodal/ApplyJobModal";
 import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
-import {
-  fetchPostDetails,
-  fetchServiciosCatalog,
-  type ServicioListItem,
-} from "../../api/servicioApi";
+import { fetchPostDetails, postularServicio } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
 import { fetchProviderEarningsSummary } from "../../api/providerApi";
-import { fetchTrabajosAplicados } from "../../api/userApi";
+import {
+  fetchTrabajosAplicados,
+  fetchTrabajosDisponibles,
+  type TrabajoDisponible,
+} from "../../api/userApi";
 import { timeAgo, mapPostDetailsToJobDetails } from "../../utils/servicio";
 import { mapTrabajoAplicadoToMyJob } from "../../utils/proposals";
 import { getCategoryStyle } from "../../utils/categoryStyle";
@@ -70,18 +72,18 @@ interface FeedJob {
   location: string;
   mainImage: string;
   distanceKm: number | null;
-  raw: ServicioListItem;
+  raw: TrabajoDisponible;
 }
 
-function servicioToFeedJob(item: ServicioListItem): FeedJob {
+function trabajoToFeedJob(item: TrabajoDisponible): FeedJob {
   return {
     id: String(item.id_servicio),
     titulo: item.titulo,
-    categoria_nombre: item.categoria_nombre,
+    categoria_nombre: item.categoria,
     precio_inicial: Number(item.precio_inicial),
     postedAgo: timeAgo(item.fecha),
     location: "",
-    mainImage: item.imagenes[0] ?? "",
+    mainImage: item.foto ?? "",
     distanceKm: null,
     raw: item,
   };
@@ -620,6 +622,7 @@ const JobFeedScreen: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -666,39 +669,20 @@ const JobFeedScreen: React.FC = () => {
     let cancelled = false;
 
     const run = async () => {
-      let items: ServicioListItem[];
-      let count = 0;
-
-      if (filters.category) {
-        const res = await fetchServiciosCatalog({
-          categoriaId: Number(filters.category),
-          estado: "abierto",
-          page,
-          page_size: PAGE_SIZE,
-        });
-        items = res.results;
-        count = res.count;
-      } else {
-        const res = await fetchServiciosCatalog({
-          estado: "abierto",
-          page_size: 10000,
-        });
-        const areaNames = areas.map((a) => a.nombre);
-        items =
-          areaNames.length > 0
-            ? res.results.filter((item) => areaNames.includes(item.categoria_nombre))
-            : res.results;
-      }
-
+      const res = await fetchTrabajosDisponibles({
+        page,
+        pageSize: PAGE_SIZE,
+        categoriaId: filters.category ? Number(filters.category) : undefined,
+      });
       if (cancelled) return;
-      setJobs(items.map(servicioToFeedJob));
-      setTotalItems(count);
+      setJobs(res.results.map(trabajoToFeedJob));
+      setTotalItems(res.count);
     };
 
     run()
       .catch((error) => {
         if (cancelled) return;
-        console.error("fetchServiciosCatalog failed:", error);
+        console.error("fetchTrabajosDisponibles failed:", error);
         addToast(
           "error",
           error instanceof ApiError ? error.message : d.errors.fetchFailed,
@@ -712,7 +696,7 @@ const JobFeedScreen: React.FC = () => {
       cancelled = true;
       setIsLoading(true);
     };
-  }, [filters.category, page, areas, addToast, d.errors.fetchFailed]);
+  }, [filters.category, page, addToast, d.errors.fetchFailed]);
 
   const handleViewDetails = async (job: FeedJob) => {
     setSelectedJob(job);
@@ -737,16 +721,33 @@ const JobFeedScreen: React.FC = () => {
     }
   };
 
-  const handleApplySubmit = () => {
-    setIsApplyOpen(false);
-    addToast("info", d.actionUnavailable);
+  const handleApplySubmit = async (data: ApplyJobData) => {
+    if (!selectedJob) return;
+    setIsApplying(true);
+    try {
+      await postularServicio(selectedJob.id, {
+        precio_propuesto: data.price,
+        mensaje: data.coverLetter || undefined,
+      });
+      setIsApplyOpen(false);
+      addToast("success", d.applySuccess);
+      const items = await fetchTrabajosAplicados();
+      setAppliedJobs(items.map(mapTrabajoAplicadoToMyJob).slice(0, 5));
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof ApiError ? err.message : d.applyFailed,
+      );
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const jobsWithDistance = useMemo(() => {
     if (!providerCoords) return jobs;
     return jobs.map((job) => {
-      const lat = Number(job.raw.latitud);
-      const lon = Number(job.raw.longitud);
+      const lat = Number(job.raw.latitud_aprox);
+      const lon = Number(job.raw.longitud_aprox);
       if (Number.isNaN(lat) || Number.isNaN(lon)) return job;
       return { ...job, distanceKm: distanceKm(providerCoords, { lat, lon }) };
     });
@@ -814,13 +815,9 @@ const JobFeedScreen: React.FC = () => {
     });
   }, [jobsWithDistance, filters.distance, filters.priceRange]);
 
-  const totalPages = filters.category
-    ? Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
-    : Math.max(1, Math.ceil(visibleJobs.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginated = filters.category
-    ? visibleJobs
-    : visibleJobs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginated = visibleJobs;
 
   const handlePageChange = useCallback(
     (p: number) => {
@@ -1359,6 +1356,7 @@ const JobFeedScreen: React.FC = () => {
         onClose={() => setIsApplyOpen(false)}
         jobTitle={selectedJob?.titulo ?? ""}
         clientPrice={selectedJob?.precio_inicial ?? 0}
+        isSubmitting={isApplying}
         onSubmit={handleApplySubmit}
       />
 
