@@ -122,6 +122,28 @@ export async function cancelarPostulacion(
   );
 }
 
+export interface PostulacionResponse {
+  id_postulacion: number;
+  fecha: string;
+  fecha_actualizacion: string;
+  precio_propuesto: string;
+  mensaje: string | null;
+  id_estado: number;
+  estado_descripcion: string;
+  proveedor_id: string;
+  id_servicio: number;
+}
+
+export async function postularServicio(
+  idServicio: number | string,
+  payload: { precio_propuesto: number; mensaje?: string },
+): Promise<PostulacionResponse> {
+  return apiPost<PostulacionResponse>(`/api/servicios/${idServicio}/postular/`, {
+    precio_propuesto: payload.precio_propuesto,
+    mensaje: payload.mensaje,
+  });
+}
+
 export interface CrearOfertaPayload {
   id_postulacion: number | string;
   monto: number;

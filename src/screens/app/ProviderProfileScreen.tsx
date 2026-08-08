@@ -10,6 +10,7 @@ import {
   Camera,
   Check,
   X,
+  Trash2,
 } from "lucide-react";
 import { getCategoryStyle } from "../../utils/categoryStyle";
 import { useAuth } from "../../context/AuthContext";
@@ -19,12 +20,22 @@ import { useWorkAreas } from "../../context/WorkAreasContext";
 import { useI18n } from "../../i18n";
 import type { ThemeMode } from "../../theme/theme";
 import { uploadProfilePhoto } from "../../api/userApi";
+import { fetchReviewsCliente, type ReviewCliente } from "../../api/userApi";
 import { fetchDashboardProveedor, type ProviderKpisResponse } from "../../api/providerApi";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { friendlyErrorMessage } from "../../utils/apiError";
 import Avatar from "../../components/avatar/Avatar";
 import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
+import PortafolioModal from "../../components/portafoliomodal/PortafolioModal";
+import { CustomizableModal } from "../../components/modal/CustomizableModal";
+import ReviewsModal from "../../components/reviewsmodal/ReviewsModal";
+import { timeAgo } from "../../utils/servicio";
+import {
+  fetchPortafolio,
+  deletePortafolioItem,
+  type PortafolioItem as PortafolioApiItem,
+} from "../../api/portafolioApi";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -54,6 +65,7 @@ interface PortfolioItem {
   image: string;
   title: string;
   category: string;
+  id_portafolio: number;
 }
 
 interface Review {
@@ -64,67 +76,6 @@ interface Review {
   date: string;
   comment: string;
 }
-
-const MOCK_PORTFOLIO: PortfolioItem[] = [
-  {
-    id: "1",
-    image:
-      "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=600&q=80",
-    title: "Kitchen Pipe Repair",
-    category: "Plumbing",
-  },
-  {
-    id: "2",
-    image:
-      "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80",
-    title: "Electrical Panel Upgrade",
-    category: "Electrical",
-  },
-  {
-    id: "3",
-    image:
-      "https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&w=600&q=80",
-    title: "Interior Painting",
-    category: "Painting",
-  },
-  {
-    id: "4",
-    image:
-      "https://images.unsplash.com/photo-1601058268499-e52658b8bb88?auto=format&fit=crop&w=600&q=80",
-    title: "Custom Bookshelf",
-    category: "Carpentry",
-  },
-];
-
-const MOCK_REVIEWS: Review[] = [
-  {
-    id: "1",
-    avatar: "https://i.pravatar.cc/128?img=47",
-    name: "María Cazares",
-    rating: 5,
-    date: "2 days ago",
-    comment:
-      "Excellent work, arrived on time and fixed the leak quickly. Highly recommended!",
-  },
-  {
-    id: "2",
-    avatar: "https://i.pravatar.cc/128?img=12",
-    name: "Carlos Ruiz",
-    rating: 5,
-    date: "1 week ago",
-    comment:
-      "Very professional and clean. The installation looks perfect and works flawlessly.",
-  },
-  {
-    id: "3",
-    avatar: "https://i.pravatar.cc/128?img=33",
-    name: "Sara Jimenez",
-    rating: 4,
-    date: "2 weeks ago",
-    comment:
-      "Good quality work, completed within the agreed budget. Will hire again.",
-  },
-];
 
 const TextButton = ({
   children,
@@ -216,9 +167,11 @@ const StatCard = ({
 const PortfolioCard = ({
   item,
   index,
+  onDelete,
 }: {
   item: PortfolioItem;
   index: number;
+  onDelete?: () => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -40px 0px" });
@@ -286,6 +239,45 @@ const PortfolioCard = ({
           <Camera size={12} />
           {item.category}
         </div>
+        {onDelete && (
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              opacity: hovered ? 1 : 0,
+              transition: "opacity 0.2s",
+            }}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                border: "none",
+                background: "rgba(0,0,0,0.55)",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                padding: 0,
+              }}
+              onMouseEnter={(ev) =>
+                (ev.currentTarget.style.background = "rgba(220,38,38,0.8)")
+              }
+              onMouseLeave={(ev) =>
+                (ev.currentTarget.style.background = "rgba(0,0,0,0.55)")
+              }
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        )}
       </div>
       <div style={{ padding: "14px 16px" }}>
         <div
@@ -383,6 +375,104 @@ const ProviderProfileScreen: React.FC = () => {
   const [showEditAreasModal, setShowEditAreasModal] = useState(false);
   const [areasModalKey, setAreasModalKey] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const [portfolio, setPortfolio] = useState<PortafolioApiItem[]>([]);
+  const [isPortfolioLoading, setIsPortfolioLoading] = useState(true);
+  const [showPortafolioModal, setShowPortafolioModal] = useState(false);
+  const [portafolioModalKey, setPortafolioModalKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [reviewsList, setReviewsList] = useState<ReviewCliente[]>([]);
+  const [isReviewsLoading, setIsReviewsLoading] = useState(true);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+
+  const reviewsData: Review[] = reviewsList.map((r) => ({
+    id: String(r.id_calificacion),
+    avatar: r.foto_evaluador ?? "",
+    name: r.nombre_evaluador,
+    rating: r.puntuacion,
+    date: timeAgo(r.fecha),
+    comment: r.comentario ?? "",
+  }));
+
+  const portfolioItems: PortfolioItem[] = portfolio.map((item) => ({
+    id: String(item.id_portafolio),
+    id_portafolio: item.id_portafolio,
+    image: item.fotos[0] ?? "",
+    title: item.titulo,
+    category: item.categoria_nombre,
+  }));
+
+  const refreshPortfolio = async () => {
+    if (!user?.id) return;
+    try {
+      const data = await fetchPortafolio(user.id);
+      setPortfolio(data);
+    } catch (err) {
+      console.error("fetchPortafolio failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    fetchPortafolio(user.id)
+      .then((data) => {
+        if (!cancelled) setPortfolio(data);
+      })
+      .catch(() => {
+        if (!cancelled) setPortfolio([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsPortfolioLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    fetchReviewsCliente(user.id)
+      .then((data) => {
+        if (!cancelled) setReviewsList(data);
+      })
+      .catch(() => {
+        if (!cancelled) setReviewsList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsReviewsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const handleDeletePortafolio = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deletePortafolioItem(deleteTarget.id);
+      setPortfolio((prev) =>
+        prev.filter((item) => item.id_portafolio !== deleteTarget.id),
+      );
+      setDeleteTarget(null);
+      addToast("success", p.portfolio.deleteSuccess);
+    } catch (err) {
+      console.error("deletePortafolioItem failed:", err);
+      addToast(
+        "error",
+        err instanceof Error ? err.message : p.portfolio.error,
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleSaveAreas = useCallback(
     async (categoriaIds: number[]) => {
@@ -1168,19 +1258,60 @@ const ProviderProfileScreen: React.FC = () => {
               >
                 {p.portfolio.title}
               </div>
-              <TextButton>{p.portfolio.viewAll} →</TextButton>
+              <TextButton
+                onClick={() => {
+                  setPortafolioModalKey((k) => k + 1);
+                  setShowPortafolioModal(true);
+                }}
+              >
+                + {p.portfolio.add}
+              </TextButton>
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {MOCK_PORTFOLIO.map((item, i) => (
-                <PortfolioCard key={item.id} item={item} index={i} />
-              ))}
-            </div>
+            {isPortfolioLoading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: "var(--text-secondary)",
+                  fontSize: "0.85rem",
+                  padding: "32px 0",
+                }}
+              >
+                Cargando...
+              </div>
+            ) : portfolioItems.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: "var(--text-secondary)",
+                  fontSize: "0.85rem",
+                  padding: "32px 0",
+                }}
+              >
+                {p.portfolio.empty}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                {portfolioItems.map((item, i) => (
+                  <PortfolioCard
+                    key={item.id}
+                    item={item}
+                    index={i}
+                    onDelete={() =>
+                      setDeleteTarget({
+                        id: item.id_portafolio,
+                        title: item.title,
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </motion.div>
 
           {}
@@ -1214,22 +1345,77 @@ const ProviderProfileScreen: React.FC = () => {
               >
                 {p.reviews.title}
               </div>
-              <TextButton>{p.reviews.viewAll} →</TextButton>
+              <TextButton onClick={() => setShowReviewsModal(true)}>
+                {p.reviews.viewAll} →
+              </TextButton>
             </div>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {MOCK_REVIEWS.map((review, i) => (
-                <ReviewRow key={review.id} review={review} index={i} />
-              ))}
+              {isReviewsLoading ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    color: "var(--text-secondary)",
+                    fontSize: "0.85rem",
+                    padding: "24px 0",
+                  }}
+                >
+                  Cargando...
+                </div>
+              ) : reviewsData.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    color: "var(--text-secondary)",
+                    fontSize: "0.85rem",
+                    padding: "24px 0",
+                  }}
+                >
+                  {p.reviews.empty}
+                </div>
+              ) : (
+                reviewsData.slice(0, 3).map((review, i) => (
+                  <ReviewRow key={review.id} review={review} index={i} />
+                ))
+              )}
             </div>
           </motion.div>
         </div>
       </div>
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
+      <ReviewsModal
+        isOpen={showReviewsModal}
+        onClose={() => setShowReviewsModal(false)}
+        reviews={reviewsList}
+        isLoading={isReviewsLoading}
+        isDark={isDark}
+        strings={p.reviewsModal}
+      />
       <EditAreasModal
         key={areasModalKey}
         isOpen={showEditAreasModal}
         onClose={() => setShowEditAreasModal(false)}
         onSave={handleSaveAreas}
+      />
+
+      <PortafolioModal
+        key={portafolioModalKey}
+        isOpen={showPortafolioModal}
+        onClose={() => setShowPortafolioModal(false)}
+        onCreated={() => {
+          refreshPortfolio();
+          addToast("success", p.portfolio.createSuccess);
+        }}
+      />
+
+      <CustomizableModal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        variant="warning"
+        title={p.portfolio.deleteTitle}
+        subtitle={p.portfolio.deleteBody}
+        confirmText={p.portfolio.delete}
+        onConfirm={handleDeletePortafolio}
+        isSubmitting={isDeleting}
       />
     </div>
   );

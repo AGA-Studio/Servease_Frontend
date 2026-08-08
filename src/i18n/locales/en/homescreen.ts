@@ -28,6 +28,10 @@ export const homescreen = {
     markAllRead: "Mark all as read",
     viewAll: "View all notifications",
     empty: "No new notifications",
+    loading: "Loading...",
+    loadOlder: "Load older",
+    error: "Could not load notifications.",
+    retry: "Retry",
   },
   tooltips: {
     notifications: "Notifications",

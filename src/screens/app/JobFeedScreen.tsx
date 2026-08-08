@@ -24,12 +24,14 @@ import { ROUTES } from "../../router/routes";
 import type { JobDetails } from "../../types/job";
 import type { MyJob, ProposalStatus } from "../../types/myjobs";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
-import ApplyJobModal from "../../components/applyjobmodal/ApplyJobModal";
+import ApplyJobModal, {
+  type ApplyJobData,
+} from "../../components/applyjobmodal/ApplyJobModal";
 import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
-import { fetchPostDetails } from "../../api/servicioApi";
+import { fetchPostDetails, postularServicio } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
 import { fetchProviderEarningsSummary } from "../../api/providerApi";
 import {
@@ -620,6 +622,7 @@ const JobFeedScreen: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -679,7 +682,7 @@ const JobFeedScreen: React.FC = () => {
     run()
       .catch((error) => {
         if (cancelled) return;
-        console.error("fetchServiciosCatalog failed:", error);
+        console.error("fetchTrabajosDisponibles failed:", error);
         addToast(
           "error",
           error instanceof ApiError ? error.message : d.errors.fetchFailed,
@@ -718,9 +721,26 @@ const JobFeedScreen: React.FC = () => {
     }
   };
 
-  const handleApplySubmit = () => {
-    setIsApplyOpen(false);
-    addToast("info", d.actionUnavailable);
+  const handleApplySubmit = async (data: ApplyJobData) => {
+    if (!selectedJob) return;
+    setIsApplying(true);
+    try {
+      await postularServicio(selectedJob.id, {
+        precio_propuesto: data.price,
+        mensaje: data.coverLetter || undefined,
+      });
+      setIsApplyOpen(false);
+      addToast("success", d.applySuccess);
+      const items = await fetchTrabajosAplicados();
+      setAppliedJobs(items.map(mapTrabajoAplicadoToMyJob).slice(0, 5));
+    } catch (err) {
+      addToast(
+        "error",
+        err instanceof ApiError ? err.message : d.applyFailed,
+      );
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const jobsWithDistance = useMemo(() => {
@@ -1336,6 +1356,7 @@ const JobFeedScreen: React.FC = () => {
         onClose={() => setIsApplyOpen(false)}
         jobTitle={selectedJob?.titulo ?? ""}
         clientPrice={selectedJob?.precio_inicial ?? 0}
+        isSubmitting={isApplying}
         onSubmit={handleApplySubmit}
       />
 

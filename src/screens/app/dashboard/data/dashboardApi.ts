@@ -7,9 +7,9 @@ import type {
 } from "../../../../types/dashboard";
 import type { JobClient } from "../../../../types/job";
 import {
-  fetchServiciosCatalog,
-  type ServicioListItem,
-} from "../../../../api/servicioApi";
+  fetchTrabajosDisponibles,
+  type TrabajoDisponible,
+} from "../../../../api/userApi";
 import {
   fetchDashboardProveedor,
   fetchProviderEarningsSummary,
@@ -29,8 +29,8 @@ const MOCK_CLIENT: JobClient = {
   jobsPosted: 0,
 };
 
-function mapCatalogItemToDashboardJob(
-  item: ServicioListItem,
+function mapTrabajoDisponibleToDashboardJob(
+  item: TrabajoDisponible,
 ): DashboardJob {
   const price = Number(item.precio_inicial);
   const formattedPrice = `$${price.toLocaleString()}`;
@@ -39,29 +39,29 @@ function mapCatalogItemToDashboardJob(
     id: String(item.id_servicio),
     title: item.titulo,
     location: "",
-    latitud: item.latitud,
-    longitud: item.longitud,
+    latitud: item.latitud_aprox,
+    longitud: item.longitud_aprox,
     postedAgo: timeAgo(item.fecha),
-    description: "",
+    description: item.descripcion,
     budget: formattedPrice,
     priceRange: formattedPrice,
     price,
-    currency: "MXN",
-    proposalCount: 0,
-    category: item.categoria_nombre,
+    currency: item.moneda ?? "MXN",
+    proposalCount: item.num_postulantes,
+    category: item.categoria,
     when: "",
     urgency: "",
-    mainImage: item.imagenes[0] ?? "",
-    thumbnails: item.imagenes,
+    mainImage: item.foto ?? "",
+    thumbnails: item.foto ? [item.foto] : [],
     client: MOCK_CLIENT,
   };
 }
 
-function deriveJobsByCategory(items: ServicioListItem[]): CategoryBreakdown[] {
+function deriveJobsByCategory(items: TrabajoDisponible[]): CategoryBreakdown[] {
   if (!items.length) return [];
   const counts = new Map<string, number>();
   for (const item of items) {
-    counts.set(item.categoria_nombre, (counts.get(item.categoria_nombre) ?? 0) + 1);
+    counts.set(item.categoria, (counts.get(item.categoria) ?? 0) + 1);
   }
   const total = items.length;
   return Array.from(counts.entries())
@@ -189,17 +189,16 @@ export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
 
 export async function fetchDashboardData(
   userId: string,
-  areaNames?: string[],
 ): Promise<DashboardData> {
-  const catalogPromise = (async (): Promise<ServicioListItem[]> => {
+  const availablePromise = (async (): Promise<TrabajoDisponible[]> => {
     try {
-      const all = await fetchServiciosCatalog({ estado: "abierto", page_size: 10000 });
-      const items = all.results;
-      return areaNames && areaNames.length > 0
-        ? items.filter((item) => areaNames.includes(item.categoria_nombre))
-        : items;
+      const response = await fetchTrabajosDisponibles({
+        page: 1,
+        pageSize: 50,
+      });
+      return response.results;
     } catch (err) {
-      console.error("fetchServiciosCatalog failed:", err);
+      console.error("fetchTrabajosDisponibles failed:", err);
       return [];
     }
   })();
@@ -228,14 +227,14 @@ export async function fetchDashboardData(
     }
   })();
 
-  const [catalogItems, providerData] = await Promise.all([
-    catalogPromise,
+  const [availableItems, providerData] = await Promise.all([
+    availablePromise,
     providerDataPromise,
   ]);
 
-  const jobsByCategory = deriveJobsByCategory(catalogItems);
-  const visibleItems = catalogItems.slice(0, 5);
-  const availableJobs = visibleItems.map(mapCatalogItemToDashboardJob);
+  const jobsByCategory = deriveJobsByCategory(availableItems);
+  const visibleItems = availableItems.slice(0, 5);
+  const availableJobs = visibleItems.map(mapTrabajoDisponibleToDashboardJob);
 
   const earningsPoints: EarningsPoint[] = providerData.earningsSummary
     ? [

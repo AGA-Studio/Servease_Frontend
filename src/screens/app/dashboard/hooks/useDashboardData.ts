@@ -52,7 +52,7 @@ export function useDashboardData(
         setState((prev) => ({ ...prev, status: "loading", error: null }));
       }
       try {
-        const result = await fetchDashboardData(userId ?? "", areaNames);
+        const result = await fetchDashboardData(userId ?? "");
         if (cancelled) return;
         const isEmpty =
           result.availableJobs.length === 0 &&
