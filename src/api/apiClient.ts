@@ -23,7 +23,10 @@ function extractDetail(data: unknown, status: number): string {
   return `Request failed: ${status}`;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
+export async function apiGet<T>(
+  path: string,
+  options?: { responseType?: "json" | "blob" }
+): Promise<T> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -36,18 +39,23 @@ export async function apiGet<T>(path: string): Promise<T> {
     },
   });
 
-  const data = await response.json().catch(() => null);
-
   if (!response.ok) {
+    const data = await response.json().catch(() => null);
     throw new ApiError(extractDetail(data, response.status), response.status);
   }
 
+  if (options?.responseType === "blob") {
+    const blob = await response.blob();
+    return blob as unknown as T;
+  }
+
+  const data = await response.json().catch(() => null);
   return data as T;
 }
 
 export async function apiPost<T>(
   path: string,
-  body: Record<string, unknown>,
+  body: Record<string, unknown> | FormData,
 ): Promise<T> {
   const {
     data: { session },
@@ -55,13 +63,21 @@ export async function apiPost<T>(
 
   if (!session) throw new Error("No hay sesión activa");
 
+  const isFormData = body instanceof FormData;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${session.access_token}`,
+  };
+
+  // Solo agregar Content-Type si NO es FormData
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify(body),
+    headers,
+    body: isFormData ? body : JSON.stringify(body),
   });
 
   const data = await response.json().catch(() => null);
