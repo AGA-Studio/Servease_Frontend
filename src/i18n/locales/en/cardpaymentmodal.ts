@@ -1,0 +1,15 @@
+export const cardpaymentmodal = {
+  title: "Confirm Payment",
+  amountLabel: "Total Due",
+  cardLabel: "Card Details",
+  numberLabel: "Card Number",
+  expiryLabel: "Expiry",
+  cvcLabel: "CVC",
+  securityNote: "Your payment is processed securely through Stripe.",
+  cancel: "Cancel",
+  pay: "Pay",
+  processing: "Processing...",
+  paymentSuccess: "Payment confirmed! You can close this window now.",
+  genericError: "We couldn't process your payment. Check your card details and try again.",
+  cancelledByProvider: "The provider cancelled the charge. You can wait for them to try again.",
+};

@@ -1,0 +1,50 @@
+export const myjobsscreen = {
+  title: "My Jobs",
+  subtitle: "Manage and track your active jobs and jobs history",
+  searchPlaceholder: "Search by service title...",
+  filters: {
+    allStatuses: "All Statuses",
+    category: "Category",
+    allCategories: "All Categories",
+  },
+  card: {
+    posted: "Posted",
+    ago: "ago",
+    budget: "Budget",
+  },
+  proposalStatuses: {
+    accepted: "Accepted Proposal",
+    pending: "Pending Proposal",
+    rejected: "Rejected Proposal",
+    counteroffer: "Counteroffer",
+    completed: "Completed",
+  },
+  actions: {
+    viewDetails: "View Details",
+    cancelSuccess: "Application cancelled successfully.",
+    cancelFailed: "Couldn't cancel the application. Please try again.",
+    markCompleted: "Mark as Completed",
+    completeSuccess: "Service completed! Thanks for your rating.",
+    completeFailed: "Couldn't complete the service. Please try again.",
+    paymentStartFailed: "Couldn't start the card charge. Please try again.",
+    paymentCancelFailed: "Couldn't cancel the charge. Please try again.",
+  },
+  pagination: {
+    page: "Page",
+    of: "of",
+    previous: "Previous page",
+    next: "Next page",
+    goToPage: "Go to page",
+  },
+  empty: {
+    title: "No jobs yet",
+    subtitle: "Apply to jobs from the Job Feed to see them here.",
+    noResults: "No jobs match your filters.",
+    clearFilters: "Clear filters",
+  },
+  errors: {
+    fetchFailed: "Failed to load jobs. Please try again.",
+    detailsFailed: "Failed to load job details. Please try again.",
+    cancelFailed: "Failed to cancel the application. Please try again.",
+  },
+};

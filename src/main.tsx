@@ -1,13 +1,13 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import { I18nProvider } from "./i18n";
+import { CurrencyProvider } from "./context/CurrencyContext";
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <I18nProvider>
+  <I18nProvider>
+    <CurrencyProvider>
       <App />
-    </I18nProvider>
-  </StrictMode>,
+    </CurrencyProvider>
+  </I18nProvider>,
 );

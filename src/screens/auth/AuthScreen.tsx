@@ -1,5 +1,8 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../router/routes";
 import {
   Mail,
   Lock,
@@ -8,35 +11,60 @@ import {
   EyeOff,
   ArrowRight,
   ArrowLeft,
-  CheckCircle,
   Wrench,
-  Briefcase,
+  Camera,
+  X,
+  KeyRound,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
 } from "lucide-react";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { useToast } from "../../components/Toast/useToast";
 import type { ThemeMode } from "../../theme/theme";
 import { useI18n } from "../../i18n";
+import type { Translations } from "../../i18n";
+import { supabase } from "../../lib/supabase";
 import "../../styles/animations.global.css";
 import "./animations.auth.css";
-import ServeaseLogo from "../../assets/Servease-Icono-Modo-Oscuro.svg";
+import ServeaseLogoDark from "../../assets/Servease-Icono-Modo-Oscuro.svg";
+import ServeaseLogo from "../../assets/Servease-Icono.svg";
+import { useAuth } from "../../context/AuthContext";
+import MfaChallengeModal from "../../components/mfa/MfaChallengeModal";
+import {
+  getPasswordStrength,
+  PASSWORD_STRENGTH_COLOR,
+  PASSWORD_STRENGTH_WIDTH,
+} from "../../utils/passwordStrength";
+import { sanitizeNameInput, isValidName } from "../../utils/validation";
 
 type AuthMode = "login" | "signup";
 
 interface SignupData {
   firstName: string;
+  secondName: string;
   lastNameP: string;
   lastNameM: string;
+  birthDate: string;
   email: string;
   password: string;
 }
 
-type LoginErrors = { email?: string; password?: string };
+// Los errores guardan la *key* de traducción, no el texto ya resuelto —
+// así el mensaje se re-resuelve solo al cambiar de idioma en vez de quedar
+// congelado en el idioma que estaba activo cuando se disparó el error.
+type AuthErrorKey = keyof Translations["auth"]["errors"];
+type LoginErrors = { email?: AuthErrorKey; password?: AuthErrorKey };
 type SignupStep0Errors = {
-  firstName?: string;
-  lastNameP?: string;
-  lastNameM?: string;
+  firstName?: AuthErrorKey;
+  secondName?: AuthErrorKey;
+  lastNameP?: AuthErrorKey;
+  lastNameM?: AuthErrorKey;
+  birthDate?: AuthErrorKey;
 };
-type SignupStep1Errors = { email?: string; password?: string };
+type SignupStep1Errors = { email?: AuthErrorKey; password?: AuthErrorKey };
 
 const SunIcon = () => (
   <svg
@@ -125,6 +153,43 @@ const useTheme = () => {
   return { theme, toggleTheme };
 };
 
+const ConfirmEmailModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
+  onClose,
+  theme,
+}) => {
+  const { t } = useI18n();
+  const cm = t("auth").confirmEmailModal;
+  const isDark = theme === "dark";
+
+  return (
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[10000] flex items-center justify-center p-6 animate-fade-in">
+      <div
+        className={`${isDark ? "bg-[#1B244C] border-[#273570]" : "bg-white border-gray-200"} border rounded-3xl p-10 max-w-[420px] w-full text-center shadow-[0_32px_80px_rgba(0,0,0,0.3)] animate-scale-in`}
+      >
+        <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6">
+          <Mail size={32} className="text-[#2EBCCC]" />
+        </div>
+        <h2
+          className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+        >
+          {cm.title}
+        </h2>
+        <p
+          className={`text-[0.9375rem] leading-7 mb-8 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+        >
+          {cm.body}
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] active:scale-[0.97] text-white font-extrabold text-[0.9375rem] py-4 rounded-2xl border-none cursor-pointer shadow-[0_8px_24px_#2EBCCC44] transition-[transform,background-color] duration-150 ease-out"
+        >
+          {cm.confirm}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const DevModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
   onClose,
   theme,
@@ -166,6 +231,156 @@ const DevModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
   );
 };
 
+const FORGOT_PASSWORD_COOLDOWN_SECONDS = 60;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LENGTH = 254;
+
+const ForgotPasswordModal: React.FC<{ onClose: () => void; theme: ThemeMode }> = ({
+  onClose,
+  theme,
+}) => {
+  const { t } = useI18n();
+  const auth = t("auth");
+  const fp = auth.forgotPasswordModal;
+  const isDark = theme === "dark";
+
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"form" | "sending" | "sent">("form");
+  const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (status === "sending" || cooldown > 0) return;
+
+    const trimmed = email.trim();
+    if (!trimmed || trimmed.length > MAX_EMAIL_LENGTH || !EMAIL_REGEX.test(trimmed)) {
+      setError(auth.errors.emailInvalid);
+      return;
+    }
+
+    setError(null);
+    setStatus("sending");
+
+    const { error: supabaseError } = await supabase.auth.resetPasswordForEmail(
+      trimmed,
+      { redirectTo: `${window.location.origin}${ROUTES.RESET_PASSWORD}` },
+    );
+
+    if (supabaseError) {
+      const isRateLimited =
+        "status" in supabaseError && supabaseError.status === 429;
+      setError(isRateLimited ? fp.rateLimited : fp.genericError);
+      setStatus("form");
+      return;
+    }
+
+    setCooldown(FORGOT_PASSWORD_COOLDOWN_SECONDS);
+    setStatus("sent");
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[10000] flex items-center justify-center p-6 animate-fade-in">
+      <div
+        className={`${isDark ? "bg-[#1B244C] border-[#273570]" : "bg-white border-gray-200"} border rounded-3xl p-10 max-w-[420px] w-full shadow-[0_32px_80px_rgba(0,0,0,0.3)] animate-scale-in`}
+      >
+        {status === "sent" ? (
+          <div className="text-center">
+            <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6 animate-scale-in">
+              <Mail size={32} className="text-[#2EBCCC]" />
+            </div>
+            <h2
+              className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+            >
+              {fp.sentTitle}
+            </h2>
+            <p
+              className={`text-[0.9375rem] leading-7 mb-8 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+            >
+              {fp.sentBody}
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] active:scale-[0.97] text-white font-extrabold text-[0.9375rem] py-4 rounded-2xl border-none cursor-pointer shadow-[0_8px_24px_#2EBCCC44] transition-[transform,background-color] duration-150 ease-out"
+            >
+              {fp.close}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="text-center">
+              <div className="w-17 h-17 bg-[#2EBCCC]/12 rounded-[22px] flex items-center justify-center mx-auto mb-6">
+                <KeyRound size={32} className="text-[#2EBCCC]" />
+              </div>
+              <h2
+                className={`font-extrabold text-2xl tracking-tight mb-3 ${isDark ? "text-white" : "text-[#1B244C]"}`}
+              >
+                {fp.title}
+              </h2>
+              <p
+                className={`text-[0.9375rem] leading-7 mb-6 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+              >
+                {fp.body}
+              </p>
+            </div>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left" autoComplete="off">
+              <InputField
+                label={fp.emailLabel}
+                type="email"
+                name="forgot-password-email"
+                placeholder={fp.emailPlaceholder}
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                }}
+                icon={<Mail size={18} />}
+                focusedField={focusedField}
+                onFocus={() => setFocusedField("forgot-password-email")}
+                onBlur={() => setFocusedField(null)}
+                theme={theme}
+                error={error ?? undefined}
+                maxLength={MAX_EMAIL_LENGTH}
+              />
+              <button
+                type="submit"
+                disabled={status === "sending" || cooldown > 0}
+                className="w-full bg-[#2EBCCC] hover:bg-[#239aaa] disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98] text-white font-extrabold text-[0.9375rem] py-4 px-5 rounded-2xl border-none cursor-pointer flex items-center justify-center gap-2.5 shadow-[0_8px_24px_#2EBCCC44] transition-all duration-200"
+              >
+                {status === "sending" ? (
+                  <>
+                    <Spinner />
+                    <span className="animate-pulse">{fp.submitting}</span>
+                  </>
+                ) : cooldown > 0 ? (
+                  `${fp.resendIn} ${cooldown}s`
+                ) : (
+                  fp.submit
+                )}
+              </button>
+            </form>
+            <button
+              onClick={onClose}
+              className={`w-full mt-3 bg-transparent border-none cursor-pointer font-bold text-[0.8125rem] py-2 transition-colors ${isDark ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-black"}`}
+            >
+              {fp.close}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 interface InputFieldProps {
   type?: string;
   placeholder: string;
@@ -181,6 +396,8 @@ interface InputFieldProps {
   suffix?: React.ReactNode;
   badge?: string;
   error?: string;
+  maxLength?: number;
+  max?: string;
 }
 
 const InputField: React.FC<InputFieldProps> = ({
@@ -198,6 +415,8 @@ const InputField: React.FC<InputFieldProps> = ({
   suffix,
   badge,
   error,
+  maxLength,
+  max,
 }) => {
   const isDark = theme === "dark";
   const isFocused = focusedField === name;
@@ -224,7 +443,9 @@ const InputField: React.FC<InputFieldProps> = ({
             onChange={onChange}
             onFocus={onFocus}
             onBlur={onBlur}
-            className={`w-full pl-12 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 placeholder:text-slate-400 ${suffix ? "pr-12" : badge ? "pr-24" : "pr-4"} ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : isFocused ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
+            maxLength={maxLength}
+            max={max}
+            className={`w-full pl-12 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 placeholder:text-slate-400 ${suffix ? "pr-12" : badge ? "pr-16" : "pr-4"} ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : isFocused ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
           />
           {suffix && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
@@ -250,6 +471,487 @@ const InputField: React.FC<InputFieldProps> = ({
   );
 };
 
+const WHEEL_ITEM_HEIGHT = 36;
+const WHEEL_VISIBLE = 5;
+const WHEEL_PAD = Math.floor(WHEEL_VISIBLE / 2);
+
+const currentYear = new Date().getFullYear();
+const BIRTH_YEAR_RANGE = Array.from(
+  { length: 101 },
+  (_, i) => currentYear - i,
+);
+
+/** Columna estilo iOS: scroll con snap, ítem centrado = seleccionado. */
+const WheelColumn: React.FC<{
+  items: string[];
+  index: number;
+  onChange: (i: number) => void;
+  isDark: boolean;
+  width?: number;
+}> = ({ items, index, onChange, isDark, width = 96 }) => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const settleTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const suppressSync = React.useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || suppressSync.current) return;
+    el.scrollTop = index * WHEEL_ITEM_HEIGHT;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const atIndex = Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT) === index;
+    if (!atIndex) {
+      suppressSync.current = true;
+      el.scrollTo({ top: index * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
+      setTimeout(() => {
+        suppressSync.current = false;
+      }, 350);
+    }
+  }, [index]);
+
+  const settle = () => {
+    const el = ref.current;
+    if (!el) return;
+    const clamped = Math.max(
+      0,
+      Math.min(items.length - 1, Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT)),
+    );
+    suppressSync.current = true;
+    el.scrollTo({ top: clamped * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
+    if (clamped !== index) onChange(clamped);
+    setTimeout(() => {
+      suppressSync.current = false;
+    }, 350);
+  };
+
+  const handleScroll = () => {
+    if (settleTimeout.current) clearTimeout(settleTimeout.current);
+    settleTimeout.current = setTimeout(settle, 120);
+  };
+
+  const selectItem = (i: number) => {
+    const el = ref.current;
+    if (!el) return;
+    suppressSync.current = true;
+    el.scrollTo({ top: i * WHEEL_ITEM_HEIGHT, behavior: "smooth" });
+    onChange(i);
+    setTimeout(() => {
+      suppressSync.current = false;
+    }, 350);
+  };
+
+  return (
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      className="wheel-hide-scrollbar"
+      style={{
+        height: WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE,
+        width,
+        overflowY: "scroll",
+        scrollSnapType: "y mandatory",
+        overscrollBehavior: "contain",
+      }}
+    >
+      <div style={{ height: WHEEL_ITEM_HEIGHT * WHEEL_PAD }} />
+      {items.map((label, i) => {
+        const distance = Math.abs(i - index);
+        return (
+          <div
+            key={`${label}-${i}`}
+            onClick={() => selectItem(i)}
+            style={{
+              height: WHEEL_ITEM_HEIGHT,
+              scrollSnapAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: distance === 0 ? "1rem" : "0.85rem",
+              fontWeight: distance === 0 ? 800 : 500,
+              color:
+                distance === 0
+                  ? isDark
+                    ? "#fff"
+                    : "#1B244C"
+                  : "#94a3b8",
+              opacity: distance === 0 ? 1 : distance === 1 ? 0.65 : 0.35,
+              cursor: "pointer",
+              userSelect: "none",
+              transition: "font-size 0.15s, opacity 0.15s, color 0.15s",
+              fontFamily: "inherit",
+            }}
+          >
+            {label}
+          </div>
+        );
+      })}
+      <div style={{ height: WHEEL_ITEM_HEIGHT * WHEEL_PAD }} />
+    </div>
+  );
+};
+
+const BirthDatePicker: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  isDark: boolean;
+  monthNames: string[];
+  label: string;
+  placeholder: string;
+  error?: string;
+}> = ({ value, onChange, isDark, monthNames, label, placeholder, error }) => {
+  const now = new Date();
+  const parsed = value ? new Date(`${value}T00:00:00`) : null;
+  const [viewYear, setViewYear] = useState(
+    parsed ? parsed.getFullYear() : now.getFullYear() - 18,
+  );
+  const [viewMonth, setViewMonth] = useState(
+    parsed ? parsed.getMonth() : now.getMonth(),
+  );
+  const [selectedDay, setSelectedDay] = useState<number | null>(
+    parsed ? parsed.getDate() : null,
+  );
+  const [open, setOpen] = useState(false);
+  // El wheel de mes/año viene colapsado por default — solo aparece cuando
+  // el usuario toca el texto "Mes Año" del header, igual que un picker iOS.
+  const [wheelOpen, setWheelOpen] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{
+    bottom: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+  const hasError = !!error;
+
+  const updatePosition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth * 0.9);
+    const left = Math.max(
+      16,
+      Math.min(rect.left, window.innerWidth - width - 16),
+    );
+    // Se ancla por `bottom` (no `top`) para que el popover crezca hacia
+    // arriba del selector sin tener que medir su alto de antemano.
+    setPopoverPos({ bottom: window.innerHeight - rect.top + 8, left, width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+  // Derivado, no estado: si el usuario navega a un mes más corto sin
+  // seleccionar día nuevo, el texto del botón no debe mostrar un día
+  // inexistente (ej. "Feb 31").
+  const displayDay = selectedDay ? Math.min(selectedDay, daysInMonth) : null;
+
+  const commit = (day: number) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    onChange(`${viewYear}-${pad(viewMonth + 1)}-${pad(day)}`);
+  };
+
+  const prevMonth = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else setViewMonth((m) => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else setViewMonth((m) => m + 1);
+  };
+
+  const popBg = isDark ? "#1e2d5e" : "#ffffff";
+  const border = isDark ? "#2d3e7a" : "#E5E7EB";
+  const textColor = isDark ? "#fff" : "#000";
+  const mutedColor = "#94a3b8";
+  const accentColor = "#2EBCCC";
+
+  const displayValue = displayDay
+    ? `${monthNames[viewMonth]} ${displayDay}, ${viewYear}`
+    : "";
+  const yearIndex = BIRTH_YEAR_RANGE.indexOf(viewYear);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        className={`text-[0.78rem] font-bold tracking-wide ${isDark ? "text-slate-400" : "text-slate-500"}`}
+      >
+        {label}
+      </label>
+      <div
+        ref={triggerRef}
+        className={`relative w-full ${hasError ? "animate-input-shake" : ""}`}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setWheelOpen(false);
+            setOpen((o) => !o);
+          }}
+          className={`w-full pl-12 pr-4 py-4 rounded-2xl text-[0.9375rem] font-medium outline-none transition-all duration-200 flex items-center justify-between text-left cursor-pointer ${isDark ? "bg-[#273570] text-white border border-[#273570]" : "bg-[#F8FAFC] text-black border border-[#E5E7EB]"} ${hasError ? "!border-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.15)]" : open ? "!border-[#2EBCCC] shadow-[0_0_0_4px_#2EBCCC22]" : ""}`}
+        >
+          <span className={displayValue ? "" : "text-slate-400"}>
+            {displayValue || placeholder}
+          </span>
+          <ChevronDown
+            size={16}
+            className={open ? "text-[#2EBCCC]" : "text-slate-400"}
+          />
+        </button>
+        <Calendar
+          size={18}
+          className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${open ? "text-[#2EBCCC]" : "text-slate-400"}`}
+        />
+      </div>
+      {hasError && (
+        <p className="text-red-400 text-[0.75rem] font-semibold mt-0.5 flex items-center gap-1.5 animate-fade-up">
+          <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
+          {error}
+        </p>
+      )}
+
+      {open &&
+        popoverPos &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            className="rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+            style={{
+              position: "fixed",
+              bottom: popoverPos.bottom,
+              left: popoverPos.left,
+              width: popoverPos.width,
+              background: popBg,
+              border: `1.5px solid ${border}`,
+              zIndex: 10010,
+            }}
+          >
+            <div style={{ padding: "14px 16px 4px" }}>
+              <div
+                className="flex items-center justify-between"
+                style={{ marginBottom: 8, minHeight: 28 }}
+              >
+                {!wheelOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevMonth}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: accentColor,
+                        padding: 4,
+                      }}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWheelOpen(true)}
+                      className="flex items-center gap-1"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        color: textColor,
+                        fontFamily: "inherit",
+                        padding: "2px 6px",
+                        borderRadius: 8,
+                      }}
+                    >
+                      {monthNames[viewMonth]} {viewYear}
+                      <ChevronDown size={14} style={{ color: mutedColor }} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextMonth}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: accentColor,
+                        padding: 4,
+                      }}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ width: 24 }} />
+                    <div
+                      className="flex items-center justify-center relative"
+                      style={{ flex: 1 }}
+                    >
+                      <div
+                        className="pointer-events-none absolute left-0 right-0"
+                        style={{
+                          top: WHEEL_ITEM_HEIGHT * WHEEL_PAD,
+                          height: WHEEL_ITEM_HEIGHT,
+                          background: isDark
+                            ? "rgba(46,188,204,0.12)"
+                            : "rgba(46,188,204,0.08)",
+                          borderTop: `1px solid ${accentColor}55`,
+                          borderBottom: `1px solid ${accentColor}55`,
+                        }}
+                      />
+                      <WheelColumn
+                        items={monthNames}
+                        index={viewMonth}
+                        onChange={setViewMonth}
+                        isDark={isDark}
+                        width={124}
+                      />
+                      <WheelColumn
+                        items={BIRTH_YEAR_RANGE.map(String)}
+                        index={yearIndex}
+                        onChange={(i) => setViewYear(BIRTH_YEAR_RANGE[i])}
+                        isDark={isDark}
+                        width={76}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWheelOpen(false)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: accentColor,
+                        padding: 4,
+                      }}
+                    >
+                      <Check size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="grid grid-cols-7 mb-1">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      textAlign: "center",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      color: mutedColor,
+                      padding: "4px 0",
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-y-1 pb-3.5">
+                {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                  <div key={`e-${i}`} />
+                ))}
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+                  (day) => {
+                    const isSelected = selectedDay === day;
+                    const isFuture =
+                      new Date(viewYear, viewMonth, day) > now;
+                    const isToday =
+                      now.getDate() === day &&
+                      now.getMonth() === viewMonth &&
+                      now.getFullYear() === viewYear;
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        disabled={isFuture}
+                        onClick={() => {
+                          setSelectedDay(day);
+                          commit(day);
+                          setOpen(false);
+                        }}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          margin: "0 auto",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "50%",
+                          border:
+                            isToday && !isSelected
+                              ? `1.5px solid ${accentColor}`
+                              : "none",
+                          background: isSelected
+                            ? accentColor
+                            : "transparent",
+                          color: isFuture
+                            ? "#cbd5e1"
+                            : isSelected
+                              ? "#fff"
+                              : textColor,
+                          fontSize: "0.8rem",
+                          fontWeight: isSelected ? 700 : 400,
+                          cursor: isFuture ? "not-allowed" : "pointer",
+                          opacity: isFuture ? 0.4 : 1,
+                          transition: "background 0.15s",
+                          fontFamily: "inherit",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected && !isFuture)
+                            e.currentTarget.style.background =
+                              "rgba(46,188,204,0.15)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected)
+                            e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        {day}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+};
+
 const LangToggle: React.FC<{ theme: ThemeMode }> = ({ theme }) => {
   const { locale, toggleLocale } = useI18n();
   const isDark = theme === "dark";
@@ -265,8 +967,10 @@ const LangToggle: React.FC<{ theme: ThemeMode }> = ({ theme }) => {
 };
 
 const AuthScreen: React.FC = () => {
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
+  const authLogo = isDark ? ServeaseLogoDark : ServeaseLogo;
   const { toasts, addToast, removeToast } = useToast();
   const { t } = useI18n();
 
@@ -274,6 +978,8 @@ const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDevModal, setShowDevModal] = useState(false);
+  const [showConfirmEmailModal, setShowConfirmEmailModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [signupStep, setSignupStep] = useState(0);
   const [stepDirection, setStepDirection] = useState<"forward" | "back">(
@@ -287,8 +993,10 @@ const AuthScreen: React.FC = () => {
 
   const [signupData, setSignupData] = useState<SignupData>({
     firstName: "",
+    secondName: "",
     lastNameP: "",
     lastNameM: "",
+    birthDate: "",
     email: "",
     password: "",
   });
@@ -298,9 +1006,32 @@ const AuthScreen: React.FC = () => {
   const [signupStep1Errors, setSignupStep1Errors] = useState<SignupStep1Errors>(
     {},
   );
+  const [signupAcceptedTerms, setSignupAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState<AuthErrorKey | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
 
   const isLogin = mode === "login";
   const auth = t("auth");
+
+  const { login, signup, loginWithGoogle, mfaPending, isAuthenticated } = useAuth();
+  const [showMfaModal, setShowMfaModal] = useState(false);
+
+  useEffect(() => {
+    if (mfaPending) setShowMfaModal(true);
+  }, [mfaPending]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timeout = setTimeout(() => navigate("/", { replace: true }), 450);
+    return () => clearTimeout(timeout);
+  }, [isAuthenticated, navigate]);
+
+  const signupPasswordStrength = useMemo(
+    () => (signupData.password ? getPasswordStrength(signupData.password) : null),
+    [signupData.password],
+  );
 
   const switchMode = (next: AuthMode) => {
     setStepDirection("forward");
@@ -313,16 +1044,34 @@ const AuthScreen: React.FC = () => {
       setLoginErrors({});
       setSignupData({
         firstName: "",
+        secondName: "",
         lastNameP: "",
         lastNameM: "",
+        birthDate: "",
         email: "",
         password: "",
       });
       setSignupStep0Errors({});
       setSignupStep1Errors({});
+      setSignupAcceptedTerms(false);
+      setTermsError(null);
+      setProfilePhoto(null);
+      setPhotoPreview(null);
       setFieldsVisible(true);
       setHeaderVisible(true);
     }, 50);
+  };
+
+  const handlePhotoSelect = (file: File | null) => {
+    if (!file) return;
+    setProfilePhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handlePhotoRemove = () => {
+    setProfilePhoto(null);
+    setPhotoPreview(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
   };
 
   const animateStep = (dir: "forward" | "back", cb: () => void) => {
@@ -331,70 +1080,112 @@ const AuthScreen: React.FC = () => {
     setTimeout(() => {
       cb();
       setFieldsVisible(true);
-    }, 240);
+    }, 200);
   };
 
   const validateLoginForm = (): boolean => {
     const errors: LoginErrors = {};
-    if (!loginData.email.trim()) errors.email = auth.errors.emailRequired;
+    if (!loginData.email.trim()) errors.email = "emailRequired";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginData.email))
-      errors.email = auth.errors.emailInvalid;
-    if (!loginData.password) errors.password = auth.errors.passwordRequired;
+      errors.email = "emailInvalid";
+    if (!loginData.password) errors.password = "passwordRequired";
     setLoginErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const validateStep0 = (): boolean => {
     const errors: SignupStep0Errors = {};
-    if (!signupData.firstName.trim())
-      errors.firstName = auth.errors.firstNameRequired;
-    if (!signupData.lastNameP.trim())
-      errors.lastNameP = auth.errors.lastNamePRequired;
+    if (!signupData.firstName.trim()) errors.firstName = "firstNameRequired";
+    else if (!isValidName(signupData.firstName))
+      errors.firstName = "nameInvalid";
+    if (signupData.secondName.trim() && !isValidName(signupData.secondName))
+      errors.secondName = "nameInvalid";
+    if (!signupData.lastNameP.trim()) errors.lastNameP = "lastNamePRequired";
+    else if (!isValidName(signupData.lastNameP))
+      errors.lastNameP = "nameInvalid";
+    if (signupData.lastNameM.trim() && !isValidName(signupData.lastNameM))
+      errors.lastNameM = "nameInvalid";
+    if (!signupData.birthDate) errors.birthDate = "birthDateRequired";
+    else if (new Date(signupData.birthDate) > new Date())
+      errors.birthDate = "birthDateInvalid";
     setSignupStep0Errors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const validateStep1 = (): boolean => {
     const errors: SignupStep1Errors = {};
-    if (!signupData.email.trim()) errors.email = auth.errors.emailRequired;
+    if (!signupData.email.trim()) errors.email = "emailRequired";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.email))
-      errors.email = auth.errors.emailInvalid;
-    if (signupData.password.length < 6)
-      errors.password = auth.errors.passwordMin;
+      errors.email = "emailInvalid";
+    if (!signupData.password) errors.password = "passwordRequired";
+    else if (signupData.password.length < 6) errors.password = "passwordMin";
+    else if (getPasswordStrength(signupData.password) !== "strong")
+      errors.password = "passwordWeak";
     setSignupStep1Errors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleNextStep = () => {
-    const valid = signupStep === 0 ? validateStep0() : validateStep1();
+  const validateStep2 = (): boolean => {
+    if (!signupAcceptedTerms) {
+      setTermsError("termsRequired");
+      return false;
+    }
+    setTermsError(null);
+    return true;
+  };
+
+  const handleNextStep = async () => {
+    const valid =
+      signupStep === 0
+        ? validateStep0()
+        : signupStep === 1
+          ? validateStep1()
+          : validateStep2();
     if (!valid) return;
     if (signupStep < auth.signup.steps.length - 1) {
       animateStep("forward", () => setSignupStep((s) => s + 1));
     } else {
       setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        setShowDevModal(true);
-      }, 1800);
+      const error = await signup({
+        email: signupData.email,
+        password: signupData.password,
+        firstName: signupData.firstName,
+        secondName: signupData.secondName,
+        lastNameP: signupData.lastNameP,
+        lastNameM: signupData.lastNameM,
+        birthDate: signupData.birthDate,
+        photo: profilePhoto,
+      });
+      setIsLoading(false);
+      if (error) {
+        addToast("error", error);
+      } else {
+        setShowConfirmEmailModal(true);
+      }
     }
   };
 
-  const handleLogin = (e: FormEvent) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!validateLoginForm()) return;
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setShowDevModal(true);
-    }, 1800);
+    const { error, mfaPending: pendingMfa } = await login(
+      loginData.email,
+      loginData.password,
+    );
+    setIsLoading(false);
+    if (error) {
+      addToast("error", error);
+      return;
+    }
+    if (!pendingMfa) {
+      addToast("success", auth.toast.loginSuccess);
+    }
   };
 
-  const handleGoogleAuth = () => {
+  const handleGoogleAuth = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setShowDevModal(true);
-    }, 1400);
+    await loginWithGoogle();
   };
 
   const fieldsAnimClass = fieldsVisible
@@ -420,9 +1211,31 @@ const AuthScreen: React.FC = () => {
       {showDevModal && (
         <DevModal onClose={() => setShowDevModal(false)} theme={theme} />
       )}
+      {showConfirmEmailModal && (
+        <ConfirmEmailModal
+          onClose={() => {
+            setShowConfirmEmailModal(false);
+            switchMode("login");
+          }}
+          theme={theme}
+        />
+      )}
+      {showForgotPasswordModal && (
+        <ForgotPasswordModal
+          onClose={() => setShowForgotPasswordModal(false)}
+          theme={theme}
+        />
+      )}
+
+      {showMfaModal && (
+        <MfaChallengeModal
+          isDark={isDark}
+          onDone={() => setShowMfaModal(false)}
+        />
+      )}
 
       <div
-        className={`min-h-screen w-full flex items-center justify-center p-6 transition-colors duration-400 ${isDark ? "bg-[#1B244C]" : "bg-[#F6F8F8]"}`}
+        className={`page-enter min-h-screen w-full flex items-center justify-center p-6 transition-colors duration-400 ${isDark ? "bg-[#1B244C]" : "bg-[#F6F8F8]"}`}
       >
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-24 -left-24 w-[28rem] h-[28rem] bg-[#2EBCCC]/10 rounded-full blur-[60px]" />
@@ -434,7 +1247,7 @@ const AuthScreen: React.FC = () => {
         <div
           className={`relative w-full max-w-5xl rounded-[2rem] overflow-hidden flex flex-row min-h-[680px] border transition-colors duration-400 z-10 ${isDark ? "bg-[#1B244C] border-[#273570] shadow-[0_32px_80px_rgba(0,0,0,0.4)]" : "bg-white border-[#E5E7EB] shadow-[0_24px_60px_rgba(27,36,76,0.1)]"}`}
         >
-          {/* LEFT ASIDE */}
+          {}
           <div className="hidden md:flex w-[45%] bg-gradient-to-br from-[#1B244C] via-[#273570] to-[#1a2d5a] p-14 flex-col justify-between relative overflow-hidden">
             <div className="absolute -top-20 -right-16 w-72 h-72 bg-[#2EBCCC]/10 rounded-full blur-[50px] pointer-events-none" />
             <div className="absolute bottom-12 -left-16 w-56 h-56 bg-[#2EBCCC]/6 rounded-full blur-[40px] pointer-events-none" />
@@ -443,7 +1256,7 @@ const AuthScreen: React.FC = () => {
               <div className="flex items-center gap-3.5 mb-14">
                 <div className="w-10 h-10 rounded-[8px] bg-cyan-500/30 flex items-center justify-center p-1.5">
                   <img
-                    src={ServeaseLogo}
+                    src={authLogo}
                     alt="Servease"
                     className="w-full h-full object-contain"
                   />
@@ -473,7 +1286,7 @@ const AuthScreen: React.FC = () => {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => {}}
+                    onClick={() => navigate(ROUTES.TERMS)}
                     className="text-[#2EBCCC] text-[0.78rem] font-bold underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer p-0 hover:text-white transition-colors duration-200"
                   >
                     {auth.sidebar.terms}
@@ -481,7 +1294,7 @@ const AuthScreen: React.FC = () => {
                   <span className="text-white/20 text-[0.78rem]">·</span>
                   <button
                     type="button"
-                    onClick={() => {}}
+                    onClick={() => navigate(ROUTES.PRIVACY)}
                     className="text-[#2EBCCC] text-[0.78rem] font-bold underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer p-0 hover:text-white transition-colors duration-200"
                   >
                     {auth.sidebar.privacy}
@@ -491,7 +1304,7 @@ const AuthScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT PANEL */}
+          {}
           <div
             className={`w-full md:w-[55%] px-10 py-12 flex flex-col justify-center transition-colors duration-400 ${isDark ? "bg-[#1B244C]" : "bg-white"}`}
           >
@@ -549,28 +1362,6 @@ const AuthScreen: React.FC = () => {
                 </div>
               )}
 
-              {!isLogin && signupStep === 0 && (
-                <div
-                  className={`flex gap-2 p-1.5 rounded-2xl mb-5 border ${isDark ? "bg-white/5 border-[#273570]" : "bg-[#F6F8F8] border-[#E5E7EB]"}`}
-                >
-                  <div
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-[#2EBCCC] ${isDark ? "bg-[#2EBCCC]/15 ring-1 ring-[#2EBCCC]/30" : "bg-white shadow-md"}`}
-                  >
-                    <User size={15} /> {auth.signup.roleClient}
-                  </div>
-                  <div className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3 rounded-xl font-bold text-[0.8rem] text-slate-400 cursor-not-allowed opacity-55 select-none">
-                    <span className="flex items-center gap-1.5">
-                      <Briefcase size={15} /> {auth.signup.roleProvider}
-                    </span>
-                    <span
-                      className={`text-[0.62rem] font-extrabold px-2 py-0.5 rounded-md ${isDark ? "bg-[#273570]" : "bg-slate-100"}`}
-                    >
-                      {auth.signup.roleProviderUnavailable}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               {isLogin ? (
                 <form onSubmit={handleLogin} className="space-y-3.5">
                   <InputField
@@ -588,7 +1379,11 @@ const AuthScreen: React.FC = () => {
                     onFocus={() => setFocusedField("email-login")}
                     onBlur={() => setFocusedField(null)}
                     theme={theme}
-                    error={loginErrors.email}
+                    error={
+                      loginErrors.email
+                        ? auth.errors[loginErrors.email]
+                        : undefined
+                    }
                   />
                   <InputField
                     label={auth.login.password}
@@ -605,7 +1400,11 @@ const AuthScreen: React.FC = () => {
                     onFocus={() => setFocusedField("password-login")}
                     onBlur={() => setFocusedField(null)}
                     theme={theme}
-                    error={loginErrors.password}
+                    error={
+                      loginErrors.password
+                        ? auth.errors[loginErrors.password]
+                        : undefined
+                    }
                     suffix={
                       <button
                         type="button"
@@ -623,9 +1422,7 @@ const AuthScreen: React.FC = () => {
                   <div className="flex justify-end pt-0.5 pb-3">
                     <button
                       type="button"
-                      onClick={() =>
-                        addToast("info", auth.toast.forgotPassword)
-                      }
+                      onClick={() => setShowForgotPasswordModal(true)}
                       className="bg-transparent border-none cursor-pointer text-[#2EBCCC] hover:text-[#239aaa] font-bold text-[0.8125rem] p-0 transition-colors"
                     >
                       {auth.login.forgotPassword}
@@ -656,70 +1453,140 @@ const AuthScreen: React.FC = () => {
                   <div className={`space-y-3.5 ${fieldsAnimClass}`}>
                     {signupStep === 0 ? (
                       <>
-                        <InputField
-                          label={auth.signup.firstName}
-                          name="firstName"
-                          placeholder={auth.signup.firstNamePlaceholder}
-                          value={signupData.firstName}
-                          onChange={(e) => {
+                        <div className="grid grid-cols-2 gap-3">
+                          <InputField
+                            label={auth.signup.firstName}
+                            name="firstName"
+                            placeholder={auth.signup.firstNamePlaceholder}
+                            value={signupData.firstName}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                firstName: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                firstName: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("firstName")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            error={
+                              signupStep0Errors.firstName
+                                ? auth.errors[signupStep0Errors.firstName]
+                                : undefined
+                            }
+                          />
+                          <InputField
+                            label={auth.signup.secondName}
+                            name="secondName"
+                            placeholder={auth.signup.secondNamePlaceholder}
+                            value={signupData.secondName}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                secondName: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                secondName: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("secondName")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            badge={auth.signup.optional}
+                            error={
+                              signupStep0Errors.secondName
+                                ? auth.errors[signupStep0Errors.secondName]
+                                : undefined
+                            }
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <InputField
+                            label={auth.signup.lastNameP}
+                            name="lastNameP"
+                            placeholder={auth.signup.lastNamePPlaceholder}
+                            value={signupData.lastNameP}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                lastNameP: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                lastNameP: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("lastNameP")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            error={
+                              signupStep0Errors.lastNameP
+                                ? auth.errors[signupStep0Errors.lastNameP]
+                                : undefined
+                            }
+                          />
+                          <InputField
+                            label={auth.signup.lastNameM}
+                            name="lastNameM"
+                            placeholder={auth.signup.lastNameMPlaceholder}
+                            value={signupData.lastNameM}
+                            onChange={(e) => {
+                              setSignupData({
+                                ...signupData,
+                                lastNameM: sanitizeNameInput(e.target.value),
+                              });
+                              setSignupStep0Errors((p) => ({
+                                ...p,
+                                lastNameM: undefined,
+                              }));
+                            }}
+                            icon={<User size={18} />}
+                            focusedField={focusedField}
+                            onFocus={() => setFocusedField("lastNameM")}
+                            onBlur={() => setFocusedField(null)}
+                            theme={theme}
+                            badge={auth.signup.optional}
+                            error={
+                              signupStep0Errors.lastNameM
+                                ? auth.errors[signupStep0Errors.lastNameM]
+                                : undefined
+                            }
+                          />
+                        </div>
+                        <BirthDatePicker
+                          label={auth.signup.birthDate}
+                          placeholder={auth.signup.birthDatePlaceholder}
+                          monthNames={auth.signup.months}
+                          value={signupData.birthDate}
+                          onChange={(v) => {
                             setSignupData({
                               ...signupData,
-                              firstName: e.target.value,
+                              birthDate: v,
                             });
                             setSignupStep0Errors((p) => ({
                               ...p,
-                              firstName: undefined,
+                              birthDate: undefined,
                             }));
                           }}
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("firstName")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          error={signupStep0Errors.firstName}
-                        />
-                        <InputField
-                          label={auth.signup.lastNameP}
-                          name="lastNameP"
-                          placeholder={auth.signup.lastNamePPlaceholder}
-                          value={signupData.lastNameP}
-                          onChange={(e) => {
-                            setSignupData({
-                              ...signupData,
-                              lastNameP: e.target.value,
-                            });
-                            setSignupStep0Errors((p) => ({
-                              ...p,
-                              lastNameP: undefined,
-                            }));
-                          }}
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("lastNameP")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          error={signupStep0Errors.lastNameP}
-                        />
-                        <InputField
-                          label={auth.signup.lastNameM}
-                          name="lastNameM"
-                          placeholder={auth.signup.lastNameMPlaceholder}
-                          value={signupData.lastNameM}
-                          onChange={(e) =>
-                            setSignupData({
-                              ...signupData,
-                              lastNameM: e.target.value,
-                            })
+                          isDark={isDark}
+                          error={
+                            signupStep0Errors.birthDate
+                              ? auth.errors[signupStep0Errors.birthDate]
+                              : undefined
                           }
-                          icon={<User size={18} />}
-                          focusedField={focusedField}
-                          onFocus={() => setFocusedField("lastNameM")}
-                          onBlur={() => setFocusedField(null)}
-                          theme={theme}
-                          badge={auth.signup.optional}
                         />
                       </>
-                    ) : (
+                    ) : signupStep === 1 ? (
                       <>
                         <InputField
                           label={auth.signup.email}
@@ -742,7 +1609,11 @@ const AuthScreen: React.FC = () => {
                           onFocus={() => setFocusedField("email-signup")}
                           onBlur={() => setFocusedField(null)}
                           theme={theme}
-                          error={signupStep1Errors.email}
+                          error={
+                            signupStep1Errors.email
+                              ? auth.errors[signupStep1Errors.email]
+                              : undefined
+                          }
                         />
                         <InputField
                           label={auth.signup.password}
@@ -765,7 +1636,11 @@ const AuthScreen: React.FC = () => {
                           onFocus={() => setFocusedField("password-signup")}
                           onBlur={() => setFocusedField(null)}
                           theme={theme}
-                          error={signupStep1Errors.password}
+                          error={
+                            signupStep1Errors.password
+                              ? auth.errors[signupStep1Errors.password]
+                              : undefined
+                          }
                           suffix={
                             <button
                               type="button"
@@ -780,7 +1655,86 @@ const AuthScreen: React.FC = () => {
                             </button>
                           }
                         />
+                        {signupData.password.length > 0 && signupPasswordStrength && (
+                          <div className="flex items-center gap-2 px-1 animate-fade-up">
+                            <div className="flex-1 h-1 rounded-full bg-[#E5E7EB] overflow-hidden">
+                              <div
+                                style={{
+                                  width: PASSWORD_STRENGTH_WIDTH[signupPasswordStrength],
+                                  background: PASSWORD_STRENGTH_COLOR[signupPasswordStrength],
+                                  transition:
+                                    "width 220ms ease-out, background-color 220ms ease-out",
+                                }}
+                                className="h-full rounded-full"
+                              />
+                            </div>
+                            <span
+                              style={{ color: PASSWORD_STRENGTH_COLOR[signupPasswordStrength] }}
+                              className="text-[11px] font-bold shrink-0"
+                            >
+                              {auth.signup.strength[signupPasswordStrength]}
+                            </span>
+                          </div>
+                        )}
                       </>
+                    ) : (
+                      <div className="flex flex-col items-center py-2">
+                        <div className="relative">
+                          <div
+                            className={`w-32 h-32 rounded-full flex items-center justify-center overflow-hidden border-2 ${isDark ? "bg-[#273570] border-[#273570]" : "bg-[#F8FAFC] border-[#E5E7EB]"}`}
+                          >
+                            {photoPreview ? (
+                              <img
+                                src={photoPreview}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User
+                                size={44}
+                                className={
+                                  isDark ? "text-slate-500" : "text-slate-300"
+                                }
+                              />
+                            )}
+                          </div>
+                          {photoPreview && (
+                            <button
+                              type="button"
+                              onClick={handlePhotoRemove}
+                              className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center border-none cursor-pointer shadow-md transition-[transform,background-color] duration-150 ease-out active:scale-90 animate-scale-in"
+                            >
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+
+                        <input
+                          ref={photoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={(e) =>
+                            handlePhotoSelect(e.target.files?.[0] ?? null)
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => photoInputRef.current?.click()}
+                          className={`mt-5 flex items-center gap-2 py-3 px-5 rounded-2xl border font-bold text-sm cursor-pointer transition-[transform,background-color] duration-150 ease-out active:scale-[0.97] ${isDark ? "bg-white/4 border-[#273570] text-white hover:bg-white/8" : "bg-white border-[#E5E7EB] text-black hover:bg-slate-50"}`}
+                        >
+                          <Camera size={16} />
+                          {photoPreview
+                            ? auth.signup.photoChange
+                            : auth.signup.photoUpload}
+                        </button>
+
+                        <p
+                          className={`text-xs font-medium text-center mt-4 max-w-[20rem] ${isDark ? "text-slate-400" : "text-[#989898]"}`}
+                        >
+                          {auth.signup.photoHint}
+                        </p>
+                      </div>
                     )}
                   </div>
 
@@ -792,7 +1746,7 @@ const AuthScreen: React.FC = () => {
                           animateStep("back", () => setSignupStep((s) => s - 1))
                         }
                         disabled={isLoading}
-                        className={`p-4 rounded-2xl border bg-transparent cursor-pointer flex items-center justify-center shrink-0 transition-all duration-200 hover:border-[#2EBCCC] hover:text-[#2EBCCC] disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "border-[#273570] text-slate-400" : "border-[#E5E7EB] text-slate-400"}`}
+                        className={`p-4 rounded-2xl border bg-transparent cursor-pointer flex items-center justify-center shrink-0 transition-[transform,border-color,color] duration-150 ease-out active:scale-[0.96] hover:border-[#2EBCCC] hover:text-[#2EBCCC] disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "border-[#273570] text-slate-400" : "border-[#E5E7EB] text-slate-400"}`}
                       >
                         <ArrowLeft size={18} />
                       </button>
@@ -800,7 +1754,11 @@ const AuthScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleNextStep}
-                      disabled={isLoading}
+                      disabled={
+                        isLoading ||
+                        (signupStep === auth.signup.steps.length - 1 &&
+                          !signupAcceptedTerms)
+                      }
                       className={primaryBtnBase}
                     >
                       {isLoading ? (
@@ -816,13 +1774,59 @@ const AuthScreen: React.FC = () => {
                           <ArrowRight size={18} />
                         </>
                       ) : (
-                        <>
-                          <span>{auth.signup.submit}</span>
-                          <CheckCircle size={18} />
-                        </>
+                        <span>{auth.signup.submit}</span>
                       )}
                     </button>
                   </div>
+
+                  {signupStep === 2 && (
+                    <div className="animate-fade-up">
+                      <div
+                        className={`flex items-start gap-3 mt-5 p-4 rounded-2xl border ${isDark ? "border-[#273570] bg-white/5" : "border-[#E5E7EB] bg-[#F6F8F8]"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          id="accept-terms"
+                          checked={signupAcceptedTerms}
+                          onChange={(e) => {
+                            setSignupAcceptedTerms(e.target.checked);
+                            setTermsError(null);
+                          }}
+                          className="mt-0.5 w-4 h-4 rounded shrink-0 accent-[#2EBCCC]"
+                        />
+                        <label
+                          htmlFor="accept-terms"
+                          className="text-sm font-medium leading-5 cursor-pointer select-none"
+                          style={{
+                            color: isDark ? "#EFEFEF" : "rgba(27,36,76,0.85)",
+                          }}
+                        >
+                          {auth.signup.acceptTerms}
+                          <button
+                            type="button"
+                            onClick={() => navigate(ROUTES.TERMS)}
+                            className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
+                          >
+                            {auth.signup.termsLink}
+                          </button>
+                          {auth.signup.and}
+                          <button
+                            type="button"
+                            onClick={() => navigate(ROUTES.PRIVACY)}
+                            className="text-[#2EBCCC] hover:text-[#239aaa] underline decoration-dotted underline-offset-[3px] bg-transparent border-none cursor-pointer font-semibold p-0 inline"
+                          >
+                            {auth.signup.privacyLink}
+                          </button>
+                        </label>
+                      </div>
+                      {termsError && (
+                        <p className="text-red-400 text-[0.75rem] font-semibold mt-2 flex items-center gap-1.5 animate-fade-up ml-1">
+                          <span className="inline-block w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                          {auth.errors[termsError]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -846,7 +1850,7 @@ const AuthScreen: React.FC = () => {
                 type="button"
                 onClick={handleGoogleAuth}
                 disabled={isLoading}
-                className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl border font-bold text-[0.9rem] cursor-pointer transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${isDark ? "bg-white/4 border-[#273570] text-white hover:bg-white/8" : "bg-white border-[#E5E7EB] text-black hover:bg-slate-50 shadow-sm"}`}
+                className={`w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl border font-bold text-[0.9rem] cursor-pointer transition-[transform,background-color] duration-150 ease-out active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${isDark ? "bg-white/4 border-[#273570] text-white hover:bg-white/8" : "bg-white border-[#E5E7EB] text-black hover:bg-slate-50 shadow-sm"}`}
               >
                 <GoogleIcon />{" "}
                 {isLogin ? auth.login.google : auth.signup.google}

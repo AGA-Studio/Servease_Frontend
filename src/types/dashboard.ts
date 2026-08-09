@@ -1,0 +1,87 @@
+export type DashboardActivityType =
+  | "applied"
+  | "hired"
+  | "completed"
+  | "payment"
+  | "review"
+  | "message";
+
+export interface DashboardActivity {
+  id: string;
+  type: DashboardActivityType;
+  timeAgo: string;
+  content: string;
+  highlight?: string;
+  extra?: string;
+  dotColor: string;
+}
+
+import type { JobClient } from "./job";
+
+export interface DashboardJob {
+  id: string;
+  title: string;
+  location: string;
+  latitud?: string | number;
+  longitud?: string | number;
+  postedAgo: string;
+  description: string;
+  budget: string;
+  priceRange: string;
+  price: number;
+  currency?: string;
+  proposalCount: number;
+  category: string;
+  when: string;
+  urgency: string;
+  mainImage: string;
+  thumbnails: string[];
+  client: JobClient;
+}
+
+export type KpiPeriodKey = "total" | "month" | "week";
+
+export interface KpiPeriodOption {
+  key: KpiPeriodKey;
+  label: string;
+  value: number;
+  trend?: {
+    value: number;
+    label: string;
+    isPositive: boolean;
+  };
+}
+
+export interface KpiData {
+  key: string;
+  label: string;
+  value: string | number;
+  iconName: "briefcase" | "checkCircle" | "dollarSign" | "star";
+  iconColor: string;
+  iconBg: string;
+  trend?: {
+    value: number;
+    label: string;
+    isPositive: boolean;
+  };
+  periodOptions?: KpiPeriodOption[];
+}
+
+export interface EarningsPoint {
+  month: string;
+  earnings: number;
+}
+
+export interface CategoryBreakdown {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface DashboardData {
+  kpis: KpiData[];
+  earnings: EarningsPoint[];
+  jobsByCategory: CategoryBreakdown[];
+  availableJobs: DashboardJob[];
+  recentActivity: DashboardActivity[];
+}

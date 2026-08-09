@@ -1,0 +1,134 @@
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import type { EarningsPoint } from "../../../../types/dashboard";
+import { useI18n } from "../../../../i18n";
+import { useCurrency } from "../../../../context/CurrencyContext";
+import EmptyState from "../../../../components/emptystate/EmptyState";
+import { BarChart3 } from "lucide-react";
+
+interface EarningsChartProps {
+  data: EarningsPoint[] | undefined;
+  isDark: boolean;
+}
+
+export const EarningsChart = ({ data, isDark }: EarningsChartProps) => {
+  const { t } = useI18n();
+  const { formatMoney, convertAmount } = useCurrency();
+  const d = t("dashboardscreen");
+  const strokeColor = "#2EBCCC";
+  const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+  const textColor = isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)";
+
+  return (
+    <div
+      style={{
+        background: "var(--card-bg)",
+        borderRadius: 16,
+        border: "1px solid var(--divider)",
+        padding: 20,
+        height: "100%",
+        minHeight: 280,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 16,
+        }}
+      >
+        <span
+          style={{
+            fontWeight: 700,
+            fontSize: "1rem",
+            color: "var(--text)",
+          }}
+        >
+          {d.charts.earnings.title}
+        </span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {!data || data.length === 0 ? (
+          <EmptyState
+            icon={<BarChart3 size={22} color="#2EBCCC" />}
+            isDark={isDark}
+            title={d.empty.categories.title}
+            subtitle={d.empty.categories.description}
+          />
+        ) : (
+        <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+          <AreaChart
+            data={data}
+            margin={{ top: 8, right: 16, bottom: 0, left: 0 }}
+          >
+            <defs>
+              <linearGradient id="earningsGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={strokeColor} stopOpacity={0.35} />
+                <stop offset="95%" stopColor={strokeColor} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
+              tickFormatter={(month) => {
+                const key = month as keyof typeof d.charts.earnings.categories;
+                return d.charts.earnings.categories?.[key]
+                  ?? (d.months?.[month.toLowerCase() as keyof typeof d.months]
+                  ?? month);
+              }}
+              dy={10}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: textColor, fontSize: 12, fontWeight: 500 }}
+              tickFormatter={(value) => {
+                const converted = convertAmount(Number(value));
+                return `$${(converted / 1000).toFixed(1)}k`;
+              }}
+              dx={-8}
+            />
+            <Tooltip
+              contentStyle={{
+                background: isDark ? "#1e2d5e" : "#ffffff",
+                border: `1px solid ${isDark ? "#273570" : "#e5e7eb"}`,
+                borderRadius: 10,
+                boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+              }}
+              labelStyle={{ color: "var(--text)", fontWeight: 700, marginBottom: 4 }}
+              itemStyle={{ color: "#2EBCCC", fontWeight: 600 }}
+              formatter={(value) => {
+                const num = typeof value === "number" ? value : Number(value);
+                if (Number.isNaN(num)) return [formatMoney(0), d.charts.earnings.tooltipLabel];
+                return [formatMoney(num), d.charts.earnings.tooltipLabel];
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="earnings"
+              stroke={strokeColor}
+              strokeWidth={3}
+              fill="url(#earningsGradient)"
+              activeDot={{ r: 6, strokeWidth: 0, fill: strokeColor }}
+              dot={{ r: 4, strokeWidth: 0, fill: strokeColor }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+};
