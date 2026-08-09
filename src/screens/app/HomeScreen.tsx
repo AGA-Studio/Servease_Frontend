@@ -1,5 +1,3 @@
-
-
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
@@ -35,7 +33,11 @@ import { dotColorForTipo } from "../../utils/notifications";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import type { JobDetails } from "../../types/job";
 import { getApproxLocation } from "../../utils/location";
-import { timeAgo, mapEstadoToStatus, mapPostDetailsToJobDetails } from "../../utils/servicio";
+import {
+  timeAgo,
+  mapEstadoToStatus,
+  mapPostDetailsToJobDetails,
+} from "../../utils/servicio";
 import Avatar from "../../components/avatar/Avatar";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
@@ -253,7 +255,14 @@ const PostCard = ({
           flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            minWidth: 0,
+          }}
+        >
           <PostIcon category={post.category} accentColor={post.accentColor} />
           <div style={{ minWidth: 0 }}>
             <div
@@ -296,7 +305,9 @@ const PostCard = ({
                 </>
               )}
               <Clock size={11} style={{ flexShrink: 0 }} />
-              <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>Posted {post.postedAgo}</span>
+              <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+                Posted {post.postedAgo}
+              </span>
             </div>
           </div>
         </div>
@@ -470,7 +481,11 @@ const HomeScreen: React.FC = () => {
     fetchCategorias,
   );
   const categorySuggestions: SearchSuggestion[] = (categorias ?? []).map(
-    (c) => ({ id: String(c.id_categoria), label: c.nombre, tag: h.categoryTag }),
+    (c) => ({
+      id: String(c.id_categoria),
+      label: c.nombre,
+      tag: h.categoryTag,
+    }),
   );
 
   const { user } = useAuth();
@@ -504,18 +519,16 @@ const HomeScreen: React.FC = () => {
     data: perfil,
     isLoading: isLoadingKpis,
     error: kpisError,
-  } = useCachedResource(
-    user?.id ? `perfil-cliente:${user.id}` : null,
-    () => fetchPerfilCliente(user!.id),
+  } = useCachedResource(user?.id ? `perfil-cliente:${user.id}` : null, () =>
+    fetchPerfilCliente(user!.id),
   );
 
   const {
     data: servicios,
     isLoading: isLoadingPosts,
     error: postsErrorObj,
-  } = useCachedResource(
-    user?.id ? `home-cliente:${user.id}` : null,
-    () => fetchHomeCliente(user!.id),
+  } = useCachedResource(user?.id ? `home-cliente:${user.id}` : null, () =>
+    fetchHomeCliente(user!.id),
   );
 
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -576,7 +589,10 @@ const HomeScreen: React.FC = () => {
         }))
         // "Mis Active Posts" solo debe listar publicaciones abiertas o en
         // progreso (estado_id 7 / 4) — completadas/canceladas no cuentan.
-        .filter((post) => post.status === "receiving" || post.status === "in_progress")
+        .filter(
+          (post) =>
+            post.status === "receiving" || post.status === "in_progress",
+        )
         .sort(
           (a, b) =>
             new Date(b.raw.fecha).getTime() - new Date(a.raw.fecha).getTime(),
@@ -589,7 +605,6 @@ const HomeScreen: React.FC = () => {
       console.error("fetchPerfilCliente failed:", kpisError);
       addToast("error", h.errors.kpisFailed);
     }
-
   }, [kpisError]);
 
   useEffect(() => {
@@ -597,7 +612,6 @@ const HomeScreen: React.FC = () => {
       console.error("fetchHomeCliente failed:", postsErrorObj);
       addToast("error", h.errors.postsFailed);
     }
-
   }, [postsErrorObj]);
 
   return (
@@ -872,10 +886,14 @@ const HomeScreen: React.FC = () => {
               suggestions={categorySuggestions}
               onSearch={(q) => {
                 if (!q.trim()) return;
-                navigate(`${ROUTES.APP.MY_POST}?search=${encodeURIComponent(q.trim())}`);
+                navigate(
+                  `${ROUTES.APP.MY_POST}?search=${encodeURIComponent(q.trim())}`,
+                );
               }}
               onSelect={(s) =>
-                navigate(`${ROUTES.APP.MY_POST}?category=${encodeURIComponent(s.label)}`)
+                navigate(
+                  `${ROUTES.APP.MY_POST}?category=${encodeURIComponent(s.label)}`,
+                )
               }
             />
           </div>
@@ -970,7 +988,11 @@ const HomeScreen: React.FC = () => {
                 transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               >
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="hs-kpi-item" style={{ flex: "1 1 180px" }}>
+                  <div
+                    key={i}
+                    className="hs-kpi-item"
+                    style={{ flex: "1 1 180px" }}
+                  >
                     <SkeletonLoader isDark={isDark} variant="kpi" />
                   </div>
                 ))}
@@ -984,7 +1006,11 @@ const HomeScreen: React.FC = () => {
                 initial="hidden"
                 animate="visible"
               >
-                <motion.div className="hs-kpi-item" variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                <motion.div
+                  className="hs-kpi-item"
+                  variants={itemEnter}
+                  style={{ flex: "1 1 180px" }}
+                >
                   <KpiCard
                     icon={<FileText size={22} color="#2EBCCC" />}
                     label={h.kpis.activeRequest}
@@ -992,7 +1018,11 @@ const HomeScreen: React.FC = () => {
                     iconBg="rgba(46,188,204,0.15)"
                   />
                 </motion.div>
-                <motion.div className="hs-kpi-item" variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                <motion.div
+                  className="hs-kpi-item"
+                  variants={itemEnter}
+                  style={{ flex: "1 1 180px" }}
+                >
                   <KpiCard
                     icon={<Users size={22} color="#4AA825" />}
                     label={h.kpis.totalHired}
@@ -1000,7 +1030,11 @@ const HomeScreen: React.FC = () => {
                     iconBg="rgba(74,168,37,0.15)"
                   />
                 </motion.div>
-                <motion.div className="hs-kpi-item" variants={itemEnter} style={{ flex: "1 1 180px" }}>
+                <motion.div
+                  className="hs-kpi-item"
+                  variants={itemEnter}
+                  style={{ flex: "1 1 180px" }}
+                >
                   <KpiCard
                     icon={<Star size={22} color="#FFB200" fill="#FFB200" />}
                     label={h.kpis.averageRating}
@@ -1053,7 +1087,7 @@ const HomeScreen: React.FC = () => {
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background = "none")
                   }
-                  onClick={() => navigate(ROUTES.APP.MY_POST) }
+                  onClick={() => navigate(ROUTES.APP.MY_POST)}
                 >
                   {h.viewAll}
                 </button>
@@ -1145,12 +1179,22 @@ const HomeScreen: React.FC = () => {
                 }}
               >
                 {isLoadingActivities ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
+                    }}
+                  >
                     {[0, 1, 2].map((i) => (
                       <div key={i} style={{ display: "flex", gap: 14 }}>
                         <motion.div
                           animate={{ opacity: [0.6, 1, 0.6] }}
-                          transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                          transition={{
+                            duration: 1.4,
+                            repeat: Infinity,
+                            ease: [0.4, 0, 0.6, 1],
+                          }}
                           style={{
                             width: 14,
                             height: 14,
@@ -1161,7 +1205,11 @@ const HomeScreen: React.FC = () => {
                         />
                         <motion.div
                           animate={{ opacity: [0.6, 1, 0.6] }}
-                          transition={{ duration: 1.4, repeat: Infinity, ease: [0.4, 0, 0.6, 1] }}
+                          transition={{
+                            duration: 1.4,
+                            repeat: Infinity,
+                            ease: [0.4, 0, 0.6, 1],
+                          }}
                           style={{
                             flex: 1,
                             height: 32,
@@ -1181,108 +1229,124 @@ const HomeScreen: React.FC = () => {
                     size="compact"
                   />
                 ) : (
-                <>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 0 }}
-                >
-                  {activities.map((act, i) => (
+                  <>
                     <div
-                      key={act.id}
-                      className="hs-activity-row"
                       style={{
                         display: "flex",
-                        gap: 14,
-                        paddingBottom: i < activities.length - 1 ? 18 : 0,
+                        flexDirection: "column",
+                        gap: 0,
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <ActivityDot color={act.dotColor} isFirst={i === 0} />
-                        {i < activities.length - 1 && (
-                          <div
-                            style={{
-                              width: 2,
-                              flex: 1,
-                              background: "var(--divider)",
-                              marginTop: 4,
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div style={{ paddingBottom: 4 }}>
+                      {activities.map((act, i) => (
                         <div
-                          className="hs-activity-time"
+                          key={act.id}
+                          className="hs-activity-row"
                           style={{
-                            fontSize: "0.75rem",
-                            color: "var(--text-secondary)",
-                            marginBottom: 3,
+                            display: "flex",
+                            gap: 14,
+                            paddingBottom: i < activities.length - 1 ? 18 : 0,
                           }}
                         >
-                          {act.timeAgo}
-                        </div>
-                        <div
-                          className="hs-activity-content"
-                          style={{
-                            fontSize: "0.84rem",
-                            color: "var(--text)",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {act.highlight && (
-                            <span
-                              style={{ color: act.dotColor, fontWeight: 600 }}
-                            >
-                              {act.highlight}
-                            </span>
-                          )}
-                          {act.content}
-                        </div>
-                        {act.extra && (
                           <div
                             style={{
-                              marginTop: 6,
-                              padding: "5px 10px",
-                              background: "var(--input-bg)",
-                              borderRadius: 8,
-                              fontSize: "0.8rem",
-                              color: "var(--text-secondary)",
-                              display: "inline-block",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
                             }}
                           >
-                            {act.extra}
+                            <ActivityDot
+                              color={act.dotColor}
+                              isFirst={i === 0}
+                            />
+                            {i < activities.length - 1 && (
+                              <div
+                                style={{
+                                  width: 2,
+                                  flex: 1,
+                                  background: "var(--divider)",
+                                  marginTop: 4,
+                                }}
+                              />
+                            )}
                           </div>
-                        )}
-                      </div>
+                          <div
+                            style={{ paddingBottom: 4, flex: 1, minWidth: 0 }}
+                          >
+                            <div
+                              className="hs-activity-time"
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "var(--text-secondary)",
+                                marginBottom: 3,
+                              }}
+                            >
+                              {act.timeAgo}
+                            </div>
+                            <div
+                              className="hs-activity-content"
+                              style={{
+                                fontSize: "0.84rem",
+                                color: "var(--text)",
+                                lineHeight: 1.5,
+                                overflowWrap: "anywhere",
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {act.highlight && (
+                                <span
+                                  style={{
+                                    color: act.dotColor,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {act.highlight}
+                                </span>
+                              )}
+                              {act.content}
+                            </div>
+                            {act.extra && (
+                              <div
+                                style={{
+                                  marginTop: 6,
+                                  padding: "5px 10px",
+                                  background: "var(--input-bg)",
+                                  borderRadius: 8,
+                                  fontSize: "0.8rem",
+                                  color: "var(--text-secondary)",
+                                  display: "inline-block",
+                                  maxWidth: "100%",
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                {act.extra}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                <button
-                  className="load-btn"
-                  onClick={() => navigate(ROUTES.APP.NOTIFICATIONS)}
-                  style={{
-                    width: "100%",
-                    marginTop: 18,
-                    padding: "10px",
-                    borderRadius: 10,
-                    border: "1.5px dashed var(--divider)",
-                    background: "transparent",
-                    color: "var(--text-secondary)",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {h.loadOlder}
-                </button>
-                </>
+                    <button
+                      className="load-btn"
+                      onClick={() => navigate(ROUTES.APP.NOTIFICATIONS)}
+                      style={{
+                        width: "100%",
+                        marginTop: 18,
+                        padding: "10px",
+                        borderRadius: 10,
+                        border: "1.5px dashed var(--divider)",
+                        background: "transparent",
+                        color: "var(--text-secondary)",
+                        fontSize: "0.82rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {h.loadOlder}
+                    </button>
+                  </>
                 )}
               </div>
             </div>

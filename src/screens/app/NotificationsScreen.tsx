@@ -128,7 +128,13 @@ const NotificationsScreen: React.FC = () => {
       <div className="nfy-topbar">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Bell size={20} color="#2EBCCC" />
-          <span style={{ fontWeight: 800, fontSize: "1.15rem", color: "var(--text)" }}>
+          <span
+            style={{
+              fontWeight: 800,
+              fontSize: "1.15rem",
+              color: "var(--text)",
+            }}
+          >
             {ns.title}
           </span>
           {unreadCount > 0 && (
@@ -165,7 +171,9 @@ const NotificationsScreen: React.FC = () => {
               fontFamily: "inherit",
               transition: "background 0.2s",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(46,188,204,0.10)")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "rgba(46,188,204,0.10)")
+            }
             onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
           >
             <CheckCheck size={15} />
@@ -241,7 +249,8 @@ const NotificationCard = ({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (highlighted) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (highlighted)
+      ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [highlighted]);
 
   return (
@@ -311,6 +320,8 @@ const NotificationCard = ({
             fontSize: "0.92rem",
             color: "var(--text)",
             marginBottom: 4,
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
           }}
         >
           {notif.title}
@@ -321,11 +332,19 @@ const NotificationCard = ({
             color: "var(--text-secondary)",
             lineHeight: 1.5,
             marginBottom: 6,
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
           }}
         >
           {notif.message}
         </div>
-        <div style={{ fontSize: "0.74rem", color: notif.dotColor, fontWeight: 600 }}>
+        <div
+          style={{
+            fontSize: "0.74rem",
+            color: notif.dotColor,
+            fontWeight: 600,
+          }}
+        >
           {notif.timeAgo}
         </div>
       </div>

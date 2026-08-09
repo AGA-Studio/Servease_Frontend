@@ -293,9 +293,9 @@ const PostRow = ({
               fontWeight: 700,
               fontSize: "0.94rem",
               color: "var(--text)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
             }}
           >
             {post.title}

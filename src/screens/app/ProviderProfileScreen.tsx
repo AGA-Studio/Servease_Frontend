@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { motion, useInView } from "motion/react";
 import {
   Pencil,
-  MoreHorizontal,
   BadgeCheck,
   Briefcase,
   DollarSign,
@@ -35,6 +34,7 @@ import { friendlyErrorMessage } from "../../utils/apiError";
 import Avatar from "../../components/avatar/Avatar";
 import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
+import EditPersonalInfoModal from "../../components/editpersonalinfomodal/EditPersonalInfoModal";
 import PortafolioModal from "../../components/portafoliomodal/PortafolioModal";
 import PortfolioItemModal from "../../components/portfolioitemmodal/PortfolioItemModal";
 import { CustomizableModal } from "../../components/modal/CustomizableModal";
@@ -316,6 +316,9 @@ const PortfolioCard = ({
             fontWeight: 700,
             fontSize: "0.92rem",
             color: "var(--text)",
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
           }}
         >
           {item.title}
@@ -404,6 +407,7 @@ const ProviderProfileScreen: React.FC = () => {
   const { formatMoney } = useCurrency();
   const p = t("profile").provider;
   const { toasts, addToast, removeToast } = useToast();
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
   const { areas, isLoading: isAreasLoading, update: updateAreas } = useWorkAreas();
@@ -751,6 +755,7 @@ const ProviderProfileScreen: React.FC = () => {
             >
               <motion.button
                 className="pp-btn-ghost"
+                onClick={() => setIsEditOpen(true)}
                 whileHover={{
                   scale: 1.03,
                   background: "rgba(255,255,255,0.22)",
@@ -774,29 +779,6 @@ const ProviderProfileScreen: React.FC = () => {
               >
                 <Pencil size={15} />
                 {p.editProfile}
-              </motion.button>
-              <motion.button
-                className="pp-btn-ghost"
-                whileHover={{
-                  scale: 1.05,
-                  background: "rgba(255,255,255,0.22)",
-                }}
-                whileTap={{ scale: 0.94 }}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  border: "1px solid rgba(255,255,255,.35)",
-                  background: "rgba(255,255,255,.14)",
-                  backdropFilter: "blur(6px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#fff",
-                }}
-              >
-                <MoreHorizontal size={18} />
               </motion.button>
             </div>
           )}
@@ -1546,6 +1528,18 @@ const ProviderProfileScreen: React.FC = () => {
       />
       {isOwnProfile && (
         <>
+          <EditPersonalInfoModal
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            profile={profile}
+            role="provider"
+            onSaved={(updated) => {
+              updateProfile(updated);
+              addToast("success", p.success.profileUpdated);
+            }}
+            onError={(message) => addToast("error", message)}
+          />
+
           <EditAreasModal
             key={areasModalKey}
             isOpen={showEditAreasModal}
