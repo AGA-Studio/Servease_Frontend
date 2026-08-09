@@ -503,7 +503,7 @@ const AppliedJobItem = ({
 const JobFeedScreen: React.FC = () => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
-  const { formatMoney } = useCurrency();
+  const { formatMoney, convert } = useCurrency();
   const d = t("jobfeedscreen");
   const p = t("profile").provider;
   const navigate = useNavigate();
@@ -579,10 +579,10 @@ const JobFeedScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchProviderEarningsSummary()
+    fetchProviderEarningsSummary((usd) => convert(usd, "USD", "MXN"))
       .then(setEarningsSummary)
       .catch(() => {});
-  }, []);
+  }, [convert]);
 
   useEffect(() => {
     let cancelled = false;
