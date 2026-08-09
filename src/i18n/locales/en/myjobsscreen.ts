@@ -33,15 +33,23 @@ export const myjobsscreen = {
     counterFailed: "Couldn't send the counteroffer. Please try again.",
     waitingForResponse: "Waiting for client's response",
     acceptOffer: "Accept Price",
-    acceptOfferSuccess: "You accepted the price. The client was notified to confirm.",
+    acceptOfferSuccess:
+      "You accepted the price. The client was notified to confirm.",
     acceptOfferFailed: "Couldn't accept the price. Please try again.",
     waitingForClientConfirm: "Waiting for client's confirmation",
   },
-  confirmAccept: {
+  offerReceivedModal: {
+    title: "New Offer Received",
+    subtitle: 'The client sent you a counteroffer on "{title}".',
+    offeredAmount: "Offered Amount",
+    counterOffer: "Counteroffer",
+    acceptOffer: "Accept Counteroffer",
+  },
+  confirmAcceptOffer: {
     title: "Accept Counteroffer",
-    message: "Are you sure you want to accept the price of ${bid} for \"{title}\"? The client will be notified to confirm.",
+    message:
+      'Accept the price of {bid} for "{title}"? The client will be notified to confirm and assign the job.',
     confirm: "Yes, Accept",
-    cancel: "Cancel",
   },
   pagination: {
     page: "Page",

@@ -11,7 +11,7 @@ export const applyjobmodal = {
   counterOffer: {
     label: "Your Counter-Offer",
     currency: "USD",
-    feeNotice: "Includes Servease service fee (5%)",
+    feeNotice: "Includes Servease service fee (3%)",
   },
   coverLetter: {
     label: "Cover Letter",

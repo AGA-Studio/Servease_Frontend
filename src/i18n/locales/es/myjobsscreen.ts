@@ -37,11 +37,17 @@ export const myjobsscreen = {
     acceptOfferFailed: "No se pudo aceptar el precio. Intenta de nuevo.",
     waitingForClientConfirm: "Esperando confirmación del cliente",
   },
-  confirmAccept: {
+  offerReceivedModal: {
+    title: "Nueva Oferta Recibida",
+    subtitle: "El cliente te envió una contraoferta en \"{title}\".",
+    offeredAmount: "Monto Ofrecido",
+    counterOffer: "Contraoferta",
+    acceptOffer: "Aceptar Contraoferta",
+  },
+  confirmAcceptOffer: {
     title: "Aceptar Contraoferta",
-    message: "¿Estás seguro de aceptar el precio de ${bid} para \"{title}\"? Se notificará al cliente para que confirme.",
+    message: "¿Aceptar el precio de {bid} para \"{title}\"? Se notificará al cliente para que confirme y asigne el trabajo.",
     confirm: "Sí, Aceptar",
-    cancel: "Cancelar",
   },
   pagination: {
     page: "Página",
