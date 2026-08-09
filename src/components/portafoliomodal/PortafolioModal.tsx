@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Loader2, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import ImageWithFallback from "../imagewithfallback/ImageWithFallback";
 import { useAuth } from "../../context/AuthContext";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import {
@@ -421,14 +422,13 @@ const PortafolioModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
                         border: `1px solid ${border}`,
                       }}
                     >
-                      <img
+                      <ImageWithFallback
                         src={url}
                         alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
+                        isDark={isDark}
+                        borderRadius={0}
+                        size="md"
+                        style={{ width: "100%", height: "100%" }}
                       />
                       <button
                         type="button"

@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Star, Check, ArrowLeft, Users } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
 import { postoffers } from "../../i18n/locales/en/postoffers";
 import EmptyState from "../../components/emptystate/EmptyState";
 
@@ -47,6 +48,14 @@ interface Applicant {
   counterAmount: number | null;
   lastOfferBy: "you" | "provider" | null;
   previousOfferAmount: number | null;
+  moneda: string | null;
+  // Si la contraparte (proveedor) ya aceptó el monto de la última oferta,
+  // sin que la postulación en sí esté aceptada todavía.
+  offerAccepted: boolean;
+}
+
+function getCurrentAsk(a: Applicant): number {
+  return a.status === "countered" ? (a.counterAmount ?? a.bid) : a.bid;
 }
 
 function mapEstadoSolicitud(estado: string | null, hasOferta: boolean): ApplicantStatus {
@@ -72,6 +81,8 @@ function aplicanteToApplicant(a: Aplicante): Applicant {
     counterAmount: a.presupuesto_acordado ? Number(a.presupuesto_acordado) : null,
     lastOfferBy: a.ultima_oferta ? (a.ultima_oferta.emisor === "cliente" ? "you" : "provider") : null,
     previousOfferAmount: a.penultima_oferta_monto ? Number(a.penultima_oferta_monto) : null,
+    moneda: a.moneda,
+    offerAccepted: a.ultima_oferta?.aceptacion ?? false,
   };
 }
 
@@ -135,11 +146,19 @@ const ApplicantCard = ({
 }) => {
   const a = applicant;
   const navigate = useNavigate();
-  const isBidView = a.status === "new";
-  const isCounteredView = a.status === "countered";
+  const { formatFixedMoney } = useCurrency();
+  // "countered" cubre "yo mandé la última oferta, espero al proveedor",
+  // "el proveedor contraofertó, me toca responder", y "el proveedor ya
+  // aceptó el precio de mi oferta, solo falta que yo confirme" — todos
+  // menos el primero deben poder aceptar/rechazar/contraofertar de nuevo.
+  const isYourTurn =
+    a.status === "new" ||
+    (a.status === "countered" && (a.lastOfferBy === "provider" || a.offerAccepted));
+  const isWaitingView = a.status === "countered" && a.lastOfferBy === "you" && !a.offerAccepted;
   const isAcceptedView = a.status === "accepted";
   const isDeclinedView = a.status === "declined";
   const cardOpacity = a.status === "declined" ? 0.7 : 1;
+  const currentAsk = getCurrentAsk(a);
 
   return (
     <>
@@ -232,42 +251,61 @@ const ApplicantCard = ({
             {a.message}
           </p>
 
-          {isBidView && (
+          {isYourTurn && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, flexWrap: "wrap", gap: 14 }}>
-              <div>
-                <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
-                  {po.providerBid}
+              <div style={{ display: "flex", gap: 26 }}>
+                {a.status === "countered" && (
+                  <div>
+                    <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                      {po.previousBid}
+                    </div>
+                    <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>{formatFixedMoney(a.previousOfferAmount ?? a.bid, a.moneda)}</div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: a.status === "countered" ? "#2EBCCC" : "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                    {a.status === "countered"
+                      ? `${po.lastOffer.label} · ${a.lastOfferBy === "provider" ? a.name.split(" ")[0] : po.lastOffer.you}`
+                      : po.providerBid}
+                  </div>
+                  <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>{formatFixedMoney(currentAsk, a.moneda)}</div>
                 </div>
-                <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.bid}</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <motion.button whileTap={{ scale: 0.95 }} onClick={onReject} style={ghostBtnStyle}>
-                  {po.reject}
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onOpenCounter} style={counterBtnStyle}>
-                  {po.counterOffer}
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.96 }} onClick={onAccept} style={acceptBtnStyle}>
-                  {po.accept}
-                </motion.button>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                {a.offerAccepted && (
+                  <span style={{ fontSize: "0.76rem", fontWeight: 700, color: "#4AA825" }}>
+                    {po.offerAcceptedNotice.replace("{name}", a.name.split(" ")[0])}
+                  </span>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <motion.button whileTap={{ scale: 0.95 }} onClick={onReject} style={ghostBtnStyle}>
+                    {po.reject}
+                  </motion.button>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onOpenCounter} style={counterBtnStyle}>
+                    {po.counterOffer}
+                  </motion.button>
+                  <motion.button whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.96 }} onClick={onAccept} style={acceptBtnStyle}>
+                    {po.accept}
+                  </motion.button>
+                </div>
               </div>
             </div>
           )}
 
-          {isCounteredView && (
+          {isWaitingView && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 18, flexWrap: "wrap", gap: 14 }}>
               <div style={{ display: "flex", gap: 26 }}>
                 <div>
                   <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
                     {po.previousBid}
                   </div>
-                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.previousOfferAmount ?? a.bid}</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>{formatFixedMoney(a.previousOfferAmount ?? a.bid, a.moneda)}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
-                    {po.lastOffer.label} · {a.lastOfferBy === "provider" ? a.name.split(" ")[0] : po.lastOffer.you}
+                    {po.lastOffer.label} · {po.lastOffer.you}
                   </div>
-                  <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
+                  <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)" }}>{formatFixedMoney(a.counterAmount ?? 0, a.moneda)}</div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -302,7 +340,7 @@ const ApplicantCard = ({
                 <Check size={16} color="#fff" strokeWidth={2.5} />
               </motion.div>
               <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2f6b16" }}>
-                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", String(a.bid))}
+                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
               </div>
             </motion.div>
           )}
@@ -405,14 +443,36 @@ const ApplicantCard = ({
           </p>
         </div>
 
-        {isBidView && (
+        {isYourTurn && (
           <>
-            <div>
-              <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
-                {po.providerBid}
+            {a.status === "countered" ? (
+              <div style={{ display: "flex", gap: 20 }}>
+                <div>
+                  <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                    {po.previousBid}
+                  </div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>{formatFixedMoney(a.previousOfferAmount ?? a.bid, a.moneda)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
+                    {po.lastOffer.label} · {a.lastOfferBy === "provider" ? a.name.split(" ")[0] : po.lastOffer.you}
+                  </div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>{formatFixedMoney(currentAsk, a.moneda)}</div>
+                </div>
               </div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>${a.bid}</div>
-            </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
+                  {po.providerBid}
+                </div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>{formatFixedMoney(currentAsk, a.moneda)}</div>
+              </div>
+            )}
+            {a.offerAccepted && (
+              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#4AA825" }}>
+                {po.offerAcceptedNotice.replace("{name}", a.name.split(" ")[0])}
+              </span>
+            )}
             <motion.button
               whileHover={{ scale: 1.01, y: -1 }}
               whileTap={{ scale: 0.97 }}
@@ -432,20 +492,20 @@ const ApplicantCard = ({
           </>
         )}
 
-        {isCounteredView && (
+        {isWaitingView && (
           <>
             <div style={{ display: "flex", gap: 20 }}>
               <div>
                 <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>
                   {po.previousBid}
                 </div>
-                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>${a.previousOfferAmount ?? a.bid}</div>
+                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--text-secondary)", textDecoration: "line-through" }}>{formatFixedMoney(a.previousOfferAmount ?? a.bid, a.moneda)}</div>
               </div>
               <div>
                 <div style={{ fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.06em", color: "#2EBCCC", textTransform: "uppercase", marginBottom: 4 }}>
-                  {po.lastOffer.label} · {a.lastOfferBy === "provider" ? a.name.split(" ")[0] : po.lastOffer.you}
+                  {po.lastOffer.label} · {po.lastOffer.you}
                 </div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>${a.counterAmount}</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text)" }}>{formatFixedMoney(a.counterAmount ?? 0, a.moneda)}</div>
               </div>
             </div>
             <div style={{ background: "rgba(255,178,0,0.14)", color: "#8a5a00", fontWeight: 700, fontSize: "0.8rem", padding: "12px 16px", borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -478,7 +538,7 @@ const ApplicantCard = ({
               <Check size={14} color="#fff" strokeWidth={2.5} />
             </motion.div>
             <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2f6b16" }}>
-              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", String(a.bid))}
+              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
             </div>
           </motion.div>
         )}
@@ -553,6 +613,7 @@ const PostOffersScreen: React.FC = () => {
   const po = t("postoffers");
   const sb = t("sidebar");
   const { toasts, addToast, removeToast } = useToast();
+  const { formatFixedMoney } = useCurrency();
 
   const [post, setPost] = useState<PostDetails | null>(null);
   const [isLoadingPost, setIsLoadingPost] = useState(true);
@@ -625,6 +686,7 @@ const PostOffersScreen: React.FC = () => {
                 counterAmount: data.newBid,
                 lastOfferBy: "you" as const,
                 previousOfferAmount: a.counterAmount ?? a.bid,
+                offerAccepted: false,
               }
             : a,
         ),
@@ -910,7 +972,10 @@ const PostOffersScreen: React.FC = () => {
             title={copy.title}
             subtitle={copy.message
               .replace("{name}", confirmState.applicant.name)
-              .replace("{bid}", String(confirmState.applicant.bid))}
+              .replace(
+                "{bid}",
+                formatFixedMoney(getCurrentAsk(confirmState.applicant), confirmState.applicant.moneda),
+              )}
             confirmText={copy.confirm}
             cancelText={po.cancel}
             isSubmitting={isConfirmSubmitting}
@@ -926,7 +991,7 @@ const PostOffersScreen: React.FC = () => {
         applicant={{
           name: counterApplicant?.name ?? "",
           avatarUrl: counterApplicant?.avatar,
-          originalBid: counterApplicant?.bid ?? 0,
+          originalBid: counterApplicant ? getCurrentAsk(counterApplicant) : 0,
         }}
         isSubmitting={isCounterSubmitting}
         errorMessage={counterError}

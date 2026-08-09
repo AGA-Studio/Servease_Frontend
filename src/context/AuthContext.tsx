@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 import { fetchUserProfile, fetchUserProfileOrThrow, type UserProfile } from "../api/userApi";
 import { apiPostFormPublic, ApiError } from "../api/apiClient";
-import { getCookie, setCookie } from "../lib/cookieUtils";
+import { getCookie, setCookie, removeCookie } from "../lib/cookieUtils";
 
 export type UserRole = "client" | "provider" | "admin";
 
@@ -273,8 +273,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const logout = useCallback(async () => {
+    if (user?.id) {
+      removeCookie(`pv-dashboard-kpis:${user.id}`);
+      removeCookie(`pv-earnings:${user.id}`);
+    }
     await supabase.auth.signOut();
-  }, []);
+  }, [user]);
 
   const updateProfile = useCallback((updated: UserProfile) => {
     setProfile(updated);

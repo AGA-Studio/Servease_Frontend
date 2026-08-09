@@ -15,7 +15,10 @@ import {
 } from "lucide-react";
 import { getCategoryStyle } from "../../utils/categoryStyle";
 import EmptyState from "../../components/emptystate/EmptyState";
-import SearchBar from "../../components/searchbar/SearchBar";
+import SearchBar, {
+  type SearchSuggestion,
+} from "../../components/searchbar/SearchBar";
+import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useAuth } from "../../context/AuthContext";
@@ -158,7 +161,7 @@ const StatusBadge = ({ status }: { status: Post["status"] }) => {
         whiteSpace: "nowrap",
       }}
     >
-      {status === "receiving" ? s.label : h.serviceCard.status.notAvailable}
+      {s.label}
     </span>
   );
 };
@@ -462,6 +465,14 @@ const HomeScreen: React.FC = () => {
   const { t } = useI18n();
   const h = t("homescreen");
 
+  const { data: categorias } = useCachedResource<Categoria[]>(
+    "categorias",
+    fetchCategorias,
+  );
+  const categorySuggestions: SearchSuggestion[] = (categorias ?? []).map(
+    (c) => ({ id: String(c.id_categoria), label: c.nombre, tag: h.categoryTag }),
+  );
+
   const { user } = useAuth();
   const { toasts, addToast, removeToast } = useToast();
 
@@ -558,10 +569,18 @@ const HomeScreen: React.FC = () => {
 
   const posts = useMemo(
     () =>
-      (servicios ?? []).map((servicio) => ({
-        ...servicioToPost(servicio),
-        location: locations[String(servicio.id_servicio)] ?? "",
-      })),
+      (servicios ?? [])
+        .map((servicio) => ({
+          ...servicioToPost(servicio),
+          location: locations[String(servicio.id_servicio)] ?? "",
+        }))
+        // "Mis Active Posts" solo debe listar publicaciones abiertas o en
+        // progreso (estado_id 7 / 4) — completadas/canceladas no cuentan.
+        .filter((post) => post.status === "receiving" || post.status === "in_progress")
+        .sort(
+          (a, b) =>
+            new Date(b.raw.fecha).getTime() - new Date(a.raw.fecha).getTime(),
+        ),
     [servicios, locations],
   );
 
@@ -849,29 +868,15 @@ const HomeScreen: React.FC = () => {
             <SearchBar
               isDark={isDark}
               placeholder={h.searchPlaceholder}
-              hintText="Press Escape to search"
-              suggestions={[
-                {
-                  id: "1",
-                  label: "Plumbing",
-                  description: "Home services",
-                  tag: "Service",
-                },
-                {
-                  id: "2",
-                  label: "Electrician",
-                  description: "Home services",
-                  tag: "Service",
-                },
-                {
-                  id: "3",
-                  label: "Cleaning",
-                  description: "Home services",
-                  tag: "Service",
-                },
-              ]}
-              onSearch={(q) => console.log("search:", q)}
-              onSelect={(s) => console.log("selected:", s)}
+              hintText={h.searchHint}
+              suggestions={categorySuggestions}
+              onSearch={(q) => {
+                if (!q.trim()) return;
+                navigate(`${ROUTES.APP.MY_POST}?search=${encodeURIComponent(q.trim())}`);
+              }}
+              onSelect={(s) =>
+                navigate(`${ROUTES.APP.MY_POST}?category=${encodeURIComponent(s.label)}`)
+              }
             />
           </div>
 

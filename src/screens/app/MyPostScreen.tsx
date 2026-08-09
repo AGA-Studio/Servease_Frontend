@@ -38,13 +38,14 @@ import {
 } from "../../api/servicioApi";
 import {
   timeAgo,
-  mapEstadoToStatus,
+  mapEstadoIdToStatus,
   mapPostDetailsToJobDetails,
 } from "../../utils/servicio";
 import { getApproxLocation } from "../../utils/location";
 import { ApiError } from "../../api/apiClient";
 import CustomizableModal from "../../components/modal/CustomizableModal";
 import EmptyState from "../../components/emptystate/EmptyState";
+import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import EditPostModal from "../../components/editpostmodal/EditPostModal";
 import { useCachedResource } from "../../hooks/useCachedResource";
 import { getCached, invalidateCached, setCached } from "../../lib/dataCache";
@@ -363,8 +364,6 @@ const AnimatedCard = ({
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
-  const [imgError, setImgError] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -405,40 +404,26 @@ const AnimatedCard = ({
       <div
         style={{ position: "relative", height: 180, overflow: "hidden" }}
       >
-        {post.imageUrl && !imgError ? (
-          <>
-            {!imgLoaded && (
-              <div className="mp-skeleton" style={{ position: "absolute", inset: 0 }} />
-            )}
-            <img
-              src={post.imageUrl}
-              alt={post.title}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => setImgError(true)}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transition: "transform 0.4s ease, opacity 0.25s ease",
-                transform: hovered ? "scale(1.04)" : "scale(1)",
-                opacity: imgLoaded ? 1 : 0,
-              }}
-            />
-          </>
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              background: isDark ? "#273570" : "#e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <FileText size={36} color={isDark ? "#3d4f8a" : "#c0c9d4"} />
-          </div>
-        )}
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            transition: "transform 0.4s ease",
+            transform: hovered ? "scale(1.04)" : "scale(1)",
+          }}
+        >
+          <ImageWithFallback
+            src={post.imageUrl}
+            alt={post.title}
+            isDark={isDark}
+            borderRadius={0}
+            size="lg"
+            style={{ width: "100%", height: "100%" }}
+            fallbackIcon={
+              <FileText size={26} />
+            }
+          />
+        </div>
         <div
           style={{
             position: "absolute",
@@ -881,11 +866,13 @@ const MyPostScreen: React.FC = () => {
 
   }, []);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const debouncedSearch = useDebounce(search, 220);
   const isSearchPending = search.trim() !== debouncedSearch.trim();
   const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(
+    () => searchParams.get("category") ?? "all",
+  );
 
   const [selectedPost, setSelectedPost] = useState<MyPost | null>(null);
   const [selectedJobDetails, setSelectedJobDetails] =
@@ -975,10 +962,10 @@ const MyPostScreen: React.FC = () => {
         id: String(servicio.id_servicio),
         title: servicio.titulo,
         category: servicio.categoria_nombre,
-        status: mapEstadoToStatus(servicio.estado),
+        status: mapEstadoIdToStatus(servicio.id_estado),
         postedAgo: timeAgo(servicio.fecha),
         budget: Number(servicio.precio_inicial),
-        currency: "MXN",
+        currency: servicio.tipo_cambio_nombre ?? "MXN",
         applicantCount:
           applicantCounts[String(servicio.id_servicio)] ?? null,
         imageUrl: servicio.imagenes[0],
@@ -1055,6 +1042,41 @@ const MyPostScreen: React.FC = () => {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts, searchParams]);
+
+  // Deep-link from Home's search bar: /app/my-post?search=X pre-fills the
+  // search box (see useState above) and, once it narrows results down to a
+  // single match, auto-opens that post's details modal — same idea as the
+  // serviceId deep-link above, but driven by a text match instead of an id.
+  useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    if (!searchQuery || posts.length === 0) return;
+    if (filtered.length === 1) handleViewDetails(filtered[0]);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("search");
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts, filtered, searchParams]);
+
+  // Deep-link from Home/Dashboard's category suggestion: /app/my-post?category=X
+  // pre-fills the category dropdown (see useState above); just strip it from
+  // the URL once consumed so a refresh doesn't keep re-applying it.
+  useEffect(() => {
+    if (!searchParams.get("category")) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("category");
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDeleteClick = useCallback((post: MyPost) => {
     setDeleteTarget(post);

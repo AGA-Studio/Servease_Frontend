@@ -79,4 +79,5 @@ export const postoffers = {
     you: "Tú",
     label: "Última contraoferta",
   },
+  offerAcceptedNotice: "{name} aceptó este precio — puedes confirmar.",
 };

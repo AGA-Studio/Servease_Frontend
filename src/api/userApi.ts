@@ -1,7 +1,7 @@
 import { apiGet, apiPatch, apiPost, apiPut } from "./apiClient";
 import { supabase } from "../lib/supabase";
 import type { UserRole } from "../context/AuthContext";
-import type { ServicioListItem } from "./servicioApi";
+import type { ServicioListItem, UltimaOferta } from "./servicioApi";
 
 export interface UserProfile {
   id: string;
@@ -132,6 +132,7 @@ export interface PerfilCliente {
   id_usuario: string;
   nombre: string;
   url_foto_perfil: string | null;
+  descripcion_perfil: string | null;
   fecha_registro: string;
   num_publicaciones: number;
   rating: number;
@@ -152,9 +153,7 @@ export interface PerfilProveedor {
   rating: number | null;
   num_reviews: number;
   trabajos_completados: number;
-  descripcion_perfil?: string | null;
-  descripcion?: string | null;
-  bio?: string | null;
+  descripcion_perfil: string | null;
 }
 
 export async function fetchPerfilProveedor(
@@ -248,7 +247,10 @@ export interface TrabajoAplicado {
   fecha_publicacion: string;
   tiempo_transcurrido: string;
   precio_final: string;
+  moneda: string | null;
   foto: string | null;
+  ultima_oferta: UltimaOferta | null;
+  penultima_oferta_monto: string | null;
 }
 
 export interface TrabajoDisponible {
