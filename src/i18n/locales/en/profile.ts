@@ -42,6 +42,7 @@ export const profile = {
       validation: {
         nameRequired: "First name can't be empty.",
         nameUnsafe: "The first name contains characters that aren't allowed (< or >).",
+        nameLettersOnly: "Only letters, spaces, apostrophes, and hyphens are allowed.",
         lastNamePRequired: "Last name can't be empty.",
         lastNamePUnsafe: "The last name contains characters that aren't allowed (< or >).",
         phoneInvalid: "Enter a valid phone number (10 digits).",
@@ -79,6 +80,37 @@ export const profile = {
     unavailableTitle: "Not available for work",
     unavailableSubtitle: "Turn on your availability to see new jobs.",
     unavailableActivate: "Activate availability",
+    editModal: {
+      title: "Edit Personal Info",
+      nameLabel: "First Name",
+      secondNameLabel: "Second Name (optional)",
+      lastNamePLabel: "Last Name",
+      lastNameMLabel: "Second Last Name (optional)",
+      phoneLabel: "Phone (optional)",
+      bioLabel: "Bio (optional)",
+      save: "Save Changes",
+      cancel: "Cancel",
+      confirmSave: {
+        title: "Save Changes",
+        message: "Save the changes to your personal information?",
+        confirm: "Save",
+      },
+      validation: {
+        nameRequired: "First name can't be empty.",
+        nameUnsafe: "The first name contains characters that aren't allowed (< or >).",
+        nameLettersOnly: "Only letters, spaces, apostrophes, and hyphens are allowed.",
+        lastNamePRequired: "Last name can't be empty.",
+        lastNamePUnsafe: "The last name contains characters that aren't allowed (< or >).",
+        phoneInvalid: "Enter a valid phone number (10 digits).",
+        bioUnsafe: "The bio contains characters that aren't allowed (< or >).",
+      },
+    },
+    success: {
+      profileUpdated: "Profile updated successfully.",
+    },
+    errors: {
+      profileUpdateFailed: "Could not update your profile. Please try again.",
+    },
     stats: {
       completedJobs: "Completed Jobs",
       totalEarnings: "Total Earnings",
