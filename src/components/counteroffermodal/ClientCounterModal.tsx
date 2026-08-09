@@ -5,6 +5,7 @@ import { X, Send, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
 import Avatar from "../avatar/Avatar";
+import { formatBidInputValue } from "../../utils/bidInput";
 
 export interface ClientCounterData {
   newBid: number;
@@ -75,7 +76,9 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
   const text = isDark ? "#ffffff" : "#1B244C";
   const textSecondary = "#989898";
 
-  const [newBid, setNewBid] = useState<number>(Math.max(0, applicant.originalBid - 150));
+  const defaultBid = Math.max(0, applicant.originalBid - 50);
+  const [newBid, setNewBid] = useState<number>(defaultBid);
+  const [bidDisplay, setBidDisplay] = useState<string>(formatBidInputValue(String(defaultBid)).display);
   const [message, setMessage] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -214,10 +217,13 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
                   <motion.input
                     whileFocus={{ boxShadow: "0 0 0 3px rgba(46,188,204,0.2)", borderColor: "#2EBCCC" }}
                     transition={{ duration: 0.15 }}
-                    type="number"
-                    value={newBid}
+                    type="text"
+                    inputMode="decimal"
+                    value={bidDisplay}
                     onChange={(e) => {
-                      setNewBid(Number(e.target.value));
+                      const { display, numeric } = formatBidInputValue(e.target.value);
+                      setBidDisplay(display);
+                      setNewBid(numeric);
                       setValidationError(null);
                     }}
                     disabled={isSubmitting}

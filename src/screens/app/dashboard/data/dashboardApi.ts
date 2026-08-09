@@ -38,7 +38,7 @@ async function fetchRecentActivity(): Promise<DashboardActivity[]> {
     return data.slice(0, 5).map((n) => ({
       id: String(n.id_notificacion),
       type: ACTIVITY_TYPE_BY_TIPO[n.tipo] ?? "message",
-      timeAgo: timeAgo(n.fecha),
+      date: n.fecha,
       content: n.contenido ?? n.titulo,
       dotColor: dotColorForTipo(n.tipo),
     }));

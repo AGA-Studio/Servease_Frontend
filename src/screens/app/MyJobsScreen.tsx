@@ -19,6 +19,7 @@ import FilterSelect from "../../components/filterselect/FilterSelect";
 import type { ThemeMode } from "../../theme/theme";
 import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 import EmptyState from "../../components/emptystate/EmptyState";
 import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import RatingModal, { type RatingData } from "../../components/ratingmodal/RatingModal";
@@ -712,6 +713,10 @@ const MyJobsScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [jobs, setJobs] = useState<DisplayJob[]>([]);
 
+  // Confirmación antes de aceptar el precio de una contraoferta del cliente.
+  const [confirmAcceptJob, setConfirmAcceptJob] = useState<DisplayJob | null>(null);
+  const [isAcceptingOffer, setIsAcceptingOffer] = useState(false);
+
   // "Marcar completado" flow: complete-service modal -> (cash: drag confirm | card: Stripe via realtime) -> rating modal.
   const [completingJob, setCompletingJob] = useState<DisplayJob | null>(null);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
@@ -965,21 +970,28 @@ const MyJobsScreen: React.FC = () => {
     [counteringJob, addToast, d],
   );
 
-  const handleAcceptOffer = useCallback(
-    async (job: DisplayJob) => {
-      try {
-        await aceptarOferta(job.idPostulacion);
-        setJobs((prev) =>
-          prev.map((j) => (j.id === job.id ? { ...j, offerAccepted: true } : j)),
-        );
-        addToast("success", d.actions.acceptOfferSuccess);
-      } catch (error) {
-        console.error("aceptarOferta failed:", error);
-        addToast("error", friendlyErrorMessage(error, d.actions.acceptOfferFailed));
-      }
-    },
-    [addToast, d],
-  );
+  const handleAcceptOffer = useCallback((job: DisplayJob) => {
+    setConfirmAcceptJob(job);
+  }, []);
+
+  const handleConfirmAcceptOffer = useCallback(async () => {
+    if (!confirmAcceptJob) return;
+    const job = confirmAcceptJob;
+    setIsAcceptingOffer(true);
+    try {
+      await aceptarOferta(job.idPostulacion);
+      setJobs((prev) =>
+        prev.map((j) => (j.id === job.id ? { ...j, offerAccepted: true } : j)),
+      );
+      addToast("success", d.actions.acceptOfferSuccess);
+      setConfirmAcceptJob(null);
+    } catch (error) {
+      console.error("aceptarOferta failed:", error);
+      addToast("error", friendlyErrorMessage(error, d.actions.acceptOfferFailed));
+    } finally {
+      setIsAcceptingOffer(false);
+    }
+  }, [confirmAcceptJob, addToast, d]);
 
   // Shared by the manual "marcar completado" recheck and the auto-resume-on-
   // mount effect below: a decline just means keep waiting (client can retry
@@ -1590,6 +1602,22 @@ const MyJobsScreen: React.FC = () => {
         }}
         onSubmit={handleSendCounterOffer}
       />
+
+      {confirmAcceptJob && (
+        <CustomizableModal
+          isOpen
+          variant="success"
+          title={d.confirmAccept.title}
+          subtitle={d.confirmAccept.message
+            .replace("{bid}", confirmAcceptJob.budget.toLocaleString())
+            .replace("{title}", confirmAcceptJob.title)}
+          confirmText={d.confirmAccept.confirm}
+          cancelText={d.confirmAccept.cancel}
+          isSubmitting={isAcceptingOffer}
+          onConfirm={handleConfirmAcceptOffer}
+          onClose={() => !isAcceptingOffer && setConfirmAcceptJob(null)}
+        />
+      )}
 
       {ratingJob && (
         <RatingModal

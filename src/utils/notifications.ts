@@ -1,12 +1,13 @@
 import { ROUTES } from "../router/routes";
-import { timeAgo } from "./servicio";
 import type { Notificacion } from "../api/notificacionApi";
 
 export interface NotificationItem {
   id: number;
   title: string;
   message: string;
-  timeAgo: string;
+  // Fecha cruda (ISO); el "hace Xm/Xh/Xd" se calcula al renderizar (ver
+  // LiveTimeAgo) para que siga avanzando en vez de quedarse fijo.
+  date: string;
   read: boolean;
   dotColor: string;
   tipo: string;
@@ -21,7 +22,7 @@ export function toNotificationItem(n: Notificacion): NotificationItem {
     id: n.id_notificacion,
     title: n.titulo,
     message: n.contenido ?? "",
-    timeAgo: timeAgo(n.fecha),
+    date: n.fecha,
     read: n.leido,
     dotColor: DOT_COLOR,
     tipo: n.tipo,

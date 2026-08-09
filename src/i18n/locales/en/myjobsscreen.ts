@@ -37,6 +37,12 @@ export const myjobsscreen = {
     acceptOfferFailed: "Couldn't accept the price. Please try again.",
     waitingForClientConfirm: "Waiting for client's confirmation",
   },
+  confirmAccept: {
+    title: "Accept Counteroffer",
+    message: "Are you sure you want to accept the price of ${bid} for \"{title}\"? The client will be notified to confirm.",
+    confirm: "Yes, Accept",
+    cancel: "Cancel",
+  },
   pagination: {
     page: "Page",
     of: "of",

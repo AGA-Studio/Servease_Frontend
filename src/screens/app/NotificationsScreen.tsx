@@ -18,6 +18,7 @@ import {
 } from "../../utils/notifications";
 import EmptyState from "../../components/emptystate/EmptyState";
 import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
+import LiveTimeAgo from "../../components/livetimeago/LiveTimeAgo";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -338,15 +339,14 @@ const NotificationCard = ({
         >
           {notif.message}
         </div>
-        <div
+        <LiveTimeAgo
+          date={notif.date}
           style={{
             fontSize: "0.74rem",
             color: notif.dotColor,
             fontWeight: 600,
           }}
-        >
-          {notif.timeAgo}
-        </div>
+        />
       </div>
 
       <ChevronRight

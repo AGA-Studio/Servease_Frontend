@@ -44,6 +44,7 @@ import ToastContainer from "../../components/Toast/ToastContainer";
 import { motion, AnimatePresence } from "motion/react";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
 import { useCachedResource } from "../../hooks/useCachedResource";
+import LiveTimeAgo from "../../components/livetimeago/LiveTimeAgo";
 
 interface Post {
   id: string;
@@ -61,7 +62,9 @@ interface Post {
 
 interface Activity {
   id: string;
-  timeAgo: string;
+  // Fecha cruda (ISO); el "hace Xm/Xh/Xd" se calcula al renderizar (ver
+  // LiveTimeAgo) para que siga avanzando en vez de quedarse fijo.
+  date: string;
   content: string;
   highlight?: string;
   extra?: string;
@@ -542,7 +545,7 @@ const HomeScreen: React.FC = () => {
         setActivities(
           data.slice(0, 5).map((n) => ({
             id: String(n.id_notificacion),
-            timeAgo: timeAgo(n.fecha),
+            date: n.fecha,
             content: n.contenido ?? n.titulo,
             dotColor: dotColorForTipo(n.tipo),
           })),
@@ -1272,16 +1275,15 @@ const HomeScreen: React.FC = () => {
                           <div
                             style={{ paddingBottom: 4, flex: 1, minWidth: 0 }}
                           >
-                            <div
+                            <LiveTimeAgo
+                              date={act.date}
                               className="hs-activity-time"
                               style={{
                                 fontSize: "0.75rem",
                                 color: "var(--text-secondary)",
                                 marginBottom: 3,
                               }}
-                            >
-                              {act.timeAgo}
-                            </div>
+                            />
                             <div
                               className="hs-activity-content"
                               style={{
