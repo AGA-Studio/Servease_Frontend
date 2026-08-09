@@ -3,6 +3,7 @@ import type { DashboardActivity } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { SkeletonLoader } from "./SkeletonLoader";
 import EmptyState from "../../../../components/emptystate/EmptyState";
+import LiveTimeAgo from "../../../../components/livetimeago/LiveTimeAgo";
 
 interface RecentActivityProps {
   activities: DashboardActivity[] | undefined;
@@ -120,15 +121,14 @@ export const RecentActivity = ({
                   )}
                 </div>
                 <div style={{ paddingBottom: 4 }}>
-                  <div
+                  <LiveTimeAgo
+                    date={act.date}
                     style={{
                       fontSize: "0.75rem",
                       color: "var(--text-secondary)",
                       marginBottom: 3,
                     }}
-                  >
-                    {act.timeAgo}
-                  </div>
+                  />
                   <div
                     style={{
                       fontSize: "0.84rem",

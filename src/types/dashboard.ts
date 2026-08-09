@@ -9,7 +9,9 @@ export type DashboardActivityType =
 export interface DashboardActivity {
   id: string;
   type: DashboardActivityType;
-  timeAgo: string;
+  // Fecha cruda (ISO) del evento; el "hace Xm/Xh/Xd" se calcula al renderizar
+  // (ver LiveTimeAgo) para que siga avanzando en vez de quedarse fijo.
+  date: string;
   content: string;
   highlight?: string;
   extra?: string;

@@ -19,6 +19,7 @@ import {
 } from "../../../utils/notifications";
 import { ROUTES } from "../../../router/routes";
 import { useRealtimeChannel } from "../../../hooks/useRealtimeChannel";
+import LiveTimeAgo from "../../livetimeago/LiveTimeAgo";
 
 interface Colors {
   cardBg: string;
@@ -104,15 +105,14 @@ const NotificationRow = ({
         >
           {notif.message}
         </div>
-        <div
+        <LiveTimeAgo
+          date={notif.date}
           style={{
             fontSize: "0.71rem",
             color: notif.dotColor,
             fontWeight: 600,
           }}
-        >
-          {notif.timeAgo}
-        </div>
+        />
       </div>
 
       <ChevronRight
