@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "motion/react";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import FilterSelect from "../../components/filterselect/FilterSelect";
 import type { ThemeMode } from "../../theme/theme";
 import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
+import CustomizableModal from "../../components/modal/CustomizableModal";
 import EmptyState from "../../components/emptystate/EmptyState";
 import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import RatingModal, { type RatingData } from "../../components/ratingmodal/RatingModal";
@@ -46,6 +48,7 @@ import { fetchTrabajosAplicados, type TrabajoAplicado } from "../../api/userApi"
 import ProviderCounterModal, {
   type ProviderCounterData,
 } from "../../components/counteroffermodal/ProviderCounterModal";
+import OfferReceivedModal from "../../components/counteroffermodal/OfferReceivedModal";
 
 type ProposalStatus =
   | "accepted"
@@ -72,6 +75,8 @@ interface DisplayJob {
   // Si la contraparte ya aceptó el monto de esa última oferta (sin que la
   // postulación en sí esté aceptada todavía).
   offerAccepted: boolean;
+  // Comentario que acompaña la última oferta (la "carta" de la contraoferta).
+  offerMessage: string | null;
 }
 
 function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
@@ -105,6 +110,7 @@ function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
         : "you"
       : null,
     offerAccepted: job.ultima_oferta?.aceptacion ?? false,
+    offerMessage: job.ultima_oferta?.comentario ?? null,
   };
 }
 
@@ -693,6 +699,7 @@ const MyJobsScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const { t } = useI18n();
   const d = t("myjobsscreen");
+  const { formatFixedMoney } = useCurrency();
   const { toasts, addToast, removeToast } = useToast();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -734,6 +741,12 @@ const MyJobsScreen: React.FC = () => {
   const [counteringClient, setCounteringClient] = useState<{ name: string; avatarUrl?: string } | null>(null);
   const [isCounterSubmitting, setIsCounterSubmitting] = useState(false);
   const [counterError, setCounterError] = useState<string | null>(null);
+
+  // Modal de "nueva oferta recibida" (deep-link desde la notificación) y su
+  // confirmación de aceptar — compartida con el botón "Aceptar Precio" del card.
+  const [receivedOfferJob, setReceivedOfferJob] = useState<DisplayJob | null>(null);
+  const [confirmAcceptJob, setConfirmAcceptJob] = useState<DisplayJob | null>(null);
+  const [isAcceptSubmitting, setIsAcceptSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -859,15 +872,24 @@ const MyJobsScreen: React.FC = () => {
     [addToast, d],
   );
 
-  // Deep-link from a notification: /app/my-jobs?serviceId=X auto-opens that job's detail.
+  // Deep-link from a notification: /app/my-jobs?serviceId=X auto-opens that job's
+  // detail — or, with &openCounter=1 (click on a "nueva oferta" notification),
+  // opens the dedicated offer-received modal instead.
   useEffect(() => {
     const serviceId = searchParams.get("serviceId");
     if (!serviceId || jobs.length === 0) return;
     const job = jobs.find((j) => j.idServicio === Number(serviceId));
-    if (job) handleViewDetails(job);
+    if (job) {
+      if (searchParams.get("openCounter") === "1") {
+        setReceivedOfferJob(job);
+      } else {
+        handleViewDetails(job);
+      }
+    }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("serviceId");
+      next.delete("openCounter");
       return next;
     }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -965,21 +987,29 @@ const MyJobsScreen: React.FC = () => {
     [counteringJob, addToast, d],
   );
 
-  const handleAcceptOffer = useCallback(
-    async (job: DisplayJob) => {
-      try {
-        await aceptarOferta(job.idPostulacion);
-        setJobs((prev) =>
-          prev.map((j) => (j.id === job.id ? { ...j, offerAccepted: true } : j)),
-        );
-        addToast("success", d.actions.acceptOfferSuccess);
-      } catch (error) {
-        console.error("aceptarOferta failed:", error);
-        addToast("error", friendlyErrorMessage(error, d.actions.acceptOfferFailed));
-      }
-    },
-    [addToast, d],
-  );
+  // El card y el modal de "oferta recibida" solo piden la confirmación;
+  // la llamada real ocurre al confirmar en el CustomizableModal compartido.
+  const handleRequestAcceptOffer = useCallback((job: DisplayJob) => {
+    setConfirmAcceptJob(job);
+  }, []);
+
+  const handleConfirmAcceptOffer = useCallback(async () => {
+    if (!confirmAcceptJob) return;
+    setIsAcceptSubmitting(true);
+    try {
+      await aceptarOferta(confirmAcceptJob.idPostulacion);
+      setJobs((prev) =>
+        prev.map((j) => (j.id === confirmAcceptJob.id ? { ...j, offerAccepted: true } : j)),
+      );
+      addToast("success", d.actions.acceptOfferSuccess);
+      setConfirmAcceptJob(null);
+    } catch (error) {
+      console.error("aceptarOferta failed:", error);
+      addToast("error", friendlyErrorMessage(error, d.actions.acceptOfferFailed));
+    } finally {
+      setIsAcceptSubmitting(false);
+    }
+  }, [confirmAcceptJob, addToast, d]);
 
   // Shared by the manual "marcar completado" recheck and the auto-resume-on-
   // mount effect below: a decline just means keep waiting (client can retry
@@ -1505,7 +1535,7 @@ const MyJobsScreen: React.FC = () => {
                     onViewDetails={handleViewDetails}
                     onMarkCompleted={handleMarkCompletedClick}
                     onCounterOffer={handleOpenCounter}
-                    onAcceptOffer={handleAcceptOffer}
+                    onAcceptOffer={handleRequestAcceptOffer}
                   />
                 ))}
               </motion.div>
@@ -1590,6 +1620,42 @@ const MyJobsScreen: React.FC = () => {
         }}
         onSubmit={handleSendCounterOffer}
       />
+
+      {receivedOfferJob && (
+        <OfferReceivedModal
+          isOpen={!!receivedOfferJob}
+          onClose={() => setReceivedOfferJob(null)}
+          jobTitle={receivedOfferJob.title}
+          amount={receivedOfferJob.budget}
+          currency={receivedOfferJob.currency}
+          message={receivedOfferJob.offerMessage}
+          onCounter={() => {
+            const job = receivedOfferJob;
+            setReceivedOfferJob(null);
+            handleOpenCounter(job);
+          }}
+          onAccept={() => {
+            const job = receivedOfferJob;
+            setReceivedOfferJob(null);
+            handleRequestAcceptOffer(job);
+          }}
+        />
+      )}
+
+      {confirmAcceptJob && (
+        <CustomizableModal
+          isOpen
+          variant="success"
+          title={d.confirmAcceptOffer.title}
+          subtitle={d.confirmAcceptOffer.message
+            .replace("{bid}", formatFixedMoney(confirmAcceptJob.budget, confirmAcceptJob.currency))
+            .replace("{title}", confirmAcceptJob.title)}
+          confirmText={d.confirmAcceptOffer.confirm}
+          isSubmitting={isAcceptSubmitting}
+          onConfirm={handleConfirmAcceptOffer}
+          onClose={() => !isAcceptSubmitting && setConfirmAcceptJob(null)}
+        />
+      )}
 
       {ratingJob && (
         <RatingModal

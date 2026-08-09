@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Briefcase, CheckCircle, DollarSign, Star, TrendingUp, TrendingDown } from "lucide-react";
+import { Briefcase, CheckCircle, DollarSign, Star } from "lucide-react";
 import type { KpiData, KpiPeriodKey } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { useCurrency } from "../../../../context/CurrencyContext";
@@ -30,8 +30,6 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
   const rawValue =
     activeOption?.value ??
     (typeof data.value === "number" ? data.value : Number(data.value));
-
-  const trend = data.periodOptions ? activeOption?.trend : data.trend;
 
   const formattedValue =
     data.key === "earnings" ? formatMoney(rawValue) : data.value;
@@ -109,30 +107,6 @@ export const KpiCard = ({ data, isDark = false }: KpiCardProps) => {
           >
             {formattedValue}
           </div>
-          {trend && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                color: trend.isPositive ? "#4AA825" : "#FF0000",
-                background: isDark
-                  ? trend.isPositive
-                    ? "rgba(74,168,37,0.12)"
-                    : "rgba(255,0,0,0.12)"
-                  : trend.isPositive
-                    ? "rgba(74,168,37,0.10)"
-                    : "rgba(255,0,0,0.10)",
-                padding: "3px 8px",
-                borderRadius: 20,
-              }}
-            >
-              {trend.isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-              {trend.value}%
-            </div>
-          )}
         </div>
         {data.periodOptions && data.periodOptions.length > 0 && (
           <div

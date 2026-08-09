@@ -106,8 +106,8 @@ const TermsScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 md:p-12" style={{ background: bg, color: textColor }}>
-      <div className="max-w-3xl mx-auto" style={{ animation: "fadeUp 0.4s cubic-bezier(0.23,1,0.32,1)" }}>
+    <div className="h-screen overflow-hidden p-6 md:p-12 flex flex-col" style={{ background: bg, color: textColor }}>
+      <div className="max-w-3xl mx-auto w-full flex-none">
         <button
           onClick={handleBack}
           className="flex items-center gap-2 font-bold mb-8 bg-transparent border-none cursor-pointer p-0"
@@ -116,31 +116,35 @@ const TermsScreen: React.FC = () => {
           <ArrowLeft size={18} />
           {legal.back}
         </button>
+      </div>
 
-        <div className="p-8 md:p-12 rounded-[2rem] shadow-sm" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
-          <div className="text-center mb-10 pb-8" style={{ borderBottom: `1px solid ${headingBorder}` }}>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-1">SERVEASE</h1>
-            <p className="text-sm font-semibold" style={{ color: "#2EBCCC" }}>{data.subtitle}</p>
-            <p className="text-xs italic mt-1" style={{ color: muted }}>{data.tagline}</p>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto" style={{ animation: "fadeUp 0.4s cubic-bezier(0.23,1,0.32,1)" }}>
+          <div className="p-8 md:p-12 rounded-[2rem] shadow-sm" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+            <div className="text-center mb-10 pb-8" style={{ borderBottom: `1px solid ${headingBorder}` }}>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-1">SERVEASE</h1>
+              <p className="text-sm font-semibold" style={{ color: "#2EBCCC" }}>{data.subtitle}</p>
+              <p className="text-xs italic mt-1" style={{ color: muted }}>{data.tagline}</p>
+            </div>
+
+            <h2 className="text-xl font-extrabold mb-2 text-center">{data.title}</h2>
+            <p className="text-xs text-center mb-10" style={{ color: muted }}>{data.version}</p>
+
+            <div className="space-y-8 leading-7 text-[0.95rem]" style={{ color: muted }}>
+              {data.sections.map((section: any, idx: number) => (
+                <section key={idx}>
+                  <h3 className="text-base font-extrabold mb-3" style={{ color: textColor }}>
+                    {section.h}
+                  </h3>
+                  {renderContent(section.c)}
+                </section>
+              ))}
+            </div>
+
+            <p className="text-center text-xs font-semibold mt-10 pt-6" style={{ color: muted, borderTop: `1px solid ${headingBorder}` }}>
+              {data.footer}
+            </p>
           </div>
-
-          <h2 className="text-xl font-extrabold mb-2 text-center">{data.title}</h2>
-          <p className="text-xs text-center mb-10" style={{ color: muted }}>{data.version}</p>
-
-          <div className="space-y-8 leading-7 text-[0.95rem]" style={{ color: muted }}>
-            {data.sections.map((section: any, idx: number) => (
-              <section key={idx}>
-                <h3 className="text-base font-extrabold mb-3" style={{ color: textColor }}>
-                  {section.h}
-                </h3>
-                {renderContent(section.c)}
-              </section>
-            ))}
-          </div>
-
-          <p className="text-center text-xs font-semibold mt-10 pt-6" style={{ color: muted, borderTop: `1px solid ${headingBorder}` }}>
-            {data.footer}
-          </p>
         </div>
       </div>
 

@@ -229,7 +229,10 @@ const LocationMap: React.FC<LocationMapProps> = ({
                     background: "rgba(27,36,76,0.85)",
                     border: "none",
                     cursor: "pointer",
-                    zIndex: 10,
+                    // Leaflet's own panes/controls go up to z-index 1000 (see
+                    // leaflet.css .leaflet-top/.leaflet-bottom) — anything
+                    // lower gets painted over by the map itself.
+                    zIndex: 1100,
                   }}
                   aria-label="Cerrar mapa"
                 >
@@ -242,7 +245,7 @@ const LocationMap: React.FC<LocationMapProps> = ({
                     style={{
                       background: isDark ? "rgba(30,45,94,0.92)" : "rgba(255,255,255,0.95)",
                       color: isDark ? "#fff" : "#1B244C",
-                      zIndex: 10,
+                      zIndex: 1100,
                       boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
                     }}
                   >

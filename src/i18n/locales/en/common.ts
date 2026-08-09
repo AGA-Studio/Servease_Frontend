@@ -124,7 +124,7 @@ export const common = {
         {
           h: "13. Contact",
           c: [
-            { contact: true, email: "0323105874@ut-tijuana.edu.mx", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, Mexico" }
+            { contact: true, email: "soporte@appservease.com", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, Mexico" }
           ]
         }
       ]
@@ -142,7 +142,7 @@ export const common = {
           h: "1. Data Controller",
           c: [
             "The data controller is the Servease development team, made up of students from the Universidad Tecnológica de Tijuana under the academic project 'Service Control and Contracting System'.",
-            { contact: true, email: "0323105874@ut-tijuana.edu.mx", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, Mexico" }
+            { contact: true, email: "soporte@appservease.com", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, Mexico" }
           ]
         },
         {
@@ -213,7 +213,7 @@ export const common = {
           c: [
             "In accordance with the LFPDPPP, you have the right to:",
             ["Access: know what personal data we have about you and how we use it.", "Rectification: request correction of inaccurate, incomplete or outdated data.", "Cancellation: request deletion of your data when no longer necessary or when you have withdrawn your consent.", "Objection: object to the processing of your data for specific purposes, including secondary ones."],
-            { emailText: "0323105874@ut-tijuana.edu.mx", v: "To exercise these rights, send a request to {email} indicating your full name, registered email address, the right you wish to exercise, and a description of your request. We will respond within a maximum of 20 business days in accordance with the LFPDPPP." }
+            { emailText: "soporte@appservease.com", v: "To exercise these rights, send a request to {email} indicating your full name, registered email address, the right you wish to exercise, and a description of your request. We will respond within a maximum of 20 business days in accordance with the LFPDPPP." }
           ]
         },
         {
@@ -245,7 +245,7 @@ export const common = {
         {
           h: "14. Contact",
           c: [
-            { contact: true, email: "0323105874@ut-tijuana.edu.mx", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, Mexico" }
+            { contact: true, email: "soporte@appservease.com", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, Mexico" }
           ]
         }
       ]

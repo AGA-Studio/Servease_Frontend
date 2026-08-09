@@ -1,12 +1,13 @@
 import { ROUTES } from "../router/routes";
-import { timeAgo } from "./servicio";
 import type { Notificacion } from "../api/notificacionApi";
 
 export interface NotificationItem {
   id: number;
   title: string;
   message: string;
-  timeAgo: string;
+  // Fecha cruda (ISO); el "hace Xm/Xh/Xd" se calcula al renderizar (ver
+  // LiveTimeAgo) para que siga avanzando en vez de quedarse fijo.
+  date: string;
   read: boolean;
   dotColor: string;
   tipo: string;
@@ -21,7 +22,7 @@ export function toNotificationItem(n: Notificacion): NotificationItem {
     id: n.id_notificacion,
     title: n.titulo,
     message: n.contenido ?? "",
-    timeAgo: timeAgo(n.fecha),
+    date: n.fecha,
     read: n.leido,
     dotColor: DOT_COLOR,
     tipo: n.tipo,
@@ -62,9 +63,23 @@ export function resolveNotificationPath(
   role: string | undefined,
 ): string {
   switch (notif.tipo) {
-    case "servicio":
-    case "postulacion":
+    // El trigger de Supabase solo manda tipo="oferta" con contexto_rol
+    // "proveedor" cuando el CLIENTE mandó la oferta (ver notificar_nueva_oferta)
+    // — o sea, siempre que esto pase le toca al proveedor responder. Se marca
+    // openCounter=1 para que MyJobsScreen abra el modal de oferta recibida en
+    // vez de solo el detalle genérico del trabajo.
     case "oferta": {
+      const effectiveRole =
+        notif.contextoRol ?? (role === "client" ? "cliente" : "proveedor");
+      if (notif.referenciaId === null) {
+        return effectiveRole === "cliente" ? ROUTES.APP.MY_POST : ROUTES.APP.MY_JOBS;
+      }
+      return effectiveRole === "cliente"
+        ? `${ROUTES.APP.MY_POST}?serviceId=${notif.referenciaId}`
+        : `${ROUTES.APP.MY_JOBS}?serviceId=${notif.referenciaId}&openCounter=1`;
+    }
+    case "servicio":
+    case "postulacion": {
       const effectiveRole =
         notif.contextoRol ?? (role === "client" ? "cliente" : "proveedor");
       const list =

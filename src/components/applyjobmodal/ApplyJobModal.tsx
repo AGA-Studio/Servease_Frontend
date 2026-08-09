@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useCurrency } from "../../context/CurrencyContext";
+import { formatBidInputValue } from "../../utils/bidInput";
 
 export interface ApplyJobData {
   option: "accept" | "counter";
@@ -78,10 +79,11 @@ const ApplyJobModal: React.FC<Props> = ({
   const serviceCurrency = jobCurrency === "USD" ? "USD" : "MXN";
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
-  const [counterOffer, setCounterOffer] = useState<string>(
-    String(
-      Math.round(convert(clientPrice + 30, serviceCurrency, currency) * 100) / 100,
-    ),
+  const defaultCounterOffer =
+    Math.round(convert(clientPrice + 30, serviceCurrency, currency) * 100) / 100;
+  const [counterOfferNumeric, setCounterOfferNumeric] = useState<number>(defaultCounterOffer);
+  const [counterOfferDisplay, setCounterOfferDisplay] = useState<string>(
+    formatBidInputValue(String(defaultCounterOffer)).display,
   );
   const [coverLetter, setCoverLetter] = useState("");
 
@@ -137,9 +139,7 @@ const ApplyJobModal: React.FC<Props> = ({
               width: "100%",
               maxWidth: 520,
               maxHeight: "90vh",
-              overflowY: "auto",
-              overscrollBehavior: "contain",
-              touchAction: "auto",
+              overflow: "hidden",
               background: cardBg,
               borderRadius: 16,
               display: "flex",
@@ -235,6 +235,8 @@ const ApplyJobModal: React.FC<Props> = ({
                   margin: "6px 0 0",
                   fontSize: "0.85rem",
                   color: "rgba(255,255,255,0.75)",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
                 }}
               >
                 {d.subtitle.replace("{title}", jobTitle)}
@@ -251,6 +253,11 @@ const ApplyJobModal: React.FC<Props> = ({
                 display: "flex",
                 flexDirection: "column",
                 gap: 24,
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                touchAction: "auto",
               }}
             >
               <motion.div variants={itemVariants}>
@@ -461,9 +468,14 @@ const ApplyJobModal: React.FC<Props> = ({
                       $
                     </span>
                     <input
-                      type="number"
-                      value={counterOffer}
-                      onChange={(e) => setCounterOffer(e.target.value)}
+                      type="text"
+                      inputMode="decimal"
+                      value={counterOfferDisplay}
+                      onChange={(e) => {
+                        const { display, numeric } = formatBidInputValue(e.target.value);
+                        setCounterOfferDisplay(display);
+                        setCounterOfferNumeric(numeric);
+                      }}
                       disabled={isSubmitting}
                       style={{
                         flex: 1,
@@ -614,7 +626,7 @@ const ApplyJobModal: React.FC<Props> = ({
                     price:
                       option === "accept"
                         ? clientPrice
-                        : convert(parseFloat(counterOffer), currency, serviceCurrency) ||
+                        : convert(counterOfferNumeric, currency, serviceCurrency) ||
                           clientPrice,
                     coverLetter,
                   })
