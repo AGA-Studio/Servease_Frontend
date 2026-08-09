@@ -177,7 +177,7 @@ export function mapProviderKpisToKpiData(
     {
       key: "averageRating",
       label: "Rating",
-      value: kpis.rating,
+      value: kpis.rating ? kpis.rating.toFixed(1) : "0.0",
       iconName: "star",
       iconColor: "#FFB200",
       iconBg: "rgba(255,178,0,0.15)",
@@ -185,9 +185,11 @@ export function mapProviderKpisToKpiData(
   ];
 }
 
-export function getCachedDashboardData(): DashboardData | null {
-  const kpis = getCookie<ProviderKpisResponse>("pv-dashboard-kpis");
-  const earnings = getCookie<ProviderEarningsSummaryResponse>("pv-earnings");
+export function getCachedDashboardData(userId: string): DashboardData | null {
+  const kpis = getCookie<ProviderKpisResponse>(`pv-dashboard-kpis:${userId}`);
+  const earnings = getCookie<ProviderEarningsSummaryResponse>(
+    `pv-earnings:${userId}`,
+  );
   if (!kpis) return null;
 
   const earningsSummary = earnings ?? undefined;
@@ -244,8 +246,10 @@ export async function fetchDashboardData(
       } catch (err) {
         console.error("fetchProviderEarningsSummary failed:", err);
       }
-      setCookie("pv-dashboard-kpis", dashboardKpis, 300);
-      if (earningsSummary) setCookie("pv-earnings", earningsSummary, 300);
+      setCookie(`pv-dashboard-kpis:${userId}`, dashboardKpis, 300);
+      if (earningsSummary) {
+        setCookie(`pv-earnings:${userId}`, earningsSummary, 300);
+      }
       return {
         kpis: mapProviderKpisToKpiData(dashboardKpis, earningsSummary),
         earningsSummary,

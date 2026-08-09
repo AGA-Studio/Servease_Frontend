@@ -22,6 +22,7 @@ import type { JobDetails } from "../../types/job";
 import type { ProposalStatus } from "../../types/myjobs";
 import type { PostStatus } from "../../data/mockPosts";
 import Avatar from "../avatar/Avatar";
+import ImageWithFallback from "../imagewithfallback/ImageWithFallback";
 import { getCategoryStyle } from "../../utils/categoryStyle";
 import LocationMap from "../map/LocationMap";
 import { buildClientProfileViewPath, buildProviderProfileViewPath } from "../../router/routes";
@@ -212,7 +213,7 @@ const JobDetailsModal: React.FC<Props> = ({
 }) => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
-  const { formatMoney } = useCurrency();
+  const { formatFixedMoney } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
   // El botón "Ver Perfil" del cliente solo navega para cuentas proveedor/admin:
@@ -223,7 +224,6 @@ const JobDetailsModal: React.FC<Props> = ({
   const [selectedThumb, setSelectedThumb] = useState(0);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
-  const [loadedThumbs, setLoadedThumbs] = useState<Record<number, boolean>>({});
 
   const gallery = useMemo(() => {
     if (!job) return [];
@@ -248,7 +248,6 @@ const JobDetailsModal: React.FC<Props> = ({
       clearTimeout(timer);
       setIsContentReady(false);
       setSelectedThumb(0);
-      setLoadedThumbs({});
     };
   }, [isOpen, job?.id]);
 
@@ -505,7 +504,7 @@ const JobDetailsModal: React.FC<Props> = ({
                         color: "var(--text)",
                       }}
                     >
-                      {formatMoney(job.price)}
+                      {formatFixedMoney(job.price, job.currency)}
                     </p>
                   </motion.div>
                   <motion.button
@@ -554,53 +553,16 @@ const JobDetailsModal: React.FC<Props> = ({
                           borderRadius: 16,
                           marginBottom: 14,
                           overflow: "hidden",
-                          background: isDark ? "#273570" : "#e5e7eb",
                         }}
                       >
-                        {!loadedThumbs[selectedThumb] && (
-                          <Shimmer
-                            bg={isDark ? "#273570" : "#e5e7eb"}
-                            style={{
-                              position: "absolute",
-                              inset: 0,
-                              borderRadius: 0,
-                            }}
-                          />
-                        )}
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          {currentImage && (
-                            <motion.img
-                              key={currentImage}
-                              initial={{
-                                opacity: 0,
-                                scale: 1.02,
-                                filter: "blur(6px)",
-                              }}
-                              animate={{
-                                opacity: 1,
-                                scale: 1,
-                                filter: "blur(0px)",
-                              }}
-                              exit={{ opacity: 0, filter: "blur(6px)" }}
-                              transition={{ duration: 0.25, ease: EASE }}
-                              src={currentImage}
-                              alt={job.title}
-                              onLoad={() =>
-                                setLoadedThumbs((prev) => ({
-                                  ...prev,
-                                  [selectedThumb]: true,
-                                }))
-                              }
-                              style={{
-                                position: "absolute",
-                                inset: 0,
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          )}
-                        </AnimatePresence>
+                        <ImageWithFallback
+                          src={currentImage}
+                          alt={job.title}
+                          isDark={isDark}
+                          borderRadius={16}
+                          size="lg"
+                          style={{ width: "100%", height: "100%" }}
+                        />
 
                         {gallery.length > 1 && (
                           <>
@@ -685,40 +647,17 @@ const JobDetailsModal: React.FC<Props> = ({
                               borderRadius: 10,
                               overflow: "hidden",
                               cursor: "pointer",
-                              background: isDark ? "#273570" : "#e5e7eb",
                               width: 80,
                               height: 60,
                             }}
                           >
-                            {!loadedThumbs[idx] && (
-                              <Shimmer
-                                bg={isDark ? "#273570" : "#e5e7eb"}
-                                style={{
-                                  position: "absolute",
-                                  inset: 0,
-                                  borderRadius: 0,
-                                }}
-                              />
-                            )}
-                            <img
+                            <ImageWithFallback
                               src={thumb}
                               alt={`thumbnail ${idx + 1}`}
-                              onLoad={() =>
-                                setLoadedThumbs((prev) => ({
-                                  ...prev,
-                                  [idx]: true,
-                                }))
-                              }
-                              style={{
-                                position: "absolute",
-                                inset: 0,
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                                opacity: loadedThumbs[idx] ? 1 : 0,
-                                transition: "opacity 250ms ease-out",
-                              }}
+                              isDark={isDark}
+                              borderRadius={8}
+                              size="sm"
+                              style={{ width: "100%", height: "100%" }}
                             />
                           </motion.button>
                         ))}

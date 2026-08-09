@@ -10,8 +10,9 @@ export const homescreen = {
   viewAll: "View All",
   recentActivity: "Recent Activity",
   loadOlder: "Load older activity",
-  searchPlaceholder:
-    "Find a provider or service (e.g. Plumber, Electrician, Cleaning...)",
+  searchPlaceholder: "Search your posts by title or category...",
+  searchHint: "Press Enter to search, or pick a category from the list",
+  categoryTag: "Category",
   serviceCard: {
     link: {
       viewDetails: "View Details",

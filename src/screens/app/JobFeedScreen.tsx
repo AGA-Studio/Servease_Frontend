@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
-  MapPin,
   ArrowRight,
   Navigation,
   Briefcase,
@@ -27,6 +26,7 @@ import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import ApplyJobModal, {
   type ApplyJobData,
 } from "../../components/applyjobmodal/ApplyJobModal";
+import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import FilterSelect, {
   type FilterOption,
 } from "../../components/filterselect/FilterSelect";
@@ -175,25 +175,23 @@ const JobCard = ({
   job,
   onViewDetails,
   isLoadingDetails,
+  isDark,
 }: {
   job: FeedJob;
   onViewDetails: () => void;
   isLoadingDetails: boolean;
+  isDark: boolean;
 }) => {
-  const [hovered, setHovered] = useState(false);
   const { t } = useI18n();
+  const { formatFixedMoney } = useCurrency();
   const d = t("jobfeedscreen");
 
   const categoryStyle = getCategoryStyle(job.categoria_nombre);
   const CategoryIcon = categoryStyle.icon;
 
   return (
-    <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+    <div
+        className="jf-job-card"
         style={{
           background: "var(--card-bg)",
           borderRadius: 14,
@@ -201,61 +199,18 @@ const JobCard = ({
           padding: 16,
           display: "flex",
           gap: 16,
-          transition: "box-shadow 0.2s, transform 0.2s",
-          boxShadow: hovered
-            ? "0 6px 24px rgba(0,0,0,0.12)"
-            : "0 1px 4px rgba(0,0,0,0.04)",
-          transform: hovered ? "translateY(-1px)" : "none",
         }}
       >
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        {job.mainImage ? (
-          <img
-            src={job.mainImage}
-            alt={job.titulo}
-            style={{
-              width: 140,
-              height: 100,
-              objectFit: "cover",
-              borderRadius: 12,
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 140,
-              height: 100,
-              borderRadius: 12,
-              background: "var(--input-bg)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <CategoryIcon size={24} color={categoryStyle.color} />
-          </div>
-        )}
-        {job.distanceKm !== null && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: 8,
-              left: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              background: "rgba(255,255,255,0.95)",
-              padding: "4px 8px",
-              borderRadius: 20,
-              fontSize: "0.7rem",
-              fontWeight: 700,
-              color: "#1B244C",
-            }}
-          >
-            <Navigation size={10} />
-            {job.distanceKm.toFixed(1)} {d.filters.km ?? "km"}
-          </div>
-        )}
+      <div className="jf-job-thumb-wrap" style={{ position: "relative", flexShrink: 0 }}>
+        <ImageWithFallback
+          src={job.mainImage}
+          alt={job.titulo}
+          isDark={isDark}
+          borderRadius={12}
+          size="md"
+          style={{ width: 132, height: 96 }}
+          fallbackIcon={<CategoryIcon size={24} color={categoryStyle.color} />}
+        />
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -284,7 +239,7 @@ const JobCard = ({
                 gap: 5,
                 padding: "4px 10px",
                 borderRadius: 20,
-                background: `${categoryStyle.color}1F`,
+                background: `${categoryStyle.color}${isDark ? "2A" : "1F"}`,
                 color: categoryStyle.color,
                 fontWeight: 600,
               }}
@@ -303,7 +258,7 @@ const JobCard = ({
               color: "var(--text)",
             }}
           >
-            ${job.precio_inicial.toLocaleString()}
+            {formatFixedMoney(job.precio_inicial, job.raw.moneda)}
           </span>
         </div>
 
@@ -322,26 +277,24 @@ const JobCard = ({
           {job.titulo}
         </h3>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            marginTop: 12,
-            fontSize: "0.78rem",
-            color: "var(--text-secondary)",
-            minHeight: 18,
-          }}
-        >
-          {job.location && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <MapPin size={12} />
-              {job.location}
-            </span>
-          )}
-        </div>
+        {job.distanceKm !== null && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              marginTop: 2,
+              fontSize: "0.78rem",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <Navigation size={12} />
+            {job.distanceKm.toFixed(1)} {d.filters.km ?? "km"}
+          </div>
+        )}
 
         <button
+          className="jf-apply-btn"
           onClick={onViewDetails}
           disabled={isLoadingDetails}
           style={{
@@ -359,17 +312,7 @@ const JobCard = ({
             padding: "8px 16px",
             borderRadius: 10,
             fontFamily: "inherit",
-            transition: "background 0.2s, box-shadow 0.2s, opacity 0.2s",
-            boxShadow: hovered
-              ? "0 4px 14px rgba(46,188,204,0.45)"
-              : "none",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "#239aaa")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "#2EBCCC")
-          }
         >
           {d.card.viewDetails}
           {isLoadingDetails ? (
@@ -390,19 +333,21 @@ const JobCard = ({
           )}
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
 const AppliedJobItem = ({
   job,
   onViewStatus,
+  isDark,
 }: {
   job: MyJob;
   onViewStatus: (job: MyJob) => void;
+  isDark: boolean;
 }) => {
   const { t } = useI18n();
-  const { formatMoney } = useCurrency();
+  const { formatFixedMoney } = useCurrency();
   const d = t("jobfeedscreen");
 
   const statusMap: Record<
@@ -434,6 +379,7 @@ const AppliedJobItem = ({
 
   return (
     <div
+      className="jf-applied-row"
       onClick={() => onViewStatus(job)}
       style={{
         display: "flex",
@@ -443,46 +389,19 @@ const AppliedJobItem = ({
         borderRadius: 12,
         padding: "12px 14px",
         cursor: "pointer",
-        transition: "box-shadow 0.2s, transform 0.2s, border-color 0.2s",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.10)";
-        e.currentTarget.style.transform = "translateY(-1px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "none";
-        e.currentTarget.style.transform = "translateY(0)";
       }}
     >
-      {job.imageUrl ? (
-        <img
+      <div style={{ flexShrink: 0 }}>
+        <ImageWithFallback
           src={job.imageUrl}
           alt={job.title}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            objectFit: "cover",
-            flexShrink: 0,
-          }}
+          isDark={isDark}
+          borderRadius={10}
+          size="sm"
+          style={{ width: 44, height: 44 }}
+          fallbackIcon={<Briefcase size={14} />}
         />
-      ) : (
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "var(--sidebar-bg)",
-            color: "var(--text-secondary)",
-          }}
-        >
-          <Briefcase size={20} />
-        </div>
-      )}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -547,7 +466,7 @@ const AppliedJobItem = ({
               color: "var(--text)",
             }}
           >
-            {formatMoney(job.budget)}
+            {formatFixedMoney(job.budget, job.currency)}
           </span>
           <button
             onClick={(e) => {
@@ -611,7 +530,7 @@ const JobFeedScreen: React.FC = () => {
     pending: number;
     projected: number;
   } | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const jobsListRef = useRef<HTMLDivElement>(null);
   const [appliedJobs, setAppliedJobs] = useState<MyJob[]>([]);
   const [isLoadingApplied, setIsLoadingApplied] = useState(true);
   const [appliedDetails, setAppliedDetails] = useState<JobDetails | null>(null);
@@ -823,7 +742,7 @@ const JobFeedScreen: React.FC = () => {
     (p: number) => {
       if (p < 1 || p > totalPages || p === safePage) return;
       setPage(p);
-      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      jobsListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     },
     [totalPages, safePage],
   );
@@ -842,17 +761,51 @@ const JobFeedScreen: React.FC = () => {
           display: grid;
           grid-template-columns: 1fr 340px;
           gap: 24px;
-          align-items: start;
+          align-items: stretch;
+          flex: 1;
+          min-height: 0;
         }
         .jf-jobs-list {
           display: flex;
           flex-direction: column;
           gap: 14px;
           min-width: 0;
+          height: 100%;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+        .jf-right-rail {
+          height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          padding-bottom: 14px;
+          box-sizing: border-box;
+        }
+        .jf-applied-card {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .jf-applied-list {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding-right: 4px;
         }
         @media (max-width: 900px) {
           .jf-main-grid {
             grid-template-columns: 1fr;
+            overflow-y: auto;
+          }
+          .jf-jobs-list, .jf-right-rail {
+            height: auto;
+            overflow-y: visible;
+          }
+          .jf-applied-list {
+            overflow-y: visible;
           }
         }
         @media (max-width: 600px) {
@@ -863,7 +816,8 @@ const JobFeedScreen: React.FC = () => {
             padding: 16px !important;
           }
           .jf-filter-grid {
-            grid-template-columns: 1fr !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
           }
           .jf-job-card {
             flex-direction: column !important;
@@ -874,7 +828,8 @@ const JobFeedScreen: React.FC = () => {
           }
         }
         .jf-pagination-bar {
-          padding: 12px 0;
+          flex-shrink: 0;
+          padding: 12px 0 0;
           border-top: 1px solid var(--divider);
           display: flex;
           align-items: center;
@@ -963,6 +918,51 @@ const JobFeedScreen: React.FC = () => {
           font-size: 0.85rem;
           user-select: none;
         }
+
+        .jf-job-card {
+          transition: transform 200ms ${EASE_OUT}, box-shadow 200ms ease;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-job-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+          }
+          .jf-job-card:hover .jf-job-thumb-wrap img {
+            transform: scale(1.05) !important;
+          }
+        }
+        .jf-apply-btn {
+          transition: transform 140ms ${EASE_OUT}, background 160ms ease, box-shadow 200ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-apply-btn:hover {
+            background: #239aaa !important;
+            box-shadow: 0 4px 14px rgba(46, 188, 204, 0.45);
+          }
+        }
+        .jf-apply-btn:active:not(:disabled) {
+          transform: scale(0.97);
+        }
+
+        .jf-applied-row {
+          transition: transform 180ms ${EASE_OUT}, box-shadow 180ms ease;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .jf-applied-row:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .jf-job-card, .jf-apply-btn, .jf-applied-row {
+            transition: none !important;
+          }
+          .jf-job-card:hover, .jf-applied-row:hover, .jf-job-card:hover .jf-job-thumb-wrap img {
+            transform: none !important;
+          }
+        }
       `}</style>
 
       <div
@@ -1021,6 +1021,9 @@ const JobFeedScreen: React.FC = () => {
             {d.status}
             <span
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
                 padding: "6px 12px",
                 borderRadius: 20,
                 background: disponible
@@ -1031,6 +1034,15 @@ const JobFeedScreen: React.FC = () => {
                 fontSize: "0.78rem",
               }}
             >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "currentColor",
+                  flexShrink: 0,
+                }}
+              />
               {disponible ? d.availableForWork : p.currentlyUnavailable}
             </span>
           </div>
@@ -1038,10 +1050,12 @@ const JobFeedScreen: React.FC = () => {
 
         <div
           className="jf-content"
-          ref={contentRef}
           style={{
             flex: 1,
-            overflowY: "auto",
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
             padding: 28,
             background: "var(--main-bg)",
           }}
@@ -1071,51 +1085,41 @@ const JobFeedScreen: React.FC = () => {
           ) : (
             <>
               <div
-                className="jf-filter-bar"
+                className="jf-filter-grid"
                 style={{
-                  background: "var(--card-bg)",
-                  borderRadius: 16,
-                  border: "1px solid var(--divider)",
-                  padding: 20,
-                  marginBottom: 24,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  marginBottom: 22,
                 }}
               >
-                <div
-                  className="jf-filter-grid"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: 16,
-                  }}
-                >
+                <FilterSelect
+                  label={d.filters.category}
+                  value={filters.category}
+                  options={categoryOptions}
+                  placeholder={d.filters.allCategories}
+                  onChange={handleFilterChange("category")}
+                />
+                {providerCoords && (
                   <FilterSelect
-                    label={d.filters.category}
-                    value={filters.category}
-                    options={categoryOptions}
-                    placeholder={d.filters.allCategories}
-                    onChange={handleFilterChange("category")}
+                    label={d.filters.distance}
+                    value={filters.distance}
+                    options={distanceOptions}
+                    placeholder={d.filters.anyDistance ?? d.filters.allCategories}
+                    onChange={handleFilterChange("distance")}
                   />
-                  {providerCoords && (
-                    <FilterSelect
-                      label={d.filters.distance}
-                      value={filters.distance}
-                      options={distanceOptions}
-                      placeholder={d.filters.anyDistance ?? d.filters.allCategories}
-                      onChange={handleFilterChange("distance")}
-                    />
-                  )}
-                  <FilterSelect
-                    label={d.filters.priceRange}
-                    value={filters.priceRange}
-                    options={priceRangeOptions}
-                    placeholder={d.filters.anyPrice}
-                    onChange={handleFilterChange("priceRange")}
-                  />
-                </div>
+                )}
+                <FilterSelect
+                  label={d.filters.priceRange}
+                  value={filters.priceRange}
+                  options={priceRangeOptions}
+                  placeholder={d.filters.anyPrice}
+                  onChange={handleFilterChange("priceRange")}
+                />
               </div>
 
               <div className="jf-main-grid">
-                <div className="jf-jobs-list">
+                <div className="jf-jobs-list" ref={jobsListRef}>
                   {isLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
                       <SkeletonLoader key={i} isDark={isDark} variant="job-card" />
@@ -1142,18 +1146,20 @@ const JobFeedScreen: React.FC = () => {
                         job={job}
                         onViewDetails={() => handleViewDetails(job)}
                         isLoadingDetails={isDetailsLoading && selectedJob?.id === job.id}
+                        isDark={isDark}
                       />
                     ))
                   )}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div className="jf-right-rail">
                   <div
                     style={{
-                      background: "#1B244C",
+                      background: "linear-gradient(155deg, #1B244C, #232f66)",
                       borderRadius: 16,
                       padding: 20,
                   color: "#fff",
+                  flexShrink: 0,
                 }}
               >
                 <h3
@@ -1237,6 +1243,7 @@ const JobFeedScreen: React.FC = () => {
               </div>
 
               <div
+                className="jf-applied-card"
                 style={{
                   background: "var(--card-bg)",
                   borderRadius: 16,
@@ -1250,6 +1257,7 @@ const JobFeedScreen: React.FC = () => {
                     alignItems: "center",
                     justifyContent: "space-between",
                     marginBottom: 4,
+                    flexShrink: 0,
                   }}
                 >
                   <h3
@@ -1320,6 +1328,7 @@ const JobFeedScreen: React.FC = () => {
                   />
                 ) : (
                   <div
+                    className="jf-applied-list"
                     style={{
                       display: "flex",
                       flexDirection: "column",
@@ -1332,6 +1341,7 @@ const JobFeedScreen: React.FC = () => {
                         key={job.id}
                         job={job}
                         onViewStatus={handleViewAppliedDetails}
+                        isDark={isDark}
                       />
                     ))}
                   </div>
@@ -1378,6 +1388,7 @@ const JobFeedScreen: React.FC = () => {
         onClose={() => setIsApplyOpen(false)}
         jobTitle={selectedJob?.titulo ?? ""}
         clientPrice={selectedJob?.precio_inicial ?? 0}
+        jobCurrency={selectedJob?.raw.moneda ?? null}
         isSubmitting={isApplying}
         onSubmit={handleApplySubmit}
       />

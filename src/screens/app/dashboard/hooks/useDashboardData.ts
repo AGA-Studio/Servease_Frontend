@@ -19,7 +19,10 @@ export function useDashboardData(
   userId: string | undefined,
   areaNames?: string[],
 ): UseDashboardDataReturn {
-  const cached = useMemo(() => getCachedDashboardData(), []);
+  const cached = useMemo(
+    () => (userId ? getCachedDashboardData(userId) : null),
+    [userId],
+  );
   const hasDataRef = useRef(cached !== null);
   const [isLive, setIsLive] = useState(false);
   const [state, setState] = useState<{

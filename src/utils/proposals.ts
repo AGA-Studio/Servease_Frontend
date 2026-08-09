@@ -27,6 +27,6 @@ export const mapTrabajoAplicadoToMyJob = (item: TrabajoAplicado): MyJob => ({
   proposalStatus: mapEstadoToProposalStatus(item.estado),
   postedAgo: timeAgo(item.fecha_publicacion),
   budget: Number(item.precio_final),
-  currency: "MXN",
+  currency: item.moneda ?? "MXN",
   imageUrl: item.foto ?? undefined,
 });

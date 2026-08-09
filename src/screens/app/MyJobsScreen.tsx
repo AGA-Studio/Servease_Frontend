@@ -20,6 +20,7 @@ import type { ThemeMode } from "../../theme/theme";
 import type { JobDetails } from "../../types/job";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import EmptyState from "../../components/emptystate/EmptyState";
+import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import RatingModal, { type RatingData } from "../../components/ratingmodal/RatingModal";
 import CompleteServiceModal from "../../components/completeservicemodal/CompleteServiceModal";
 import PaymentWaitingModal, {
@@ -30,9 +31,11 @@ import { getApproxLocation } from "../../utils/location";
 import { friendlyErrorMessage } from "../../utils/apiError";
 import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
 import {
+  aceptarOferta,
   cancelarPago,
   cancelPostulacion,
   completarServicio,
+  crearOferta,
   fetchPagoEnCursoProveedor,
   fetchPagoEstado,
   fetchPostDetails,
@@ -40,6 +43,9 @@ import {
   type PagoEstado,
 } from "../../api/servicioApi";
 import { fetchTrabajosAplicados, type TrabajoAplicado } from "../../api/userApi";
+import ProviderCounterModal, {
+  type ProviderCounterData,
+} from "../../components/counteroffermodal/ProviderCounterModal";
 
 type ProposalStatus =
   | "accepted"
@@ -60,19 +66,26 @@ interface DisplayJob {
   budget: number;
   currency: string;
   imageUrl?: string;
+  // Solo relevante mientras proposalStatus === "counteroffer": quién mandó
+  // la última oferta — determina si le toca al proveedor contraofertar.
+  lastOfferBy: "you" | "client" | null;
+  // Si la contraparte ya aceptó el monto de esa última oferta (sin que la
+  // postulación en sí esté aceptada todavía).
+  offerAccepted: boolean;
 }
 
 function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
   const estado = job.estado.trim().toLowerCase();
+  const hasOferta = !!job.ultima_oferta;
   const proposalStatus: ProposalStatus =
     estado === "aceptado" || estado === "aceptada"
       ? "accepted"
       : estado === "rechazada" || estado === "rechazado"
         ? "rejected"
-        : estado === "contraoferta"
-          ? "counteroffer"
-          : estado === "completado"
-            ? "completed"
+        : estado === "completado"
+          ? "completed"
+          : hasOferta || estado === "contraoferta"
+            ? "counteroffer"
             : "pending";
 
   return {
@@ -83,9 +96,15 @@ function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
     category: job.categoria,
     proposalStatus,
     postedAgo: timeAgo(job.fecha_publicacion),
-    budget: Number(job.precio_final),
-    currency: "MXN",
+    budget: job.ultima_oferta ? Number(job.ultima_oferta.monto) : Number(job.precio_final),
+    currency: job.moneda ?? "MXN",
     imageUrl: job.foto ?? undefined,
+    lastOfferBy: job.ultima_oferta
+      ? job.ultima_oferta.emisor === "cliente"
+        ? "client"
+        : "you"
+      : null,
+    offerAccepted: job.ultima_oferta?.aceptacion ?? false,
   };
 }
 
@@ -239,6 +258,8 @@ const AnimatedJobCard = ({
   isLoadingDetails,
   onViewDetails,
   onMarkCompleted,
+  onCounterOffer,
+  onAcceptOffer,
 }: {
   job: DisplayJob;
   index: number;
@@ -246,10 +267,11 @@ const AnimatedJobCard = ({
   isLoadingDetails: boolean;
   onViewDetails: (job: DisplayJob) => void;
   onMarkCompleted: (job: DisplayJob) => void;
+  onCounterOffer: (job: DisplayJob) => void;
+  onAcceptOffer: (job: DisplayJob) => void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -60px 0px" });
-  const [imgError, setImgError] = useState(false);
   const [hovered, setHovered] = useState(false);
   const { t } = useI18n();
   const d = t("myjobsscreen");
@@ -284,33 +306,26 @@ const AnimatedJobCard = ({
       }}
     >
       <div style={{ position: "relative", height: 180, overflow: "hidden" }}>
-        {job.imageUrl && !imgError ? (
-          <img
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            transition: "transform 0.4s ease",
+            transform: hovered ? "scale(1.04)" : "scale(1)",
+          }}
+        >
+          <ImageWithFallback
             src={job.imageUrl}
             alt={job.title}
-            onError={() => setImgError(true)}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              transition: "transform 0.4s ease",
-              transform: hovered ? "scale(1.04)" : "scale(1)",
-            }}
+            isDark={isDark}
+            borderRadius={0}
+            size="lg"
+            style={{ width: "100%", height: "100%" }}
+            fallbackIcon={
+              <Briefcase size={26} />
+            }
           />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              background: isDark ? "#273570" : "#e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Briefcase size={36} color={isDark ? "#3d4f8a" : "#c0c9d4"} />
-          </div>
-        )}
+        </div>
         <div
           style={{
             position: "absolute",
@@ -462,6 +477,107 @@ const AnimatedJobCard = ({
               {d.actions.markCompleted}
             </motion.button>
           )}
+
+          {job.proposalStatus === "counteroffer" &&
+            job.lastOfferBy === "client" &&
+            !job.offerAccepted && (
+              <>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => onCounterOffer(job)}
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    borderRadius: 10,
+                    border: "1.5px solid #2EBCCC",
+                    background: "transparent",
+                    color: "#2EBCCC",
+                    fontWeight: 700,
+                    fontSize: "0.875rem",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {d.actions.counterOffer}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => onAcceptOffer(job)}
+                  style={{
+                    flex: 1,
+                    padding: "10px 0",
+                    borderRadius: 10,
+                    border: "none",
+                    background: "#2EBCCC",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    fontSize: "0.875rem",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {d.actions.acceptOffer}
+                </motion.button>
+              </>
+            )}
+
+          {job.proposalStatus === "counteroffer" &&
+            job.lastOfferBy === "client" &&
+            job.offerAccepted && (
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: isDark ? "rgba(255,178,0,0.14)" : "rgba(255,178,0,0.12)",
+                  color: "#8a5a00",
+                  fontWeight: 700,
+                  fontSize: "0.8rem",
+                  textAlign: "center",
+                }}
+              >
+                <motion.span
+                  animate={{ opacity: [1, 0.4, 1] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ width: 7, height: 7, marginTop: 5, borderRadius: "50%", background: "#FFB200", display: "inline-block", flexShrink: 0 }}
+                />
+                <span style={{ lineHeight: 1.3 }}>{d.actions.waitingForClientConfirm}</span>
+              </div>
+            )}
+
+          {job.proposalStatus === "counteroffer" && job.lastOfferBy === "you" && (
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "center",
+                gap: 8,
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: isDark ? "rgba(255,178,0,0.14)" : "rgba(255,178,0,0.12)",
+                color: "#8a5a00",
+                fontWeight: 700,
+                fontSize: "0.8rem",
+                textAlign: "center",
+              }}
+            >
+              <motion.span
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                style={{ width: 7, height: 7, marginTop: 5, borderRadius: "50%", background: "#FFB200", display: "inline-block", flexShrink: 0 }}
+              />
+              <span style={{ lineHeight: 1.3 }}>{d.actions.waitingForResponse}</span>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -581,9 +697,11 @@ const MyJobsScreen: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(
+    () => searchParams.get("category") ?? "all",
+  );
 
   const [selectedJob, setSelectedJob] = useState<DisplayJob | null>(null);
   const [selectedJobDetails, setSelectedJobDetails] = useState<JobDetails | null>(null);
@@ -611,6 +729,11 @@ const MyJobsScreen: React.FC = () => {
   const [ratingJob, setRatingJob] = useState<DisplayJob | null>(null);
   const [ratingMethod, setRatingMethod] = useState<PaymentMethod>("efectivo");
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+
+  const [counteringJob, setCounteringJob] = useState<DisplayJob | null>(null);
+  const [counteringClient, setCounteringClient] = useState<{ name: string; avatarUrl?: string } | null>(null);
+  const [isCounterSubmitting, setIsCounterSubmitting] = useState(false);
+  const [counterError, setCounterError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -750,6 +873,34 @@ const MyJobsScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs, searchParams]);
 
+  // Deep-link from Dashboard's search bar: /app/my-jobs?search=X pre-fills
+  // the search box (see useState above) and, once it narrows results down to
+  // a single match, auto-opens that job's details modal.
+  useEffect(() => {
+    const searchQuery = searchParams.get("search");
+    if (!searchQuery || jobs.length === 0) return;
+    if (filtered.length === 1) handleViewDetails(filtered[0]);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("search");
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, filtered, searchParams]);
+
+  // Deep-link from Home/Dashboard's category suggestion: /app/my-jobs?category=X
+  // pre-fills the category dropdown (see useState above); just strip it from
+  // the URL once consumed so a refresh doesn't keep re-applying it.
+  useEffect(() => {
+    if (!searchParams.get("category")) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("category");
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleCancelProposal = useCallback(
     async (job: DisplayJob) => {
       try {
@@ -760,6 +911,71 @@ const MyJobsScreen: React.FC = () => {
       } catch (error) {
         console.error("cancelPostulacion failed:", error);
         addToast("error", friendlyErrorMessage(error, d.actions.cancelFailed));
+      }
+    },
+    [addToast, d],
+  );
+
+  const handleOpenCounter = useCallback((job: DisplayJob) => {
+    setCounterError(null);
+    setCounteringJob(job);
+    setCounteringClient(null);
+    fetchPostDetails(job.idServicio)
+      .then((details) => {
+        setCounteringClient({ name: details.nombre_cliente, avatarUrl: details.url_foto_perfil ?? undefined });
+      })
+      .catch((error) => {
+        console.error("fetchPostDetails failed:", error);
+      });
+  }, []);
+
+  const handleSendCounterOffer = useCallback(
+    async (data: ProviderCounterData) => {
+      if (!counteringJob) return;
+      setIsCounterSubmitting(true);
+      setCounterError(null);
+      try {
+        await crearOferta({
+          id_postulacion: counteringJob.idPostulacion,
+          monto: data.newBid,
+          comentario: data.message || undefined,
+        });
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === counteringJob.id
+              ? {
+                  ...j,
+                  proposalStatus: "counteroffer" as const,
+                  budget: data.newBid,
+                  lastOfferBy: "you" as const,
+                  offerAccepted: false,
+                }
+              : j,
+          ),
+        );
+        addToast("success", d.actions.counterSuccess);
+        setCounteringJob(null);
+      } catch (error) {
+        console.error("crearOferta failed:", error);
+        setCounterError(friendlyErrorMessage(error, d.actions.counterFailed));
+      } finally {
+        setIsCounterSubmitting(false);
+      }
+    },
+    [counteringJob, addToast, d],
+  );
+
+  const handleAcceptOffer = useCallback(
+    async (job: DisplayJob) => {
+      try {
+        await aceptarOferta(job.idPostulacion);
+        setJobs((prev) =>
+          prev.map((j) => (j.id === job.id ? { ...j, offerAccepted: true } : j)),
+        );
+        addToast("success", d.actions.acceptOfferSuccess);
+      } catch (error) {
+        console.error("aceptarOferta failed:", error);
+        addToast("error", friendlyErrorMessage(error, d.actions.acceptOfferFailed));
       }
     },
     [addToast, d],
@@ -1288,6 +1504,8 @@ const MyJobsScreen: React.FC = () => {
                     isLoadingDetails={isDetailsLoading && selectedJob?.id === job.id}
                     onViewDetails={handleViewDetails}
                     onMarkCompleted={handleMarkCompletedClick}
+                    onCounterOffer={handleOpenCounter}
+                    onAcceptOffer={handleAcceptOffer}
                   />
                 ))}
               </motion.div>
@@ -1353,6 +1571,24 @@ const MyJobsScreen: React.FC = () => {
         onCancel={handlePaymentCancel}
         isRetrying={isRetryingPayment}
         isCancelling={isCancellingPayment}
+      />
+
+      <ProviderCounterModal
+        key={counteringJob?.id ?? "none"}
+        isOpen={!!counteringJob}
+        client={{
+          name: counteringClient?.name ?? "",
+          avatarUrl: counteringClient?.avatarUrl,
+          currentBid: counteringJob?.budget ?? 0,
+        }}
+        isSubmitting={isCounterSubmitting}
+        errorMessage={counterError}
+        onClose={() => {
+          if (isCounterSubmitting) return;
+          setCounterError(null);
+          setCounteringJob(null);
+        }}
+        onSubmit={handleSendCounterOffer}
       />
 
       {ratingJob && (

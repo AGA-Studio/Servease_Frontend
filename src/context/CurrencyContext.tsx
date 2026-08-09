@@ -18,6 +18,15 @@ interface CurrencyContextValue {
   convertAmount: (amountInMXN: number) => number;
   convertToMXN: (amountInDisplayCurrency: number) => number;
   formatMoney: (amountInMXN: number) => string;
+  /** Converts an amount between two currency codes using the live MXN<->USD rate. */
+  convert: (amount: number, from: CurrencyCode, to: CurrencyCode) => number;
+  /**
+   * Formats a fixed, DB-denominated amount (service price, presupuesto,
+   * payment, offer) in its own currency — never reconverted by the
+   * Settings-selected display currency. Use this instead of formatMoney
+   * for anything whose value is fixed in the database.
+   */
+  formatFixedMoney: (amount: number, currencyCode?: string | null) => string;
   refreshRate: () => Promise<void>;
 }
 
@@ -183,6 +192,27 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
     [convertAmount, currency],
   );
 
+  const convert = useCallback(
+    (amount: number, from: CurrencyCode, to: CurrencyCode) => {
+      if (from === to) return amount;
+      if (from === "MXN" && to === "USD") return amount * effectiveRate;
+      if (from === "USD" && to === "MXN") return amount / effectiveRate;
+      return amount;
+    },
+    [effectiveRate],
+  );
+
+  const formatFixedMoney = useCallback(
+    (amount: number, currencyCode?: string | null) => {
+      const code: CurrencyCode = currencyCode === "USD" ? "USD" : "MXN";
+      return `$${amount.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      })} ${code}`;
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       currency,
@@ -193,6 +223,8 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
       convertAmount,
       convertToMXN,
       formatMoney,
+      convert,
+      formatFixedMoney,
       refreshRate,
     }),
     [
@@ -204,6 +236,8 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
       convertAmount,
       convertToMXN,
       formatMoney,
+      convert,
+      formatFixedMoney,
       refreshRate,
     ],
   );

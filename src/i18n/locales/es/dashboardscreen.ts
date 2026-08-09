@@ -16,9 +16,8 @@ export const dashboardscreen = {
   availableJobs: "Trabajos Disponibles",
   viewAll: "Ver todo",
   recentActivity: "Actividad Reciente",
-  searchPlaceholder:
-    "Busca trabajos, servicios o clientes...",
-  searchHint: "Presiona Escape para cerrar",
+  searchPlaceholder: "Busca en tus trabajos por título o categoría...",
+  searchHint: "Presiona Enter para buscar, o elige una categoría de la lista",
   searchCategories: {
     homeServices: "Servicios del hogar",
     urgentJobs: "Trabajos urgentes",

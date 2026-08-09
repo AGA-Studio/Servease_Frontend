@@ -5,6 +5,7 @@ import { Camera, Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
 import type { PortafolioItem } from "../../api/portafolioApi";
+import ImageWithFallback from "../imagewithfallback/ImageWithFallback";
 
 interface Props {
   isOpen: boolean;
@@ -242,29 +243,16 @@ const PortfolioItemModal: React.FC<Props> = ({ isOpen, onClose, item }) => {
                   borderRadius: 16,
                   marginBottom: 14,
                   overflow: "hidden",
-                  background: isDark ? "#273570" : "#e5e7eb",
                 }}
               >
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {currentPhoto && (
-                    <motion.img
-                      key={currentPhoto}
-                      initial={{ opacity: 0, scale: 1.02, filter: "blur(6px)" }}
-                      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, filter: "blur(6px)" }}
-                      transition={{ duration: 0.25, ease: EASE }}
-                      src={currentPhoto}
-                      alt={item.titulo}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  )}
-                </AnimatePresence>
+                <ImageWithFallback
+                  src={currentPhoto}
+                  alt={item.titulo}
+                  isDark={isDark}
+                  borderRadius={16}
+                  size="lg"
+                  style={{ width: "100%", height: "100%" }}
+                />
 
                 {fotos.length > 1 && (
                   <>
@@ -340,15 +328,17 @@ const PortfolioItemModal: React.FC<Props> = ({ isOpen, onClose, item }) => {
                         borderRadius: 10,
                         overflow: "hidden",
                         cursor: "pointer",
-                        background: isDark ? "#273570" : "#e5e7eb",
                         width: 72,
                         height: 54,
                       }}
                     >
-                      <img
+                      <ImageWithFallback
                         src={foto}
                         alt={`${item.titulo} ${idx + 1}`}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        isDark={isDark}
+                        borderRadius={8}
+                        size="sm"
+                        style={{ width: "100%", height: "100%" }}
                       />
                     </motion.button>
                   ))}

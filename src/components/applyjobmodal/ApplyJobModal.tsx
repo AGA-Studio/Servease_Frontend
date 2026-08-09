@@ -18,6 +18,8 @@ interface Props {
   onClose: () => void;
   jobTitle: string;
   clientPrice: number;
+  /** Currency the service's price is fixed in (from the DB), e.g. "MXN"/"USD". */
+  jobCurrency?: string | null;
   onSubmit?: (data: ApplyJobData) => void;
   isSubmitting?: boolean;
 }
@@ -65,17 +67,21 @@ const ApplyJobModal: React.FC<Props> = ({
   onClose,
   jobTitle,
   clientPrice,
+  jobCurrency,
   onSubmit,
   isSubmitting = false,
 }) => {
   const { t } = useI18n();
   const d = t("applyjobmodal");
   const { isDark } = useThemeMode();
-  const { formatMoney, currency, convertAmount, convertToMXN } = useCurrency();
+  const { currency, convert, formatFixedMoney } = useCurrency();
+  const serviceCurrency = jobCurrency === "USD" ? "USD" : "MXN";
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
   const [counterOffer, setCounterOffer] = useState<string>(
-    String(Math.round(convertAmount(clientPrice + 30) * 100) / 100),
+    String(
+      Math.round(convert(clientPrice + 30, serviceCurrency, currency) * 100) / 100,
+    ),
   );
   const [coverLetter, setCoverLetter] = useState("");
 
@@ -333,7 +339,7 @@ const ApplyJobModal: React.FC<Props> = ({
                             option === "accept" ? "#2EBCCC" : textSecondary,
                         }}
                       >
-                        {d.options.submitAt} {formatMoney(clientPrice)}
+                        {d.options.submitAt} {formatFixedMoney(clientPrice, serviceCurrency)}
                       </p>
                     </div>
                   </motion.button>
@@ -608,7 +614,8 @@ const ApplyJobModal: React.FC<Props> = ({
                     price:
                       option === "accept"
                         ? clientPrice
-                        : convertToMXN(parseFloat(counterOffer)) || clientPrice,
+                        : convert(parseFloat(counterOffer), currency, serviceCurrency) ||
+                          clientPrice,
                     coverLetter,
                   })
                 }

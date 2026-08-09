@@ -10,8 +10,9 @@ export const homescreen = {
   viewAll: "Ver todo",
   recentActivity: "Actividad Reciente",
   loadOlder: "Cargar actividad anterior",
-  searchPlaceholder:
-    "Encuentra un proveedor o servicio (ej. Plomero, Electricista, Limpieza...)",
+  searchPlaceholder: "Busca en tus publicaciones por título o categoría...",
+  searchHint: "Presiona Enter para buscar, o elige una categoría de la lista",
+  categoryTag: "Categoría",
   serviceCard: {
     link: {
       viewDetails: "Ver Detalles",

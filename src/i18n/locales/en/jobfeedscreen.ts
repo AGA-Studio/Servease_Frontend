@@ -18,7 +18,7 @@ export const jobfeedscreen = {
   projected: "Projected",
   myAppliedJobs: "My Applied Jobs",
   viewAll: "View All",
-  viewStatus: "View Status",
+  viewStatus: "View Details",
   card: {
     posted: "Posted",
     viewDetails: "View Details & Apply",
