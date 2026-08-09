@@ -46,7 +46,7 @@ const MessagesScreen: React.FC = () => {
   const { t } = useI18n();
   const d = t("messagesscreen");
   const { isDark } = useThemeMode();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   // Estados de datos API
@@ -211,15 +211,22 @@ const MessagesScreen: React.FC = () => {
     });
   }, []);
 
-  const handleTypingStart = useCallback((_payload: TypingPayload) => {
+  // El backend hace broadcast de estas señales a todo el canal, incluido quien
+  // las origina (typing/marcarLeido no excluyen al emisor como haría un
+  // channel.send() con self:false). Sin este filtro, el propio usuario recibe
+  // su propia señal y ve "está escribiendo..."/"visto" sobre sí mismo.
+  const handleTypingStart = useCallback((payload: TypingPayload) => {
+    if (payload.user_id === user?.id) return;
     setIsOtherTyping(true);
-  }, []);
+  }, [user?.id]);
 
-  const handleTypingStop = useCallback(() => {
+  const handleTypingStop = useCallback((payload: TypingPayload) => {
+    if (payload.user_id === user?.id) return;
     setIsOtherTyping(false);
-  }, []);
+  }, [user?.id]);
 
-  const handleReadReceipt = useCallback((_payload: ReadReceiptPayload) => {
+  const handleReadReceipt = useCallback((payload: ReadReceiptPayload) => {
+    if (payload.reader_id === user?.id) return;
     // Actualiza en vivo los mensajes propios como leídos (además del valor
     // que ya trae `leido` por mensaje desde la BD tras el fetch inicial).
     setOtherHasRead(true);
@@ -228,7 +235,7 @@ const MessagesScreen: React.FC = () => {
         msg.sender === "user" ? { ...msg, estado_entrega: "leido", leido: true } : msg
       )
     );
-  }, []);
+  }, [user?.id]);
 
   useConversationChannel({
     conversacionId: selectedChatId,
@@ -880,11 +887,20 @@ const MessagesScreen: React.FC = () => {
                               isUser ? "ml-auto flex-row-reverse" : ""
                             } ${isFirstInGroup ? "mt-4" : "mt-1"}`}
                           >
-                            {/* Avatar visible solo en el último mensaje consecutivo */}
+                            {/* Avatar visible solo en el último mensaje consecutivo.
+                                Para mensajes propios el fallback debe ser mi propia foto/nombre:
+                                usar currentChat.avatar (foto del OTRO participante) aquí duplicaba
+                                la foto del cliente también en las burbujas del proveedor. */}
                             {isLastInGroup ? (
                               <Avatar
-                                photoUrl={msg.senderAvatar || currentChat.avatar}
-                                name={msg.senderName || currentChat.name}
+                                photoUrl={
+                                  msg.senderAvatar ||
+                                  (isUser ? profile?.url_foto_perfil : currentChat.avatar)
+                                }
+                                name={
+                                  msg.senderName ||
+                                  (isUser ? `${user?.firstName ?? ""} ${user?.lastnameP ?? ""}`.trim() : currentChat.name)
+                                }
                                 size={36}
                                 className="flex-shrink-0 mb-1 shadow-sm"
                               />
