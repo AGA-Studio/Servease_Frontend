@@ -19,6 +19,7 @@ import { mfasetupmodal } from "./mfasetupmodal";
 import { mfachallengemodal } from "./mfachallengemodal";
 import { customizablemodal } from "./customizablemodal";
 import { clientcountermodal } from "./clientcountermodal";
+import { providercountermodal } from "./providercountermodal";
 import { ratingmodal } from "./ratingmodal";
 import { messagesscreen } from "./messagesscreen";
 import { completeservicemodal } from "./completeservicemodal";
@@ -49,6 +50,7 @@ export const en = {
   mfachallengemodal,
   customizablemodal,
   clientcountermodal,
+  providercountermodal,
   ratingmodal,
   messagesscreen,
   completeservicemodal,

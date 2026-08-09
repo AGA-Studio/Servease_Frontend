@@ -14,7 +14,9 @@ import {
   NAME_MAX_LENGTH,
   PHONE_MAX_LENGTH,
   hasUnsafeMarkup,
+  isValidName,
   isValidPhone,
+  sanitizeNameInput,
   sanitizeText,
   stripControlChars,
 } from "../../utils/validation";
@@ -23,7 +25,9 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 
 interface FormErrors {
   nombre?: string;
+  segundo_nombre?: string;
   apellido_pa?: string;
+  apellido_ma?: string;
   celular?: string;
   descripcion_perfil?: string;
 }
@@ -34,6 +38,7 @@ interface Props {
   profile: UserProfile | null;
   onSaved: (updated: UserProfile) => void;
   onError: (message: string) => void;
+  role?: "client" | "provider";
 }
 
 const EditPersonalInfoModal: React.FC<Props> = ({
@@ -42,10 +47,11 @@ const EditPersonalInfoModal: React.FC<Props> = ({
   profile,
   onSaved,
   onError,
+  role = "client",
 }) => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
-  const p = t("profile").client;
+  const p = t("profile")[role];
 
   const [nombre, setNombre] = useState("");
   const [segundoNombre, setSegundoNombre] = useState("");
@@ -78,15 +84,26 @@ const EditPersonalInfoModal: React.FC<Props> = ({
   const validate = (): boolean => {
     const e: FormErrors = {};
     const cleanNombre = sanitizeText(nombre, NAME_MAX_LENGTH);
+    const cleanSegundoNombre = sanitizeText(segundoNombre, NAME_MAX_LENGTH);
     const cleanApellidoPa = sanitizeText(apellidoPa, NAME_MAX_LENGTH);
+    const cleanApellidoMa = sanitizeText(apellidoMa, NAME_MAX_LENGTH);
     const cleanBio = sanitizeText(bio, BIO_MAX_LENGTH);
 
     if (!cleanNombre) e.nombre = p.editModal.validation.nameRequired;
     else if (hasUnsafeMarkup(nombre)) e.nombre = p.editModal.validation.nameUnsafe;
+    else if (!isValidName(cleanNombre)) e.nombre = p.editModal.validation.nameLettersOnly;
+
+    if (cleanSegundoNombre && !isValidName(cleanSegundoNombre))
+      e.segundo_nombre = p.editModal.validation.nameLettersOnly;
 
     if (!cleanApellidoPa) e.apellido_pa = p.editModal.validation.lastNamePRequired;
     else if (hasUnsafeMarkup(apellidoPa))
       e.apellido_pa = p.editModal.validation.lastNamePUnsafe;
+    else if (!isValidName(cleanApellidoPa))
+      e.apellido_pa = p.editModal.validation.nameLettersOnly;
+
+    if (cleanApellidoMa && !isValidName(cleanApellidoMa))
+      e.apellido_ma = p.editModal.validation.nameLettersOnly;
 
     if (!isValidPhone(celular)) e.celular = p.editModal.validation.phoneInvalid;
 
@@ -233,11 +250,7 @@ const EditPersonalInfoModal: React.FC<Props> = ({
                     type="text"
                     value={nombre}
                     maxLength={NAME_MAX_LENGTH}
-                    onChange={(e) =>
-                      setNombre(
-                        stripControlChars(e.target.value).slice(0, NAME_MAX_LENGTH),
-                      )
-                    }
+                    onChange={(e) => setNombre(sanitizeNameInput(e.target.value))}
                     style={inputStyle(!!errors.nombre)}
                   />
                   {errors.nombre && <p style={errorTextStyle}>{errors.nombre}</p>}
@@ -248,13 +261,12 @@ const EditPersonalInfoModal: React.FC<Props> = ({
                     type="text"
                     value={segundoNombre}
                     maxLength={NAME_MAX_LENGTH}
-                    onChange={(e) =>
-                      setSegundoNombre(
-                        stripControlChars(e.target.value).slice(0, NAME_MAX_LENGTH),
-                      )
-                    }
-                    style={inputStyle(false)}
+                    onChange={(e) => setSegundoNombre(sanitizeNameInput(e.target.value))}
+                    style={inputStyle(!!errors.segundo_nombre)}
                   />
+                  {errors.segundo_nombre && (
+                    <p style={errorTextStyle}>{errors.segundo_nombre}</p>
+                  )}
                 </div>
               </div>
 
@@ -265,11 +277,7 @@ const EditPersonalInfoModal: React.FC<Props> = ({
                     type="text"
                     value={apellidoPa}
                     maxLength={NAME_MAX_LENGTH}
-                    onChange={(e) =>
-                      setApellidoPa(
-                        stripControlChars(e.target.value).slice(0, NAME_MAX_LENGTH),
-                      )
-                    }
+                    onChange={(e) => setApellidoPa(sanitizeNameInput(e.target.value))}
                     style={inputStyle(!!errors.apellido_pa)}
                   />
                   {errors.apellido_pa && (
@@ -282,13 +290,12 @@ const EditPersonalInfoModal: React.FC<Props> = ({
                     type="text"
                     value={apellidoMa}
                     maxLength={NAME_MAX_LENGTH}
-                    onChange={(e) =>
-                      setApellidoMa(
-                        stripControlChars(e.target.value).slice(0, NAME_MAX_LENGTH),
-                      )
-                    }
-                    style={inputStyle(false)}
+                    onChange={(e) => setApellidoMa(sanitizeNameInput(e.target.value))}
+                    style={inputStyle(!!errors.apellido_ma)}
                   />
+                  {errors.apellido_ma && (
+                    <p style={errorTextStyle}>{errors.apellido_ma}</p>
+                  )}
                 </div>
               </div>
 

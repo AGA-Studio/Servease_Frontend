@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { motion, useInView } from "motion/react";
 import {
   Pencil,
-  MoreHorizontal,
   BadgeCheck,
   Briefcase,
   DollarSign,
@@ -33,7 +32,9 @@ import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { friendlyErrorMessage } from "../../utils/apiError";
 import Avatar from "../../components/avatar/Avatar";
+import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import EditAreasModal from "../../components/editareasmodal/EditAreasModal";
+import EditPersonalInfoModal from "../../components/editpersonalinfomodal/EditPersonalInfoModal";
 import PortafolioModal from "../../components/portafoliomodal/PortafolioModal";
 import PortfolioItemModal from "../../components/portfolioitemmodal/PortfolioItemModal";
 import { CustomizableModal } from "../../components/modal/CustomizableModal";
@@ -178,11 +179,13 @@ const PortfolioCard = ({
   index,
   onDelete,
   onClick,
+  isDark,
 }: {
   item: PortfolioItem;
   index: number;
   onDelete?: () => void;
   onClick?: () => void;
+  isDark: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "0px 0px -40px 0px" });
@@ -223,17 +226,20 @@ const PortfolioCard = ({
       }}
     >
       <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
-        <motion.img
+        <motion.div
           animate={{ scale: hovered ? 1.06 : 1 }}
           transition={{ duration: 0.3, ease: EASE }}
-          src={item.image}
-          alt={item.title}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
+          style={{ width: "100%", height: "100%" }}
+        >
+          <ImageWithFallback
+            src={item.image}
+            alt={item.title}
+            isDark={isDark}
+            borderRadius={0}
+            size="md"
+            style={{ width: "100%", height: "100%" }}
+          />
+        </motion.div>
         <div
           style={{
             position: "absolute",
@@ -310,6 +316,9 @@ const PortfolioCard = ({
             fontWeight: 700,
             fontSize: "0.92rem",
             color: "var(--text)",
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
           }}
         >
           {item.title}
@@ -398,6 +407,7 @@ const ProviderProfileScreen: React.FC = () => {
   const { formatMoney } = useCurrency();
   const p = t("profile").provider;
   const { toasts, addToast, removeToast } = useToast();
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
   const { areas, isLoading: isAreasLoading, update: updateAreas } = useWorkAreas();
@@ -649,12 +659,7 @@ const ProviderProfileScreen: React.FC = () => {
 
   const profileDescription = isOwnProfile
     ? profile?.descripcion_perfil?.trim() || ""
-    : (
-        perfilProveedor?.descripcion_perfil?.trim() ||
-        perfilProveedor?.descripcion?.trim() ||
-        perfilProveedor?.bio?.trim() ||
-        ""
-      );
+    : perfilProveedor?.descripcion_perfil?.trim() || "";
 
   const languageLabel = locale === "es" ? "Español" : "English";
 
@@ -750,6 +755,7 @@ const ProviderProfileScreen: React.FC = () => {
             >
               <motion.button
                 className="pp-btn-ghost"
+                onClick={() => setIsEditOpen(true)}
                 whileHover={{
                   scale: 1.03,
                   background: "rgba(255,255,255,0.22)",
@@ -773,29 +779,6 @@ const ProviderProfileScreen: React.FC = () => {
               >
                 <Pencil size={15} />
                 {p.editProfile}
-              </motion.button>
-              <motion.button
-                className="pp-btn-ghost"
-                whileHover={{
-                  scale: 1.05,
-                  background: "rgba(255,255,255,0.22)",
-                }}
-                whileTap={{ scale: 0.94 }}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 11,
-                  border: "1px solid rgba(255,255,255,.35)",
-                  background: "rgba(255,255,255,.14)",
-                  backdropFilter: "blur(6px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#fff",
-                }}
-              >
-                <MoreHorizontal size={18} />
               </motion.button>
             </div>
           )}
@@ -1445,6 +1428,7 @@ const ProviderProfileScreen: React.FC = () => {
                     key={item.id}
                     item={item}
                     index={i}
+                    isDark={isDark}
                     onClick={() => {
                       const full = portfolio.find(
                         (p) => p.id_portafolio === item.id_portafolio,
@@ -1544,6 +1528,18 @@ const ProviderProfileScreen: React.FC = () => {
       />
       {isOwnProfile && (
         <>
+          <EditPersonalInfoModal
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            profile={profile}
+            role="provider"
+            onSaved={(updated) => {
+              updateProfile(updated);
+              addToast("success", p.success.profileUpdated);
+            }}
+            onError={(message) => addToast("error", message)}
+          />
+
           <EditAreasModal
             key={areasModalKey}
             isOpen={showEditAreasModal}

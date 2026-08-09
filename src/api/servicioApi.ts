@@ -63,6 +63,8 @@ export interface PostDetails {
   estado: string;
   categoria: string;
   precio_inicial: string;
+  precio_acordado: string | null;
+  moneda: string | null;
   imagenes: string[];
   descripcion: string;
   tiempo_transcurrido: string;
@@ -95,6 +97,7 @@ export interface UltimaOferta {
   fecha: string;
   comentario: string | null;
   emisor: "cliente" | "proveedor";
+  aceptacion: boolean;
 }
 
 export interface Aplicante {
@@ -112,6 +115,7 @@ export interface Aplicante {
   trabajos_completados: number;
   ultima_oferta: UltimaOferta | null;
   penultima_oferta_monto: string | null;
+  moneda: string | null;
 }
 
 export async function fetchAplicantes(
@@ -184,6 +188,15 @@ export async function fetchPendienteCalificar(): Promise<PendienteCalificar | nu
   return apiGet<PendienteCalificar | null>("/api/servicios/pendiente-calificar/");
 }
 
+export async function aceptarOferta(
+  idPostulacion: number | string,
+): Promise<OfertaResponse> {
+  return apiPatch<OfertaResponse>(
+    `/api/servicios/postulaciones/${idPostulacion}/aceptar-oferta/`,
+    {},
+  );
+}
+
 export async function acceptPostulacion(
   idPostulacion: number | string,
 ): Promise<{ detail: string }> {
@@ -241,6 +254,7 @@ export async function fetchMisTrabajos(): Promise<MiTrabajo[]> {
 export interface IniciarPagoResponse {
   id_transaccion: number;
   monto: string;
+  moneda: string;
   estado: string;
   client_secret: string;
 }
@@ -256,6 +270,8 @@ export async function iniciarPago(
 
 export interface PagoEstado {
   id_transaccion: number;
+  monto: string;
+  moneda: string;
   estado: string;
 }
 
@@ -268,6 +284,8 @@ export async function fetchPagoEstado(
 export interface PagoEnCursoProveedor {
   id_servicio: number;
   id_transaccion: number;
+  monto: string;
+  moneda: string;
   estado: string;
 }
 
@@ -289,6 +307,7 @@ export async function cancelarPago(
 export interface PagoPendienteResponse {
   id_transaccion: number;
   monto: string;
+  moneda: string;
   client_secret: string;
 }
 
@@ -305,6 +324,7 @@ export interface PagoPendienteClienteResponse {
   titulo: string;
   id_transaccion: number;
   monto: string;
+  moneda: string;
   client_secret: string;
 }
 
@@ -350,9 +370,11 @@ export interface ServicioListItem {
   latitud: string;
   longitud: string;
   fecha: string;
-  estado: string;
+  id_estado: number;
+  estado_descripcion: string;
   imagenes: string[];
   categoria_nombre: string;
+  tipo_cambio_nombre: string | null;
 }
 
 const CATALOG_TTL_MS = 30_000;

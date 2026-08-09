@@ -21,14 +21,40 @@ export function mapEstadoToStatus(estado: string): ServicioStatus {
   return "in_progress";
 }
 
+// id_estado, per servicios/models/estado.py: 1 aceptado, 2 pendiente,
+// 3 rechazada, 4 progreso, 5 completado, 6 contraoferta, 7 abierto, 8 cancelado.
+const ESTADO_ID_ABIERTO = 7;
+const ESTADO_ID_COMPLETADO = 5;
+
+/**
+ * Prefer this over mapEstadoToStatus wherever id_estado is available — the
+ * numeric id is guaranteed stable, unlike matching on the translated/free-text
+ * estado_descripcion.
+ */
+export function mapEstadoIdToStatus(idEstado: number): ServicioStatus {
+  if (idEstado === ESTADO_ID_ABIERTO) return "receiving";
+  if (idEstado === ESTADO_ID_COMPLETADO) return "completed";
+  return "in_progress";
+}
+
 export function isServicioEditable(estado: string): boolean {
   return estado === "abierto";
+}
+
+export function isServicioEditableById(idEstado: number): boolean {
+  return idEstado === ESTADO_ID_ABIERTO;
 }
 
 export function mapPostDetailsToJobDetails(
   details: PostDetails,
   location: string,
 ): JobDetails {
+  // El presupuesto real: precio original del cliente, o si ya hay un
+  // proveedor aceptado, el precio pactado en la última oferta.
+  const displayPrice =
+    details.precio_acordado != null
+      ? Number(details.precio_acordado)
+      : Number(details.precio_inicial);
   return {
     id: String(details.id_servicio),
     title: details.titulo,
@@ -40,9 +66,9 @@ export function mapPostDetailsToJobDetails(
     urgency: "",
     fecha_final: details.fecha_final,
     postedAgo: timeAgo(details.fecha),
-    price: Number(details.precio_inicial),
-    currency: "MXN",
-    priceRange: `$${Number(details.precio_inicial).toLocaleString()} MXN`,
+    price: displayPrice,
+    currency: details.moneda ?? "MXN",
+    priceRange: `$${displayPrice.toLocaleString()} ${details.moneda ?? "MXN"}`,
     description: details.descripcion,
     mainImage: details.imagenes[0] ?? "",
     thumbnails: details.imagenes,

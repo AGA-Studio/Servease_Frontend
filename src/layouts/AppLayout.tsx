@@ -61,6 +61,7 @@ const AppLayout: React.FC = () => {
     idTransaccion: number;
     clientSecret: string;
     monto: string;
+    moneda: string;
     serviceTitle: string;
   }
   const [cardPayment, setCardPayment] = useState<CardPaymentPrompt | null>(null);
@@ -110,6 +111,7 @@ const AppLayout: React.FC = () => {
           idTransaccion: pago.id_transaccion,
           clientSecret: pago.client_secret,
           monto: pago.monto,
+          moneda: pago.moneda,
           serviceTitle: pago.titulo,
         });
       })
@@ -156,6 +158,7 @@ const AppLayout: React.FC = () => {
             idTransaccion: row.id_transaccion,
             clientSecret: pago.client_secret,
             monto: pago.monto,
+            moneda: pago.moneda,
             serviceTitle: details.titulo,
           });
         })
@@ -312,7 +315,7 @@ const AppLayout: React.FC = () => {
             isDark={isDark}
             clientSecret={cardPayment?.clientSecret ?? null}
             amount={cardPayment ? Number(cardPayment.monto).toLocaleString() : "0"}
-            currency="MXN"
+            currency={cardPayment?.moneda ?? "MXN"}
             serviceTitle={cardPayment?.serviceTitle ?? ""}
           />
 

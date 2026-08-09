@@ -293,9 +293,9 @@ const PostRow = ({
               fontWeight: 700,
               fontSize: "0.94rem",
               color: "var(--text)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
             }}
           >
             {post.title}
@@ -689,7 +689,7 @@ const ClientProfileScreen: React.FC = () => {
             {p.personalInfo.title}
           </div>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: 1.7, margin: 0 }}>
-            {(isOwnProfile ? profile?.descripcion_perfil : undefined) || p.personalInfo.defaultBio}
+            {(isOwnProfile ? profile?.descripcion_perfil : perfilCliente?.descripcion_perfil) || p.personalInfo.defaultBio}
           </p>
           <div style={{ height: 1, background: "var(--divider)", margin: "22px 0" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

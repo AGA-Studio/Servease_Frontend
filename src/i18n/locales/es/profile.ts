@@ -42,6 +42,7 @@ export const profile = {
       validation: {
         nameRequired: "El nombre no puede estar vacío.",
         nameUnsafe: "El nombre contiene caracteres no permitidos (< o >).",
+        nameLettersOnly: "Solo se permiten letras, espacios, apóstrofes y guiones.",
         lastNamePRequired: "El apellido paterno no puede estar vacío.",
         lastNamePUnsafe: "El apellido paterno contiene caracteres no permitidos (< o >).",
         phoneInvalid: "Ingresa un número de celular válido (10 dígitos).",
@@ -80,6 +81,37 @@ export const profile = {
     unavailableTitle: "No disponible para trabajar",
     unavailableSubtitle: "Activa tu disponibilidad para ver trabajos nuevos.",
     unavailableActivate: "Activar disponibilidad",
+    editModal: {
+      title: "Editar Información Personal",
+      nameLabel: "Nombre",
+      secondNameLabel: "Segundo Nombre (opcional)",
+      lastNamePLabel: "Apellido Paterno",
+      lastNameMLabel: "Apellido Materno (opcional)",
+      phoneLabel: "Celular (opcional)",
+      bioLabel: "Biografía (opcional)",
+      save: "Guardar Cambios",
+      cancel: "Cancelar",
+      confirmSave: {
+        title: "Guardar Cambios",
+        message: "¿Guardar los cambios a tu información personal?",
+        confirm: "Guardar",
+      },
+      validation: {
+        nameRequired: "El nombre no puede estar vacío.",
+        nameUnsafe: "El nombre contiene caracteres no permitidos (< o >).",
+        nameLettersOnly: "Solo se permiten letras, espacios, apóstrofes y guiones.",
+        lastNamePRequired: "El apellido paterno no puede estar vacío.",
+        lastNamePUnsafe: "El apellido paterno contiene caracteres no permitidos (< o >).",
+        phoneInvalid: "Ingresa un número de celular válido (10 dígitos).",
+        bioUnsafe: "La biografía contiene caracteres no permitidos (< o >).",
+      },
+    },
+    success: {
+      profileUpdated: "Perfil actualizado correctamente.",
+    },
+    errors: {
+      profileUpdateFailed: "No se pudo actualizar tu perfil. Intenta de nuevo.",
+    },
     stats: {
       completedJobs: "Trabajos Completados",
       totalEarnings: "Ganancias Totales",

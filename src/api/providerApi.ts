@@ -15,15 +15,23 @@ export async function fetchProviderKpis(): Promise<ProviderKpisResponse> {
   return apiGet<ProviderKpisResponse>("/api/proveedores/dashboard/kpis/");
 }
 
+// El backend ya no suma MXN y USD como si fueran la misma moneda: cada bucket
+// viene separado por moneda del servicio (ver vista_resumen_ganancias). Aquí
+// se combina cada par usando la tasa de cambio vigente (convertUsdToMxn).
 interface ResumenGananciasRaw {
   proveedor_id: string;
-  ganancias_esta_semana: string;
-  ganancias_este_mes: string;
-  ganancias_pendiente: string;
-  ganancias_proyectado: string;
-  ganancias_totales: string;
-  ganancias_esta_semana_pct_cambio: string | null;
-  ganancias_este_mes_pct_cambio: string | null;
+  ganancias_esta_semana_mxn: string;
+  ganancias_esta_semana_usd: string;
+  ganancias_este_mes_mxn: string;
+  ganancias_este_mes_usd: string;
+  ganancias_pendiente_mxn: string;
+  ganancias_pendiente_usd: string;
+  ganancias_totales_mxn: string;
+  ganancias_totales_usd: string;
+  ganancias_semana_anterior_mxn: string;
+  ganancias_semana_anterior_usd: string;
+  ganancias_mes_anterior_mxn: string;
+  ganancias_mes_anterior_usd: string;
 }
 
 export interface ProviderEarningsSummaryResponse {
@@ -36,22 +44,34 @@ export interface ProviderEarningsSummaryResponse {
   projected: number;
 }
 
-const toNumberOrUndefined = (value: string | null | undefined): number | undefined => {
-  if (value === null || value === undefined || value === "") return undefined;
-  const n = Number(value);
-  return Number.isNaN(n) ? undefined : n;
+const pctChange = (current: number, previous: number): number | undefined => {
+  if (previous === 0) return undefined;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
 };
 
-export async function fetchProviderEarningsSummary(): Promise<ProviderEarningsSummaryResponse> {
+export async function fetchProviderEarningsSummary(
+  convertUsdToMxn: (amountUsd: number) => number,
+): Promise<ProviderEarningsSummaryResponse> {
   const raw = await apiGet<ResumenGananciasRaw>("/api/usuarios/resumen-ganancias/");
+
+  const combine = (mxn: string, usd: string) =>
+    Number(mxn ?? 0) + convertUsdToMxn(Number(usd ?? 0));
+
+  const thisWeek = combine(raw.ganancias_esta_semana_mxn, raw.ganancias_esta_semana_usd);
+  const thisMonth = combine(raw.ganancias_este_mes_mxn, raw.ganancias_este_mes_usd);
+  const pending = combine(raw.ganancias_pendiente_mxn, raw.ganancias_pendiente_usd);
+  const total = combine(raw.ganancias_totales_mxn, raw.ganancias_totales_usd);
+  const weekPrevious = combine(raw.ganancias_semana_anterior_mxn, raw.ganancias_semana_anterior_usd);
+  const monthPrevious = combine(raw.ganancias_mes_anterior_mxn, raw.ganancias_mes_anterior_usd);
+
   return {
-    total: Number(raw.ganancias_totales ?? 0),
-    thisWeek: Number(raw.ganancias_esta_semana ?? 0),
-    weekTrend: toNumberOrUndefined(raw.ganancias_esta_semana_pct_cambio),
-    thisMonth: Number(raw.ganancias_este_mes ?? 0),
-    monthTrend: toNumberOrUndefined(raw.ganancias_este_mes_pct_cambio),
-    pending: Number(raw.ganancias_pendiente ?? 0),
-    projected: Number(raw.ganancias_proyectado ?? 0),
+    total,
+    thisWeek,
+    weekTrend: pctChange(thisWeek, weekPrevious),
+    thisMonth,
+    monthTrend: pctChange(thisMonth, monthPrevious),
+    pending,
+    projected: thisWeek + pending,
   };
 }
 

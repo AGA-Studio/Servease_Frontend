@@ -3,7 +3,7 @@
 const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 const HTML_INJECTION_PATTERN = /[<>]|javascript:|data:text\/html/i;
 
-export const TITLE_MAX_LENGTH = 150;
+export const TITLE_MAX_LENGTH = 30;
 export const DESCRIPTION_MAX_LENGTH = 500;
 export const LOCATION_MAX_LENGTH = 150;
 

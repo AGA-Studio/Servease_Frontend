@@ -1,8 +1,14 @@
 import { RefreshCw } from "lucide-react";
-import SearchBar from "../../../../components/searchbar/SearchBar";
+import { useNavigate } from "react-router-dom";
+import SearchBar, {
+  type SearchSuggestion,
+} from "../../../../components/searchbar/SearchBar";
 import IconTooltip from "../../../../components/tooltip/IconTooltip";
 import { useI18n } from "../../../../i18n";
 import { useAuth } from "../../../../context/AuthContext";
+import { ROUTES } from "../../../../router/routes";
+import { fetchCategorias, type Categoria } from "../../../../api/categoriaApi";
+import { useCachedResource } from "../../../../hooks/useCachedResource";
 
 interface DashboardTopBarProps {
   isDark: boolean;
@@ -16,6 +22,15 @@ export const DashboardTopBar = ({
   const { t } = useI18n();
   const d = t("dashboardscreen");
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const { data: categorias } = useCachedResource<Categoria[]>(
+    "categorias",
+    fetchCategorias,
+  );
+  const categorySuggestions: SearchSuggestion[] = (categorias ?? []).map(
+    (c) => ({ id: String(c.id_categoria), label: c.nombre, tag: d.searchTags.service }),
+  );
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -73,14 +88,14 @@ export const DashboardTopBar = ({
             isDark={isDark}
             placeholder={d.searchPlaceholder}
             hintText={d.searchHint}
-            suggestions={[
-              { id: "1", label: d.categories.plumbing, description: d.searchCategories.homeServices, tag: d.searchTags.service },
-              { id: "2", label: d.categories.electrical, description: d.searchCategories.homeServices, tag: d.searchTags.service },
-              { id: "3", label: d.categories.gardening, description: d.searchCategories.homeServices, tag: d.searchTags.service },
-              { id: "4", label: d.categories.hvac, description: d.searchCategories.urgentJobs, tag: d.searchTags.job },
-            ]}
-            onSearch={(q) => console.log("dashboard search:", q)}
-            onSelect={(s) => console.log("dashboard selected:", s)}
+            suggestions={categorySuggestions}
+            onSearch={(q) => {
+              if (!q.trim()) return;
+              navigate(`${ROUTES.APP.MY_JOBS}?search=${encodeURIComponent(q.trim())}`);
+            }}
+            onSelect={(s) =>
+              navigate(`${ROUTES.APP.MY_JOBS}?category=${encodeURIComponent(s.label)}`)
+            }
           />
         </div>
 
