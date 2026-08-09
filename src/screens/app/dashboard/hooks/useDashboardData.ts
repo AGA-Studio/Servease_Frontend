@@ -4,6 +4,7 @@ import {
   fetchDashboardData,
   getCachedDashboardData,
 } from "../data/dashboardApi";
+import { useCurrency } from "../../../../context/CurrencyContext";
 
 type FetchStatus = "idle" | "loading" | "success" | "error" | "empty";
 
@@ -19,6 +20,12 @@ export function useDashboardData(
   userId: string | undefined,
   areaNames?: string[],
 ): UseDashboardDataReturn {
+  const { convert } = useCurrency();
+  const convertUsdToMxn = useCallback(
+    (amountUsd: number) => convert(amountUsd, "USD", "MXN"),
+    [convert],
+  );
+
   const cached = useMemo(
     () => (userId ? getCachedDashboardData(userId) : null),
     [userId],
@@ -55,7 +62,7 @@ export function useDashboardData(
         setState((prev) => ({ ...prev, status: "loading", error: null }));
       }
       try {
-        const result = await fetchDashboardData(userId ?? "");
+        const result = await fetchDashboardData(userId ?? "", convertUsdToMxn);
         if (cancelled) return;
         const isEmpty =
           result.availableJobs.length === 0 &&
@@ -90,7 +97,7 @@ export function useDashboardData(
     return () => {
       cancelled = true;
     };
-  }, [refreshToken, userId, areaNames]);
+  }, [refreshToken, userId, areaNames, convertUsdToMxn]);
 
   return {
     data: state.data,

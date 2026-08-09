@@ -220,6 +220,7 @@ export const MOCK_JOBS_BY_CATEGORY: CategoryBreakdown[] = [
 
 export async function fetchDashboardData(
   userId: string,
+  convertUsdToMxn: (amountUsd: number) => number,
 ): Promise<DashboardData> {
   const availablePromise = (async (): Promise<TrabajoDisponible[]> => {
     try {
@@ -242,7 +243,7 @@ export async function fetchDashboardData(
       const dashboardKpis = await fetchDashboardProveedor(userId);
       let earningsSummary: ProviderEarningsSummaryResponse | undefined;
       try {
-        earningsSummary = await fetchProviderEarningsSummary();
+        earningsSummary = await fetchProviderEarningsSummary(convertUsdToMxn);
       } catch (err) {
         console.error("fetchProviderEarningsSummary failed:", err);
       }
