@@ -28,7 +28,7 @@ export const postoffers = {
   yourCounter: "Tu Contraoferta",
   cancelCounter: "Cancelar Contraoferta",
   waitingForResponse: "Esperando Respuesta",
-  acceptedMessage: "Aceptado — tú y {name} están listos para comenzar por ${bid}",
+  acceptedMessage: "Aceptado — tú y {name} están listos para comenzar por {bid}",
   declinedMessage: "Rechazaste a este aplicante.",
   undo: "Deshacer",
   empty: "No hay aplicantes en esta categoría.",

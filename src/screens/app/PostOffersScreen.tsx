@@ -55,8 +55,12 @@ interface Applicant {
   offerAccepted: boolean;
 }
 
+// Una vez que hubo una contraoferta, counterAmount es el monto vigente —
+// incluso después de aceptar (status ya no es "countered" en ese momento,
+// pero el precio acordado sigue siendo el de la contraoferta, no el bid
+// original).
 function getCurrentAsk(a: Applicant): number {
-  return a.status === "countered" ? (a.counterAmount ?? a.bid) : a.bid;
+  return a.counterAmount ?? a.bid;
 }
 
 function mapEstadoSolicitud(estado: string | null, hasOferta: boolean): ApplicantStatus {
@@ -1025,6 +1029,7 @@ const PostOffersScreen: React.FC = () => {
           name: counterApplicant?.name ?? "",
           avatarUrl: counterApplicant?.avatar,
           originalBid: counterApplicant ? getCurrentAsk(counterApplicant) : 0,
+          currency: counterApplicant?.moneda,
         }}
         isSubmitting={isCounterSubmitting}
         errorMessage={counterError}

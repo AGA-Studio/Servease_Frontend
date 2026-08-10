@@ -1042,9 +1042,10 @@ const MyJobsScreen: React.FC = () => {
         openRatingForJob(job);
       } else if (pago.estado === "expirada") {
         setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "failed" });
-      } else {
+      } else if (pago.estado === "pendiente") {
         setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "waiting" });
       }
+      // 'cancelada' u otro estado ya resuelto: no hay nada que retomar.
     },
     [openRatingForJob],
   );
@@ -1135,6 +1136,11 @@ const MyJobsScreen: React.FC = () => {
 
       if (row.estado === "expirada" && paymentWait?.idTransaccion === row.id_transaccion) {
         setPaymentWait((prev) => (prev ? { ...prev, status: "failed" } : prev));
+        return;
+      }
+
+      if (row.estado === "cancelada" && paymentWait?.idTransaccion === row.id_transaccion) {
+        setPaymentWait(null);
       }
     },
   });
@@ -1652,6 +1658,7 @@ const MyJobsScreen: React.FC = () => {
           name: counteringClient?.name ?? "",
           avatarUrl: counteringClient?.avatarUrl,
           currentBid: counteringJob?.budget ?? 0,
+          currency: counteringJob?.currency,
         }}
         isSubmitting={isCounterSubmitting}
         errorMessage={counterError}

@@ -28,7 +28,7 @@ export const postoffers = {
   yourCounter: "Your Counter",
   cancelCounter: "Cancel Counter",
   waitingForResponse: "Waiting for Response",
-  acceptedMessage: "Accepted — you and {name} are ready to get started at ${bid}",
+  acceptedMessage: "Accepted — you and {name} are ready to get started at {bid}",
   declinedMessage: "You declined this applicant.",
   undo: "Undo",
   empty: "No applicants in this category.",

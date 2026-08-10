@@ -1392,6 +1392,7 @@ const JobFeedScreen: React.FC = () => {
       />
 
       <ApplyJobModal
+        key={selectedJob?.id ?? "none"}
         isOpen={isApplyOpen}
         onClose={() => setIsApplyOpen(false)}
         jobTitle={selectedJob?.titulo ?? ""}

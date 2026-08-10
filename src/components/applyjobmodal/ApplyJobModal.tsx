@@ -79,8 +79,10 @@ const ApplyJobModal: React.FC<Props> = ({
   const serviceCurrency = jobCurrency === "USD" ? "USD" : "MXN";
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
+  // El incremento sugerido es en la moneda del servicio: 50 pesos o 5 dolares.
+  const bidStep = serviceCurrency === "USD" ? 5 : 50;
   const defaultCounterOffer =
-    Math.round(convert(clientPrice + 30, serviceCurrency, currency) * 100) / 100;
+    Math.round(convert(clientPrice + bidStep, serviceCurrency, currency) * 100) / 100;
   const [counterOfferNumeric, setCounterOfferNumeric] = useState<number>(defaultCounterOffer);
   const [counterOfferDisplay, setCounterOfferDisplay] = useState<string>(
     formatBidInputValue(String(defaultCounterOffer)).display,
