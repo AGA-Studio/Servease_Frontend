@@ -14,10 +14,12 @@ import { ROUTES } from "../router/routes";
 import { useAuth } from "../context/AuthContext";
 import ClientRatingModal, { type ClientRatingData } from "../components/ratingmodal/ClientRatingModal";
 import CardPaymentModal from "../components/payment/CardPaymentModal";
+import CompleteServiceModal from "../components/completeservicemodal/CompleteServiceModal";
 import { useToast } from "../components/Toast/useToast";
 import ToastContainer from "../components/Toast/ToastContainer";
 import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 import { friendlyErrorMessage } from "../utils/apiError";
+import { roleHasCapability } from "../utils/roles";
 import {
   calificarServicio,
   fetchAplicantes,
@@ -25,8 +27,13 @@ import {
   fetchPagoPendienteCliente,
   fetchPendienteCalificar,
   fetchPostDetails,
+  fetchTrabajoTerminadoPendiente,
+  iniciarPagoCliente,
+  pagoEfectivoCliente,
 } from "../api/servicioApi";
-import type { Notificacion } from "../api/notificacionApi";
+import { marcarNotificacionLeida, type Notificacion } from "../api/notificacionApi";
+import { toNotificationItem, resolveNotificationPath } from "../utils/notifications";
+import { getCached, setCached } from "../lib/dataCache";
 
 const useTheme = () => {
   const [isDark, setIsDark] = useState(
@@ -52,9 +59,13 @@ const AppLayout: React.FC = () => {
   const sidebar = t("sidebar");
   const crm = t("clientratingmodal");
   const cpm = t("cardpaymentmodal");
+  const csm = t("completeservicemodal");
   const { user } = useAuth();
   const { toasts, addToast, removeToast } = useToast();
-  const isClient = user?.role === "client";
+  // No es un chequeo estricto de "role === client" — un proveedor también
+  // puede publicar su propio servicio y necesita ver estos modales cuando
+  // actúa como cliente en ese servicio (jerarquía de roles, ver utils/roles).
+  const isClient = !!user && roleHasCapability(user.role, "client");
 
   interface CardPaymentPrompt {
     idServicio: number;
@@ -65,6 +76,37 @@ const AppLayout: React.FC = () => {
     serviceTitle: string;
   }
   const [cardPayment, setCardPayment] = useState<CardPaymentPrompt | null>(null);
+
+  interface CompleteJobPrompt {
+    idServicio: number;
+    titulo: string;
+    amount: string;
+    currency: string;
+  }
+  const [completeJob, setCompleteJob] = useState<CompleteJobPrompt | null>(null);
+  const [isStartingCardPayment, setIsStartingCardPayment] = useState(false);
+
+  const openCompleteJob = useCallback(
+    (idServicio: number, known?: { titulo: string; monto: string; moneda: string }) => {
+      if (known) {
+        setCompleteJob({ idServicio, titulo: known.titulo, amount: known.monto, currency: known.moneda });
+        return;
+      }
+      fetchPostDetails(idServicio)
+        .then((details) => {
+          setCompleteJob({
+            idServicio,
+            titulo: details.titulo,
+            amount: details.precio_acordado ?? details.precio_inicial,
+            currency: details.moneda ?? "MXN",
+          });
+        })
+        .catch((error) => {
+          console.error("fetchPostDetails failed:", error);
+        });
+    },
+    [],
+  );
 
   interface RatingPrompt {
     idServicio: number;
@@ -123,6 +165,28 @@ const AppLayout: React.FC = () => {
     };
   }, [isClient, user]);
 
+  // Same as above but for a job the provider already marked as done before
+  // this session connected — Realtime's UPDATE sub below only catches it live.
+  useEffect(() => {
+    if (!isClient || !user) return;
+    let cancelled = false;
+    fetchTrabajoTerminadoPendiente()
+      .then((pendiente) => {
+        if (cancelled || !pendiente) return;
+        openCompleteJob(pendiente.id_servicio, {
+          titulo: pendiente.titulo,
+          monto: pendiente.monto,
+          moneda: pendiente.moneda,
+        });
+      })
+      .catch((error) => {
+        console.error("fetchTrabajoTerminadoPendiente failed:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isClient, user, openCompleteJob]);
+
   // Client waiting for a card charge the provider just started — also watches
   // for the provider cancelling it mid-wait (UPDATE to 'cancelada').
   useRealtimeChannel<{
@@ -145,8 +209,16 @@ const AppLayout: React.FC = () => {
 
       if (row.estado === "cancelada") {
         if (cardPayment?.idTransaccion !== row.id_transaccion) return;
-        setCardPayment(null);
         addToast("info", cpm.cancelledByProvider);
+        // El proveedor canceló el cobro con tarjeta — el trabajo sigue
+        // marcado como terminado, así que el cliente puede elegir de nuevo.
+        setCompleteJob({
+          idServicio: cardPayment.idServicio,
+          titulo: cardPayment.serviceTitle,
+          amount: cardPayment.monto,
+          currency: cardPayment.moneda,
+        });
+        setCardPayment(null);
         return;
       }
 
@@ -168,37 +240,52 @@ const AppLayout: React.FC = () => {
     },
   });
 
-  // Client waiting for the provider to mark the service completed (blocking rating prompt).
-  useRealtimeChannel<{ id_servicio: number; estado: string }>({
+  // Client waiting for the provider to mark the job done (payment-method
+  // prompt) or the service completed (blocking rating prompt).
+  useRealtimeChannel<{ id_servicio: number; estado: string; trabajo_terminado: boolean }>({
     table: "servicio",
     event: "UPDATE",
     filter: user ? `cliente_id=eq.${user.id}` : undefined,
     enabled: isClient && !!user,
     onChange: (payload) => {
-      const row = payload.new as { id_servicio: number; estado: string };
-      if (row.estado !== "completado") return;
-      fetchAplicantes(row.id_servicio)
-        .then((aplicantes) => {
-          const aceptado = aplicantes.find((a) =>
-            a.estado_solicitud?.toLowerCase().includes("acept"),
-          );
-          setRatingPrompt({
-            idServicio: row.id_servicio,
-            provider: {
-              name: aceptado?.nombre_proveedor ?? "",
-              avatarUrl: aceptado?.url_foto_perfil ?? undefined,
-            },
+      const row = payload.new as {
+        id_servicio: number;
+        estado: string;
+        trabajo_terminado: boolean;
+      };
+
+      if (row.estado === "completado") {
+        setCompleteJob(null);
+        fetchAplicantes(row.id_servicio)
+          .then((aplicantes) => {
+            const aceptado = aplicantes.find((a) =>
+              a.estado_solicitud?.toLowerCase().includes("acept"),
+            );
+            setRatingPrompt({
+              idServicio: row.id_servicio,
+              provider: {
+                name: aceptado?.nombre_proveedor ?? "",
+                avatarUrl: aceptado?.url_foto_perfil ?? undefined,
+              },
+            });
+          })
+          .catch((error) => {
+            console.error("fetchAplicantes failed:", error);
           });
-        })
-        .catch((error) => {
-          console.error("fetchAplicantes failed:", error);
-        });
+        return;
+      }
+
+      if (row.trabajo_terminado && row.estado === "progreso") {
+        openCompleteJob(row.id_servicio);
+      }
     },
   });
 
   // Global: any new notification for the logged-in user pops a toast,
-  // regardless of which screen they're on. Clicking it jumps to the
-  // notifications page with that entry highlighted.
+  // regardless of which screen they're on. Clicking it does exactly what
+  // clicking the row on the Notifications screen does — marks it read and
+  // jumps straight to the relevant screen — instead of just opening the
+  // notifications list.
   useRealtimeChannel<Notificacion>({
     table: "notificacion",
     event: "INSERT",
@@ -206,15 +293,66 @@ const AppLayout: React.FC = () => {
     enabled: !!user,
     onChange: (payload) => {
       const n = payload.new as Notificacion;
+      const item = toNotificationItem(n);
       addToast("info", n.contenido ?? n.titulo, {
         duration: 8000,
-        onClick: () =>
-          navigate(ROUTES.APP.NOTIFICATIONS, {
-            state: { highlightId: n.id_notificacion },
-          }),
+        onClick: () => {
+          marcarNotificacionLeida(n.id_notificacion).catch((error) => {
+            console.error("marcarNotificacionLeida failed:", error);
+          });
+          if (user) {
+            const cacheKey = `notificaciones:${user.id}`;
+            const cached = getCached<Notificacion[]>(cacheKey);
+            if (cached) {
+              setCached(
+                cacheKey,
+                cached.map((c) =>
+                  c.id_notificacion === n.id_notificacion ? { ...c, leido: true } : c,
+                ),
+              );
+            }
+          }
+          navigate(resolveNotificationPath(item, user?.role));
+        },
       });
     },
   });
+
+  const handleConfirmCashClient = useCallback(async () => {
+    if (!completeJob) return;
+    try {
+      await pagoEfectivoCliente(completeJob.idServicio);
+      setCompleteJob(null);
+      // El RatingModal de ambos lados se abre solo, vía el Realtime de
+      // arriba, en cuanto el servidor marque el servicio como completado.
+    } catch (error) {
+      console.error("pagoEfectivoCliente failed:", error);
+      addToast("error", friendlyErrorMessage(error, csm.cashFailed));
+      throw error;
+    }
+  }, [completeJob, addToast, csm]);
+
+  const handleStartCardPaymentClient = useCallback(async () => {
+    if (!completeJob) return;
+    setIsStartingCardPayment(true);
+    try {
+      const res = await iniciarPagoCliente(completeJob.idServicio);
+      setCompleteJob(null);
+      setCardPayment({
+        idServicio: completeJob.idServicio,
+        idTransaccion: res.id_transaccion,
+        clientSecret: res.client_secret,
+        monto: res.monto,
+        moneda: res.moneda,
+        serviceTitle: completeJob.titulo,
+      });
+    } catch (error) {
+      console.error("iniciarPagoCliente failed:", error);
+      addToast("error", friendlyErrorMessage(error, csm.cardFailed));
+    } finally {
+      setIsStartingCardPayment(false);
+    }
+  }, [completeJob, addToast, csm]);
 
   const handleClientRatingSubmit = useCallback(
     async (data: ClientRatingData) => {
@@ -319,10 +457,25 @@ const AppLayout: React.FC = () => {
             serviceTitle={cardPayment?.serviceTitle ?? ""}
           />
 
-          {/* Both are full-screen non-dismissable overlays — only ever show one.
-              Payment takes priority: it blocks the provider on the other end
-              and has a server-side expiry, so it shouldn't wait behind rating. */}
-          {ratingPrompt && !cardPayment && (
+          {completeJob && (
+            <CompleteServiceModal
+              isOpen={!cardPayment}
+              onClose={() => setCompleteJob(null)}
+              isDark={isDark}
+              jobTitle={completeJob.titulo}
+              amount={Number(completeJob.amount).toLocaleString()}
+              currency={completeJob.currency}
+              onConfirmCash={handleConfirmCashClient}
+              onStartCardPayment={handleStartCardPaymentClient}
+              isStartingCardPayment={isStartingCardPayment}
+            />
+          )}
+
+          {/* These three are full-screen non-dismissable overlays — only
+              ever show one at a time, in priority order: an active card
+              payment (blocks the provider and has a server-side expiry) >
+              choosing a payment method > rating. */}
+          {ratingPrompt && !cardPayment && !completeJob && (
             <ClientRatingModal
               isOpen={!!ratingPrompt}
               provider={ratingPrompt.provider}

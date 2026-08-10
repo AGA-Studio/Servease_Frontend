@@ -10,13 +10,15 @@ import {
   ChevronRight,
 } from "lucide-react";
 import EmptyState from "../../components/emptystate/EmptyState";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useI18n } from "../../i18n";
 import { useCurrency } from "../../context/CurrencyContext";
 import { useAvailability } from "../../context/AvailabilityContext";
 import { useWorkAreas } from "../../context/WorkAreasContext";
+import { useAuth } from "../../context/AuthContext";
+import { useCachedResource } from "../../hooks/useCachedResource";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import { ROUTES } from "../../router/routes";
@@ -91,6 +93,22 @@ function trabajoToFeedJob(item: TrabajoDisponible): FeedJob {
 
 const PAGE_SIZE = 10;
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+const ENTRANCE_EASE = [0.23, 1, 0.32, 1] as const;
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+
+const itemEnter = {
+  hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.35, ease: ENTRANCE_EASE },
+  },
+};
 
 const getPageList = (page: number, totalPages: number): (number | "...")[] => {
   if (totalPages <= 7) {
@@ -503,12 +521,13 @@ const AppliedJobItem = ({
 const JobFeedScreen: React.FC = () => {
   const { isDark } = useThemeMode();
   const { t } = useI18n();
-  const { formatMoney, convert } = useCurrency();
+  const { formatMoney, convert, currency } = useCurrency();
   const d = t("jobfeedscreen");
   const p = t("profile").provider;
   const navigate = useNavigate();
   const { disponible, isLoading: isAvailabilityLoading, setDisponible } = useAvailability();
   const { areas } = useWorkAreas();
+  const { user } = useAuth();
 
   const { toasts, addToast, removeToast } = useToast();
 
@@ -521,18 +540,8 @@ const JobFeedScreen: React.FC = () => {
   const [providerCoords, setProviderCoords] = useState<ApproxCoords | null>(
     null,
   );
-  const [jobs, setJobs] = useState<FeedJob[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [earningsSummary, setEarningsSummary] = useState<{
-    thisWeek: number;
-    pending: number;
-    projected: number;
-  } | null>(null);
   const jobsListRef = useRef<HTMLDivElement>(null);
-  const [appliedJobs, setAppliedJobs] = useState<MyJob[]>([]);
-  const [isLoadingApplied, setIsLoadingApplied] = useState(true);
   const [appliedDetails, setAppliedDetails] = useState<JobDetails | null>(null);
   const [isAppliedDetailsOpen, setIsAppliedDetailsOpen] = useState(false);
 
@@ -543,24 +552,18 @@ const JobFeedScreen: React.FC = () => {
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const items = await fetchTrabajosAplicados();
-        if (cancelled) return;
-        setAppliedJobs(items.map(mapTrabajoAplicadoToMyJob).slice(0, 5));
-      } catch {
-        if (cancelled) return;
-        setAppliedJobs([]);
-      } finally {
-        if (!cancelled) setIsLoadingApplied(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    data: appliedRaw,
+    setData: setAppliedRaw,
+    isLoading: isLoadingApplied,
+  } = useCachedResource(
+    user?.id ? `trabajos-aplicados:${user.id}` : null,
+    () => fetchTrabajosAplicados(),
+  );
+  const appliedJobs: MyJob[] = useMemo(
+    () => (appliedRaw ?? []).map(mapTrabajoAplicadoToMyJob).slice(0, 5),
+    [appliedRaw],
+  );
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -578,44 +581,38 @@ const JobFeedScreen: React.FC = () => {
     );
   }, []);
 
-  useEffect(() => {
-    fetchProviderEarningsSummary((usd) => convert(usd, "USD", "MXN"))
-      .then(setEarningsSummary)
-      .catch(() => {});
-  }, [convert]);
+  const { data: earningsSummary } = useCachedResource(
+    user?.id ? `provider-earnings-summary:${user.id}:${currency}` : null,
+    () => fetchProviderEarningsSummary((usd) => convert(usd, "USD", "MXN")),
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      const res = await fetchTrabajosDisponibles({
+  const {
+    data: trabajosDisponibles,
+    isLoading,
+    error: jobsErrorObj,
+  } = useCachedResource(
+    `trabajos-disponibles:${page}:${filters.category}`,
+    () =>
+      fetchTrabajosDisponibles({
         page,
         pageSize: PAGE_SIZE,
         categoriaId: filters.category ? Number(filters.category) : undefined,
-      });
-      if (cancelled) return;
-      setJobs(res.results.map(trabajoToFeedJob));
-      setTotalItems(res.count);
-    };
+      }),
+  );
+  const jobs: FeedJob[] = useMemo(
+    () => (trabajosDisponibles?.results ?? []).map(trabajoToFeedJob),
+    [trabajosDisponibles],
+  );
+  const totalItems = trabajosDisponibles?.count ?? 0;
 
-    run()
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchTrabajosDisponibles failed:", error);
-        addToast(
-          "error",
-          error instanceof ApiError ? error.message : d.errors.fetchFailed,
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      setIsLoading(true);
-    };
-  }, [filters.category, page, addToast, d.errors.fetchFailed]);
+  useEffect(() => {
+    if (!jobsErrorObj) return;
+    console.error("fetchTrabajosDisponibles failed:", jobsErrorObj);
+    addToast(
+      "error",
+      jobsErrorObj instanceof ApiError ? jobsErrorObj.message : d.errors.fetchFailed,
+    );
+  }, [jobsErrorObj, addToast, d.errors.fetchFailed]);
 
   const handleViewDetails = async (job: FeedJob) => {
     setSelectedJob(job);
@@ -651,7 +648,7 @@ const JobFeedScreen: React.FC = () => {
       setIsApplyOpen(false);
       addToast("success", d.applySuccess);
       const items = await fetchTrabajosAplicados();
-      setAppliedJobs(items.map(mapTrabajoAplicadoToMyJob).slice(0, 5));
+      setAppliedRaw(items);
     } catch (err) {
       addToast(
         "error",
@@ -1140,15 +1137,26 @@ const JobFeedScreen: React.FC = () => {
                       />
                     </div>
                   ) : (
-                    paginated.map((job) => (
-                      <JobCard
-                        key={job.id}
-                        job={job}
-                        onViewDetails={() => handleViewDetails(job)}
-                        isLoadingDetails={isDetailsLoading && selectedJob?.id === job.id}
-                        isDark={isDark}
-                      />
-                    ))
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={`${page}|${filters.category}|${filters.distance}|${filters.priceRange}`}
+                        variants={staggerContainer}
+                        initial="hidden"
+                        animate="visible"
+                        style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                      >
+                        {paginated.map((job) => (
+                          <motion.div key={job.id} variants={itemEnter}>
+                            <JobCard
+                              job={job}
+                              onViewDetails={() => handleViewDetails(job)}
+                              isLoadingDetails={isDetailsLoading && selectedJob?.id === job.id}
+                              isDark={isDark}
+                            />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    </AnimatePresence>
                   )}
                 </div>
 

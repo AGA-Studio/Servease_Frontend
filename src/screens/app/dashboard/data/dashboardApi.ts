@@ -22,6 +22,7 @@ import { fetchNotificaciones } from "../../../../api/notificacionApi";
 import { dotColorForTipo } from "../../../../utils/notifications";
 import { timeAgo } from "../../../../utils/servicio";
 import { getCookie, setCookie } from "../../../../lib/cookieUtils";
+import { getCached, setCached } from "../../../../lib/dataCache";
 import { getCategoryStyle } from "../../../../utils/categoryStyle";
 
 const ACTIVITY_TYPE_BY_TIPO: Record<string, DashboardActivityType> = {
@@ -205,9 +206,12 @@ export function getCachedDashboardData(userId: string): DashboardData | null {
   return {
     kpis: mapProviderKpisToKpiData(kpis, earningsSummary),
     earnings: earningsPoints,
-    jobsByCategory: [],
-    availableJobs: [],
-    recentActivity: [],
+    jobsByCategory:
+      getCached<CategoryBreakdown[]>(`pv-jobs-by-category:${userId}`) ?? [],
+    availableJobs:
+      getCached<DashboardJob[]>(`pv-available-jobs:${userId}`) ?? [],
+    recentActivity:
+      getCached<DashboardActivity[]>(`pv-recent-activity:${userId}`) ?? [],
   };
 }
 
@@ -279,6 +283,13 @@ export async function fetchDashboardData(
         { month: "projected", earnings: providerData.earningsSummary.projected },
       ]
     : [];
+
+  // En memoria, no en cookie: estos tres traen descripciones/URLs de fotos
+  // y fácilmente pasan el límite de ~4KB por cookie (el navegador
+  // simplemente no la guarda, sin avisar — así fallaba antes en silencio).
+  setCached(`pv-jobs-by-category:${userId}`, jobsByCategory);
+  setCached(`pv-available-jobs:${userId}`, availableJobs);
+  setCached(`pv-recent-activity:${userId}`, recentActivity);
 
   return {
     kpis: providerData.kpis,

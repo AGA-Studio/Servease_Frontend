@@ -46,6 +46,7 @@ import {
   deletePortafolioItem,
   type PortafolioItem as PortafolioApiItem,
 } from "../../api/portafolioApi";
+import { useCachedResource } from "../../hooks/useCachedResource";
 
 const useTheme = (): { theme: ThemeMode; isDark: boolean } => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -416,8 +417,6 @@ const ProviderProfileScreen: React.FC = () => {
   const [areasModalKey, setAreasModalKey] = useState(0);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const [portfolio, setPortfolio] = useState<PortafolioApiItem[]>([]);
-  const [isPortfolioLoading, setIsPortfolioLoading] = useState(true);
   const [showPortafolioModal, setShowPortafolioModal] = useState(false);
   const [portafolioModalKey, setPortafolioModalKey] = useState(0);
   const [selectedPortfolioItem, setSelectedPortfolioItem] = useState<PortafolioApiItem | null>(null);
@@ -427,9 +426,28 @@ const ProviderProfileScreen: React.FC = () => {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [reviewsList, setReviewsList] = useState<ReviewCliente[]>([]);
-  const [isReviewsLoading, setIsReviewsLoading] = useState(true);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
+
+  // GET .../portafolio/ y .../reviews/ son públicos (sin chequeo de dueño en
+  // backend), por eso sirven igual para el propio perfil y para el de un
+  // tercero — basta con pedirlos por targetUserId en vez de user.id.
+  const {
+    data: portfolio = [],
+    setData: setPortfolio,
+    isLoading: isPortfolioLoading,
+    reload: refreshPortfolio,
+  } = useCachedResource<PortafolioApiItem[]>(
+    targetUserId ? `portafolio:${targetUserId}` : null,
+    () => fetchPortafolio(targetUserId!),
+  );
+
+  const {
+    data: reviewsList = [],
+    isLoading: isReviewsLoading,
+  } = useCachedResource<ReviewCliente[]>(
+    targetUserId ? `reviews:${targetUserId}` : null,
+    () => fetchReviewsCliente(targetUserId!),
+  );
 
   const reviewsData: Review[] = reviewsList.map((r) => ({
     id: String(r.id_calificacion),
@@ -448,62 +466,13 @@ const ProviderProfileScreen: React.FC = () => {
     category: item.categoria_nombre,
   }));
 
-  const refreshPortfolio = async () => {
-    if (!targetUserId) return;
-    try {
-      const data = await fetchPortafolio(targetUserId);
-      setPortfolio(data);
-    } catch (err) {
-      console.error("fetchPortafolio failed:", err);
-    }
-  };
-
-  // GET .../portafolio/ y .../reviews/ son públicos (sin chequeo de dueño en
-  // backend), por eso sirven igual para el propio perfil y para el de un
-  // tercero — basta con pedirlos por targetUserId en vez de user.id.
-  useEffect(() => {
-    if (!targetUserId) return;
-    let cancelled = false;
-    fetchPortafolio(targetUserId)
-      .then((data) => {
-        if (!cancelled) setPortfolio(data);
-      })
-      .catch(() => {
-        if (!cancelled) setPortfolio([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsPortfolioLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [targetUserId]);
-
-  useEffect(() => {
-    if (!targetUserId) return;
-    let cancelled = false;
-    fetchReviewsCliente(targetUserId)
-      .then((data) => {
-        if (!cancelled) setReviewsList(data);
-      })
-      .catch(() => {
-        if (!cancelled) setReviewsList([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsReviewsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [targetUserId]);
-
   const handleDeletePortafolio = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
       await deletePortafolioItem(deleteTarget.id);
       setPortfolio((prev) =>
-        prev.filter((item) => item.id_portafolio !== deleteTarget.id),
+        (prev ?? []).filter((item) => item.id_portafolio !== deleteTarget.id),
       );
       setDeleteTarget(null);
       addToast("success", p.portfolio.deleteSuccess);
@@ -531,76 +500,31 @@ const ProviderProfileScreen: React.FC = () => {
     [updateAreas, addToast, p],
   );
 
-  const [kpis, setKpis] = useState<ProviderKpisResponse | null>(null);
-  const [isKpisLoading, setIsKpisLoading] = useState(true);
-
-  useEffect(() => {
-    // El dashboard de KPIs (con ganancias) es privado del dueño — el backend
-    // lo rechaza para cualquier otro id_usuario, así que solo se pide en el
-    // propio perfil.
-    if (!isOwnProfile || !user?.id) return;
-    let cancelled = false;
-    fetchDashboardProveedor(user.id)
-      .then((res) => {
-        if (!cancelled) setKpis(res);
-      })
-      .catch(() => {
-        if (!cancelled) setKpis(null);
-      })
-      .finally(() => {
-        if (!cancelled) setIsKpisLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwnProfile, user?.id]);
+  // El dashboard de KPIs (con ganancias) es privado del dueño — el backend
+  // lo rechaza para cualquier otro id_usuario, así que solo se pide en el
+  // propio perfil.
+  const { data: kpis, isLoading: isKpisLoading } =
+    useCachedResource<ProviderKpisResponse>(
+      isOwnProfile && user?.id ? `provider-dashboard-kpis:${user.id}` : null,
+      () => fetchDashboardProveedor(user!.id),
+    );
 
   // Perfil público (sin ganancias) para cuando se ve el perfil de otro
   // proveedor — usa la misma info que el dashboard de KPIs necesita para
   // trabajos completados/rating/reviews, pero por un endpoint público.
-  const [perfilProveedor, setPerfilProveedor] = useState<PerfilProveedor | null>(null);
-  const [isPerfilLoading, setIsPerfilLoading] = useState(true);
-
-  useEffect(() => {
-    if (isOwnProfile || !targetUserId) return;
-    let cancelled = false;
-    fetchPerfilProveedor(targetUserId)
-      .then((res) => {
-        if (!cancelled) setPerfilProveedor(res);
-      })
-      .catch(() => {
-        if (!cancelled) setPerfilProveedor(null);
-      })
-      .finally(() => {
-        if (!cancelled) setIsPerfilLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwnProfile, targetUserId]);
+  const { data: perfilProveedor, isLoading: isPerfilLoading } =
+    useCachedResource<PerfilProveedor>(
+      !isOwnProfile && targetUserId ? `perfil-proveedor:${targetUserId}` : null,
+      () => fetchPerfilProveedor(targetUserId!),
+    );
 
   // Áreas de trabajo de otro proveedor (endpoint público) — useWorkAreas()
   // solo sirve para el propio usuario logueado.
-  const [otherAreas, setOtherAreas] = useState<AreaTrabajo[]>([]);
-  const [isOtherAreasLoading, setIsOtherAreasLoading] = useState(true);
-
-  useEffect(() => {
-    if (isOwnProfile || !targetUserId) return;
-    let cancelled = false;
-    fetchCategoriasProveedor(targetUserId)
-      .then((data) => {
-        if (!cancelled) setOtherAreas(data);
-      })
-      .catch(() => {
-        if (!cancelled) setOtherAreas([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsOtherAreasLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwnProfile, targetUserId]);
+  const { data: otherAreas = [], isLoading: isOtherAreasLoading } =
+    useCachedResource<AreaTrabajo[]>(
+      !isOwnProfile && targetUserId ? `categorias-proveedor:${targetUserId}` : null,
+      () => fetchCategoriasProveedor(targetUserId!),
+    );
 
   const effectiveAreas = isOwnProfile ? areas : otherAreas;
   const effectiveAreasLoading = isOwnProfile ? isAreasLoading : isOtherAreasLoading;

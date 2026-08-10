@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Bell, CheckCheck, BellOff, ChevronRight, X } from "lucide-react";
@@ -20,6 +20,7 @@ import {
 import { ROUTES } from "../../../router/routes";
 import { useRealtimeChannel } from "../../../hooks/useRealtimeChannel";
 import LiveTimeAgo from "../../livetimeago/LiveTimeAgo";
+import { useCachedResource } from "../../../hooks/useCachedResource";
 
 interface Colors {
   cardBg: string;
@@ -137,8 +138,6 @@ interface Props {
 const TRANSITION_MS = 210;
 
 const NotificationsPopover = ({ isDark }: Props) => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loadError, setLoadError] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimatedIn, setIsAnimatedIn] = useState(false);
   const [btnHovered, setBtnHovered] = useState(false);
@@ -156,23 +155,26 @@ const NotificationsPopover = ({ isDark }: Props) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const {
+    data: raw,
+    setData: setRaw,
+    error: loadErrorObj,
+  } = useCachedResource<Notificacion[]>(
+    user?.id ? `notificaciones:${user.id}` : null,
+    fetchNotificaciones,
+  );
+  const loadError = !!loadErrorObj;
+
+  const notifications: NotificationItem[] = useMemo(
+    () => (raw ?? []).map(toNotificationItem),
+    [raw],
+  );
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
-    let cancelled = false;
-    fetchNotificaciones()
-      .then((data) => {
-        if (!cancelled) setNotifications(data.map(toNotificationItem));
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchNotificaciones failed:", error);
-        setLoadError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (loadErrorObj) console.error("fetchNotificaciones failed:", loadErrorObj);
+  }, [loadErrorObj]);
 
   useRealtimeChannel<Notificacion>({
     table: "notificacion",
@@ -180,8 +182,7 @@ const NotificationsPopover = ({ isDark }: Props) => {
     filter: user ? `id_usuario=eq.${user.id}` : undefined,
     enabled: !!user,
     onChange: (payload) => {
-      const nueva = toNotificationItem(payload.new as Notificacion);
-      setNotifications((prev) => [nueva, ...prev]);
+      setRaw((prev) => [payload.new as Notificacion, ...(prev ?? [])]);
     },
   });
 
@@ -248,22 +249,24 @@ const NotificationsPopover = ({ isDark }: Props) => {
   }, [isOpen, close, updatePosition]);
 
   const markAllRead = () => {
-    const previous = notifications;
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const previous = raw;
+    setRaw((prev) => (prev ?? []).map((n) => ({ ...n, leido: true })));
     marcarTodasNotificacionesLeidas().catch((error) => {
       console.error("marcarTodasNotificacionesLeidas failed:", error);
-      setNotifications(previous);
+      setRaw(previous ?? []);
     });
   };
 
   const markRead = (id: number) => {
-    const previous = notifications;
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    const previous = raw;
+    setRaw((prev) =>
+      (prev ?? []).map((n) =>
+        n.id_notificacion === id ? { ...n, leido: true } : n,
+      ),
     );
     marcarNotificacionLeida(id).catch((error) => {
       console.error("marcarNotificacionLeida failed:", error);
-      setNotifications(previous);
+      setRaw(previous ?? []);
     });
   };
 
