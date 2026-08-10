@@ -228,11 +228,20 @@ export interface MisPublicacionesResponse {
 
 export async function fetchMisPublicaciones(
   userId: string,
-  params: { page?: number; pageSize?: number } = {},
+  params: {
+    page?: number;
+    pageSize?: number;
+    categoriaId?: number;
+    estadoIds?: number[];
+    search?: string;
+  } = {},
 ): Promise<MisPublicacionesResponse> {
   const qs = new URLSearchParams();
   qs.set("page", String(params.page ?? 1));
-  qs.set("page_size", String(params.pageSize ?? 50));
+  qs.set("page_size", String(params.pageSize ?? 8));
+  if (params.categoriaId) qs.set("categoria_id", String(params.categoriaId));
+  if (params.estadoIds?.length) qs.set("estado_id", params.estadoIds.join(","));
+  if (params.search?.trim()) qs.set("search", params.search.trim());
   return apiGet<MisPublicacionesResponse>(
     `/api/usuarios/${userId}/mis-publicaciones/?${qs.toString()}`,
   );
@@ -251,6 +260,7 @@ export interface TrabajoAplicado {
   foto: string | null;
   ultima_oferta: UltimaOferta | null;
   penultima_oferta_monto: string | null;
+  trabajo_terminado: boolean;
 }
 
 export interface TrabajoDisponible {

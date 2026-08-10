@@ -28,6 +28,7 @@ import {
   type PostDetails,
 } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
+import { useCachedResource } from "../../hooks/useCachedResource";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -54,8 +55,12 @@ interface Applicant {
   offerAccepted: boolean;
 }
 
+// Una vez que hubo una contraoferta, counterAmount es el monto vigente —
+// incluso después de aceptar (status ya no es "countered" en ese momento,
+// pero el precio acordado sigue siendo el de la contraoferta, no el bid
+// original).
 function getCurrentAsk(a: Applicant): number {
-  return a.status === "countered" ? (a.counterAmount ?? a.bid) : a.bid;
+  return a.counterAmount ?? a.bid;
 }
 
 function mapEstadoSolicitud(estado: string | null, hasOferta: boolean): ApplicantStatus {
@@ -151,9 +156,14 @@ const ApplicantCard = ({
   // "el proveedor contraofertó, me toca responder", y "el proveedor ya
   // aceptó el precio de mi oferta, solo falta que yo confirme" — todos
   // menos el primero deben poder aceptar/rechazar/contraofertar de nuevo.
+  // lastOfferBy puede ser null con status "countered" si estado_solicitud
+  // dice "contra" pero no hay ultima_oferta (dato inconsistente/oferta
+  // limpiada) — sin el fallback a null, la tarjeta no caía ni en isYourTurn
+  // ni en isWaitingView y quedaba sin precio ni botones, sin forma de actuar.
   const isYourTurn =
     a.status === "new" ||
-    (a.status === "countered" && (a.lastOfferBy === "provider" || a.offerAccepted));
+    (a.status === "countered" &&
+      (a.lastOfferBy === "provider" || a.offerAccepted || a.lastOfferBy === null));
   const isWaitingView = a.status === "countered" && a.lastOfferBy === "you" && !a.offerAccepted;
   const isAcceptedView = a.status === "accepted";
   const isDeclinedView = a.status === "declined";
@@ -278,7 +288,12 @@ const ApplicantCard = ({
                   </span>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <motion.button whileTap={{ scale: 0.95 }} onClick={onReject} style={ghostBtnStyle}>
+                  <motion.button
+                    whileHover={{ backgroundColor: "rgba(255,68,68,0.08)" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onReject}
+                    style={rejectBtnStyle}
+                  >
                     {po.reject}
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onOpenCounter} style={counterBtnStyle}>
@@ -340,7 +355,7 @@ const ApplicantCard = ({
                 <Check size={16} color="#fff" strokeWidth={2.5} />
               </motion.div>
               <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2f6b16" }}>
-                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
+                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(currentAsk, a.moneda))}
               </div>
             </motion.div>
           )}
@@ -482,7 +497,7 @@ const ApplicantCard = ({
               {po.accept}
             </motion.button>
             <div style={{ display: "flex", gap: 10 }}>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={onReject} style={{ ...mobileOutlineBtnStyle, flex: 1 }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={onReject} style={{ ...mobileOutlineBtnStyle, ...rejectMobileBtnStyle, flex: 1 }}>
                 {po.reject}
               </motion.button>
               <motion.button whileTap={{ scale: 0.97 }} onClick={onOpenCounter} style={{ ...counterBtnStyle, flex: 1, textAlign: "center" }}>
@@ -538,7 +553,7 @@ const ApplicantCard = ({
               <Check size={14} color="#fff" strokeWidth={2.5} />
             </motion.div>
             <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2f6b16" }}>
-              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
+              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(currentAsk, a.moneda))}
             </div>
           </motion.div>
         )}
@@ -565,6 +580,17 @@ const ghostBtnStyle: React.CSSProperties = {
   cursor: "pointer",
   padding: "12px 6px",
   fontFamily: "inherit",
+};
+
+const rejectBtnStyle: React.CSSProperties = {
+  ...ghostBtnStyle,
+  color: "#FF4444",
+  borderRadius: 9,
+};
+
+const rejectMobileBtnStyle: React.CSSProperties = {
+  border: "1.5px solid rgba(255,68,68,0.4)",
+  color: "#FF4444",
 };
 
 const counterBtnStyle: React.CSSProperties = {
@@ -615,10 +641,6 @@ const PostOffersScreen: React.FC = () => {
   const { toasts, addToast, removeToast } = useToast();
   const { formatFixedMoney } = useCurrency();
 
-  const [post, setPost] = useState<PostDetails | null>(null);
-  const [isLoadingPost, setIsLoadingPost] = useState(true);
-  const [applicants, setApplicants] = useState<Applicant[]>([]);
-  const [isLoadingApplicants, setIsLoadingApplicants] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [counterApplicant, setCounterApplicant] = useState<Applicant | null>(null);
   const [isCounterSubmitting, setIsCounterSubmitting] = useState(false);
@@ -629,41 +651,48 @@ const PostOffersScreen: React.FC = () => {
   } | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
 
+  const {
+    data: post,
+    isLoading: isLoadingPost,
+    error: postErrorObj,
+  } = useCachedResource<PostDetails>(
+    postId ? `post-details:${postId}` : null,
+    () => fetchPostDetails(postId!),
+  );
+
   useEffect(() => {
-    if (!postId) return;
-    let cancelled = false;
+    if (postErrorObj) {
+      console.error("fetchPostDetails failed:", postErrorObj);
+      addToast("error", po.errors.postFailed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postErrorObj]);
 
-    fetchPostDetails(postId)
-      .then((data) => {
-        if (!cancelled) setPost(data);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchPostDetails failed:", error);
-        addToast("error", po.errors.postFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingPost(false);
-      });
+  const {
+    data: applicantsRaw,
+    isLoading: isLoadingApplicants,
+    error: applicantsErrorObj,
+  } = useCachedResource<Aplicante[]>(
+    postId ? `aplicantes:${postId}` : null,
+    () => fetchAplicantes(postId!),
+  );
 
-    fetchAplicantes(postId)
-      .then((list) => {
-        if (!cancelled) setApplicants(list.map(aplicanteToApplicant));
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchAplicantes failed:", error);
-        addToast("error", po.errors.applicantsFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingApplicants(false);
-      });
+  useEffect(() => {
+    if (applicantsErrorObj) {
+      console.error("fetchAplicantes failed:", applicantsErrorObj);
+      addToast("error", po.errors.applicantsFailed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicantsErrorObj]);
 
-    return () => {
-      cancelled = true;
-    };
-
-  }, [postId]);
+  // Copia local editable: applicantsRaw viene del cache (instantáneo en
+  // revisitas) y se sincroniza aquí; las acciones (aceptar/rechazar/
+  // contraofertar) mutan esta copia de forma optimista sin tener que
+  // reconstruir la forma cruda de Aplicante.
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  useEffect(() => {
+    if (applicantsRaw) setApplicants(applicantsRaw.map(aplicanteToApplicant));
+  }, [applicantsRaw]);
 
   const notifyActionUnavailable = () => addToast("info", po.actionUnavailable);
 
@@ -848,7 +877,15 @@ const PostOffersScreen: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
-          style={{ margin: "0 0 8px", fontSize: "1.85rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}
+          style={{
+            margin: "0 0 8px",
+            fontSize: "1.85rem",
+            fontWeight: 800,
+            letterSpacing: "-0.02em",
+            color: "var(--text)",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+          }}
         >
           {post?.titulo}
         </motion.h1>
@@ -992,6 +1029,7 @@ const PostOffersScreen: React.FC = () => {
           name: counterApplicant?.name ?? "",
           avatarUrl: counterApplicant?.avatar,
           originalBid: counterApplicant ? getCurrentAsk(counterApplicant) : 0,
+          currency: counterApplicant?.moneda,
         }}
         isSubmitting={isCounterSubmitting}
         errorMessage={counterError}

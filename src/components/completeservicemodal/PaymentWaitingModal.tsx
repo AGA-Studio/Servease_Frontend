@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { CreditCard, Check, X as XIcon, RotateCcw, Loader2 } from "lucide-react";
+import { CreditCard, Check, X as XIcon, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -13,9 +13,14 @@ export interface PaymentWaitingModalProps {
   isDark: boolean;
   status: PaymentWaitStatus;
   onSuccessContinue: () => void;
-  onRetry: () => void;
+  /**
+   * Este modal solo lo ve el proveedor (mira el pago con tarjeta del
+   * cliente, no lo puede reintentar él). Al fallar, esto cancela la
+   * transacción atorada y cierra el aviso — no reinicia ningún cobro.
+   */
+  onDismissFailed: () => void;
   onCancel: () => void;
-  isRetrying: boolean;
+  isDismissingFailed: boolean;
   isCancelling: boolean;
 }
 
@@ -36,9 +41,9 @@ const PaymentWaitingModal: React.FC<PaymentWaitingModalProps> = ({
   isDark,
   status,
   onSuccessContinue,
-  onRetry,
+  onDismissFailed,
   onCancel,
-  isRetrying,
+  isDismissingFailed,
   isCancelling,
 }) => {
   const { t } = useI18n();
@@ -214,10 +219,10 @@ const PaymentWaitingModal: React.FC<PaymentWaitingModalProps> = ({
 
             {status === "failed" && (
               <motion.button
-                whileHover={isRetrying ? undefined : { scale: 1.02 }}
-                whileTap={isRetrying ? undefined : { scale: 0.97 }}
-                onClick={onRetry}
-                disabled={isRetrying}
+                whileHover={isDismissingFailed ? undefined : { scale: 1.02 }}
+                whileTap={isDismissingFailed ? undefined : { scale: 0.97 }}
+                onClick={onDismissFailed}
+                disabled={isDismissingFailed}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -229,18 +234,16 @@ const PaymentWaitingModal: React.FC<PaymentWaitingModalProps> = ({
                   color: "#fff",
                   fontSize: "0.84rem",
                   fontWeight: 800,
-                  cursor: isRetrying ? "not-allowed" : "pointer",
-                  opacity: isRetrying ? 0.7 : 1,
+                  cursor: isDismissingFailed ? "not-allowed" : "pointer",
+                  opacity: isDismissingFailed ? 0.7 : 1,
                   fontFamily: "inherit",
                   boxShadow: "0 4px 14px rgba(46,188,204,0.3)",
                 }}
               >
-                {isRetrying ? (
+                {isDismissingFailed && (
                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                    <RotateCcw size={15} />
+                    <Loader2 size={15} />
                   </motion.div>
-                ) : (
-                  <RotateCcw size={15} />
                 )}
                 {pw.retry}
               </motion.button>

@@ -35,7 +35,6 @@ import type { JobDetails } from "../../types/job";
 import { getApproxLocation } from "../../utils/location";
 import {
   timeAgo,
-  mapEstadoToStatus,
   mapPostDetailsToJobDetails,
 } from "../../utils/servicio";
 import Avatar from "../../components/avatar/Avatar";
@@ -52,7 +51,7 @@ interface Post {
   location: string;
   postedAgo: string;
   description: string;
-  status: "receiving" | "completed" | "in_progress";
+  status: "receiving" | "contraoferta" | "completed" | "in_progress" | "excluded";
   proposalCount?: number;
   applicantPhotos: string[];
   category: string;
@@ -88,6 +87,27 @@ const itemEnter = {
   },
 };
 
+// vista_home_cliente.estado es texto crudo (servicios/models/estado.py):
+// abierto, pendiente, aceptado, progreso, contraoferta, completado,
+// rechazada, cancelado.
+function mapHomeEstadoToStatus(estado: string): Post["status"] {
+  switch (estado) {
+    case "abierto":
+    case "pendiente":
+      return "receiving";
+    case "contraoferta":
+      return "contraoferta";
+    case "aceptado":
+    case "progreso":
+      return "in_progress";
+    case "completado":
+      return "completed";
+    default:
+      // rechazada, cancelado (y cualquier otro no activo)
+      return "excluded";
+  }
+}
+
 function servicioToPost(servicio: HomeCliente): Post {
   return {
     id: String(servicio.id_servicio),
@@ -95,7 +115,7 @@ function servicioToPost(servicio: HomeCliente): Post {
     location: "",
     postedAgo: timeAgo(servicio.fecha),
     description: servicio.descripcion,
-    status: mapEstadoToStatus(servicio.estado),
+    status: mapHomeEstadoToStatus(servicio.estado),
     applicantPhotos: servicio.fotos_proveedores_aplicantes ?? [],
     category: servicio.categoria,
     accentColor: getCategoryStyle(servicio.categoria).color,
@@ -151,6 +171,16 @@ const StatusBadge = ({ status }: { status: Post["status"] }) => {
       label: h.serviceCard.status.inProgress,
       bg: "rgba(255,178,0,0.15)",
       color: "#FFB200",
+    },
+    contraoferta: {
+      label: h.serviceCard.status.counterOffer,
+      bg: "rgba(155,89,255,0.15)",
+      color: "#9B59FF",
+    },
+    excluded: {
+      label: h.serviceCard.status.notAvailable,
+      bg: "rgba(148,163,184,0.15)",
+      color: "#94A3B8",
     },
   };
   const s = map[status];
@@ -534,33 +564,34 @@ const HomeScreen: React.FC = () => {
     fetchHomeCliente(user!.id),
   );
 
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+  const {
+    data: notificaciones,
+    isLoading: isLoadingActivities,
+    error: activitiesErrorObj,
+  } = useCachedResource(
+    user?.id ? `notificaciones:${user.id}` : null,
+    fetchNotificaciones,
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    fetchNotificaciones()
-      .then((data) => {
-        if (cancelled) return;
-        setActivities(
-          data.slice(0, 5).map((n) => ({
-            id: String(n.id_notificacion),
-            date: n.fecha,
-            content: n.contenido ?? n.titulo,
-            dotColor: dotColorForTipo(n.tipo),
-          })),
-        );
-      })
-      .catch((error) => {
-        console.error("fetchNotificaciones (recent activity) failed:", error);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingActivities(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (activitiesErrorObj) {
+      console.error(
+        "fetchNotificaciones (recent activity) failed:",
+        activitiesErrorObj,
+      );
+    }
+  }, [activitiesErrorObj]);
+
+  const activities: Activity[] = useMemo(
+    () =>
+      (notificaciones ?? []).slice(0, 5).map((n) => ({
+        id: String(n.id_notificacion),
+        date: n.fecha,
+        content: n.contenido ?? n.titulo,
+        dotColor: dotColorForTipo(n.tipo),
+      })),
+    [notificaciones],
+  );
 
   const [locations, setLocations] = useState<Record<string, string>>({});
 
@@ -590,11 +621,14 @@ const HomeScreen: React.FC = () => {
           ...servicioToPost(servicio),
           location: locations[String(servicio.id_servicio)] ?? "",
         }))
-        // "Mis Active Posts" solo debe listar publicaciones abiertas o en
-        // progreso (estado_id 7 / 4) — completadas/canceladas no cuentan.
+        // "Mis Active Posts" solo debe listar publicaciones recibiendo
+        // propuestas, en contraoferta o en progreso — completadas,
+        // rechazadas y canceladas no cuentan.
         .filter(
           (post) =>
-            post.status === "receiving" || post.status === "in_progress",
+            post.status === "receiving" ||
+            post.status === "contraoferta" ||
+            post.status === "in_progress",
         )
         .sort(
           (a, b) =>
@@ -1360,7 +1394,13 @@ const HomeScreen: React.FC = () => {
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
         job={selectedJob}
-        postStatus={selectedPost?.status}
+        postStatus={
+          selectedPost?.status === "receiving" ||
+          selectedPost?.status === "in_progress" ||
+          selectedPost?.status === "completed"
+            ? selectedPost.status
+            : undefined
+        }
         onViewApplicants={
           selectedPost
             ? () => navigate(buildPostOffersPath(selectedPost.id))

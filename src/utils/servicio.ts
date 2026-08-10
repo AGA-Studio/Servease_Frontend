@@ -37,6 +37,15 @@ export function mapEstadoIdToStatus(idEstado: number): ServicioStatus {
   return "in_progress";
 }
 
+// Buckets id_estado -> ServicioStatus para filtrar "Mis Publicaciones" en el
+// backend (misma regla que mapEstadoIdToStatus: todo lo que no sea abierto
+// o completado cae en "in_progress").
+export const STATUS_TO_ESTADO_IDS: Record<ServicioStatus, number[]> = {
+  receiving: [ESTADO_ID_ABIERTO],
+  completed: [ESTADO_ID_COMPLETADO],
+  in_progress: [1, 2, 3, 4, 6, 8],
+};
+
 export function isServicioEditable(estado: string): boolean {
   return estado === "abierto";
 }

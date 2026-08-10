@@ -12,6 +12,7 @@ import {
   uploadPortafolioPhoto,
 } from "../../api/portafolioApi";
 import { ApiError } from "../../api/apiClient";
+import { useCachedResource } from "../../hooks/useCachedResource";
 
 interface Props {
   isOpen: boolean;
@@ -58,16 +59,16 @@ const PortafolioModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const { data: categorias = [] } = useCachedResource<Categoria[]>(
+    "categorias",
+    fetchCategorias,
+  );
   const [catOpen, setCatOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const catRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      fetchCategorias()
-        .then(setCategorias)
-        .catch(() => setCategorias([]));
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => { document.body.style.overflow = prev; };

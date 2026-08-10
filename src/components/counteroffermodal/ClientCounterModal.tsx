@@ -19,6 +19,7 @@ interface ClientCounterModalProps {
     name: string;
     avatarUrl?: string;
     originalBid: number;
+    currency?: string | null;
   };
   onSubmit?: (data: ClientCounterData) => void | Promise<void>;
   isSubmitting?: boolean;
@@ -76,7 +77,9 @@ export const ClientCounterModal: React.FC<ClientCounterModalProps> = ({
   const text = isDark ? "#ffffff" : "#1B244C";
   const textSecondary = "#989898";
 
-  const defaultBid = Math.max(0, applicant.originalBid - 50);
+  // El decremento sugerido es en la moneda del servicio: 50 pesos o 5 dolares.
+  const bidStep = applicant.currency === "USD" ? 5 : 50;
+  const defaultBid = Math.max(0, applicant.originalBid - bidStep);
   const [newBid, setNewBid] = useState<number>(defaultBid);
   const [bidDisplay, setBidDisplay] = useState<string>(formatBidInputValue(String(defaultBid)).display);
   const [message, setMessage] = useState("");

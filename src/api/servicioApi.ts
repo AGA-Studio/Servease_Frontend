@@ -259,7 +259,8 @@ export interface IniciarPagoResponse {
   client_secret: string;
 }
 
-export async function iniciarPago(
+// El cliente elige tarjeta y arranca el cobro (antes lo hacía el proveedor).
+export async function iniciarPagoCliente(
   idServicio: number | string,
 ): Promise<IniciarPagoResponse> {
   return apiPost<IniciarPagoResponse>(
@@ -334,19 +335,27 @@ export async function fetchPagoPendienteCliente(): Promise<PagoPendienteClienteR
   );
 }
 
-export interface CompletarServicioPayload {
-  metodo_pago: "efectivo" | "tarjeta";
-  puntuacion: number;
-  comentario?: string;
+// El proveedor avisa que el trabajo ya está físicamente terminado — no
+// completa el servicio ni califica, solo desbloquea del lado del cliente la
+// elección de método de pago.
+export async function marcarTrabajoTerminado(
+  idServicio: number | string,
+): Promise<{ detail: string }> {
+  return apiPost<{ detail: string }>(
+    `/api/servicios/${idServicio}/marcar-terminado/`,
+    {},
+  );
 }
 
-export async function completarServicio(
+// El cliente confirma que pagó en efectivo — completa el servicio (el monto
+// se calcula en el servidor).
+export async function pagoEfectivoCliente(
   idServicio: number | string,
-  payload: CompletarServicioPayload,
 ): Promise<{ detail: string }> {
-  return apiPost<{ detail: string }>(`/api/servicios/${idServicio}/completar/`, {
-    ...payload,
-  });
+  return apiPost<{ detail: string }>(
+    `/api/servicios/${idServicio}/pago/efectivo/`,
+    {},
+  );
 }
 
 export interface CalificarServicioPayload {
@@ -361,6 +370,43 @@ export async function calificarServicio(
   return apiPost<{ detail: string }>(`/api/servicios/${idServicio}/calificar/`, {
     ...payload,
   });
+}
+
+// El proveedor califica al cliente (antes iba junto con completarServicio).
+export async function calificarCliente(
+  idServicio: number | string,
+  payload: CalificarServicioPayload,
+): Promise<{ detail: string }> {
+  return apiPost<{ detail: string }>(
+    `/api/servicios/${idServicio}/calificar-cliente/`,
+    { ...payload },
+  );
+}
+
+export interface PendienteCalificarProveedor {
+  id_servicio: number;
+  titulo: string;
+  cliente_nombre: string;
+  cliente_foto: string | null;
+}
+
+export async function fetchPendienteCalificarProveedor(): Promise<PendienteCalificarProveedor | null> {
+  return apiGet<PendienteCalificarProveedor | null>(
+    "/api/servicios/pendiente-calificar-proveedor/",
+  );
+}
+
+export interface TrabajoTerminadoPendiente {
+  id_servicio: number;
+  titulo: string;
+  monto: string;
+  moneda: string;
+}
+
+export async function fetchTrabajoTerminadoPendiente(): Promise<TrabajoTerminadoPendiente | null> {
+  return apiGet<TrabajoTerminadoPendiente | null>(
+    "/api/servicios/trabajo-terminado-pendiente/",
+  );
 }
 
 export interface ServicioListItem {

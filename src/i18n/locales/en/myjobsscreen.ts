@@ -24,9 +24,11 @@ export const myjobsscreen = {
     cancelSuccess: "Application cancelled successfully.",
     cancelFailed: "Couldn't cancel the application. Please try again.",
     markCompleted: "Mark as Completed",
+    markDoneSuccess: "The client was notified the job is done.",
+    markDoneFailed: "Couldn't notify the client. Please try again.",
+    waitingForClient: "Waiting for client's payment",
     completeSuccess: "Service completed! Thanks for your rating.",
     completeFailed: "Couldn't complete the service. Please try again.",
-    paymentStartFailed: "Couldn't start the card charge. Please try again.",
     paymentCancelFailed: "Couldn't cancel the charge. Please try again.",
     counterOffer: "Counteroffer",
     counterSuccess: "Counteroffer sent successfully.",
@@ -50,6 +52,12 @@ export const myjobsscreen = {
     message:
       'Accept the price of {bid} for "{title}"? The client will be notified to confirm and assign the job.',
     confirm: "Yes, Accept",
+  },
+  confirmMarkDone: {
+    title: "Mark Job as Done",
+    message:
+      'Confirm you finished "{title}"? The client will be notified to choose how to pay you.',
+    confirm: "Yes, I'm Done",
   },
   pagination: {
     page: "Page",

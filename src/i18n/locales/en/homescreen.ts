@@ -22,6 +22,7 @@ export const homescreen = {
       inProgress: "In Progress",
       completed: "Completed",
       receivingProposals: "Receiving Proposals",
+      counterOffer: "Counteroffer",
       notAvailable: "Not Available",
     },
   },

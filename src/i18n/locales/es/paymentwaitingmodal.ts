@@ -4,7 +4,7 @@ export const paymentwaitingmodal = {
   successTitle: "¡Pago Aceptado!",
   successSubtitle: "El cliente confirmó el pago correctamente.",
   failedTitle: "El Pago No Se Pudo Completar",
-  failedSubtitle: "El cobro expiró o fue rechazado. Puedes intentarlo de nuevo.",
+  failedSubtitle: "El cobro con tarjeta expiró o fue rechazado. Puedes cerrar este aviso; el cliente puede intentar pagar de nuevo.",
   cancel: "Cancelar",
-  retry: "Reintentar Cobro",
+  retry: "Entendido",
 };

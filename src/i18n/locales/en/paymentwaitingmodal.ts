@@ -4,7 +4,7 @@ export const paymentwaitingmodal = {
   successTitle: "Payment Accepted!",
   successSubtitle: "The client confirmed the payment successfully.",
   failedTitle: "Payment Couldn't Be Completed",
-  failedSubtitle: "The charge expired or was declined. You can try again.",
+  failedSubtitle: "The card charge expired or was declined. You can dismiss this — the client can try paying again.",
   cancel: "Cancel",
-  retry: "Retry Charge",
+  retry: "Got It",
 };
