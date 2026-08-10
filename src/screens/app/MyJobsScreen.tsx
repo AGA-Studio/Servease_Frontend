@@ -507,7 +507,12 @@ const AnimatedJobCard = ({
           )}
 
           {job.proposalStatus === "counteroffer" &&
-            job.lastOfferBy === "client" &&
+            // lastOfferBy puede ser null con proposalStatus "counteroffer"
+            // si el estado dice "contraoferta" pero no hay ultima_oferta
+            // (dato inconsistente) — sin este fallback la tarjeta no
+            // mostraba ni precio ni botones, dejando al proveedor sin poder
+            // actuar (ver el mismo fix en PostOffersScreen).
+            (job.lastOfferBy === "client" || job.lastOfferBy === null) &&
             !job.offerAccepted && (
               <>
                 <motion.button
@@ -1158,8 +1163,10 @@ const MyJobsScreen: React.FC = () => {
     }
   }, [confirmDoneJob, addToast, d]);
 
-  // Since payment resolution now always drives the rating step forward via
-  // Realtime, "retry" here just means bail out and let the client try again.
+  // The provider only watches the client's card payment (via Realtime); they
+  // can't restart the client's Stripe charge themselves. On failure this just
+  // cancels the stuck transaction and closes the modal — the client is the
+  // one who has to try paying again from their side.
   const handlePaymentCancel = useCallback(async () => {
     if (!paymentWait) return;
     setIsCancellingPayment(true);
@@ -1632,9 +1639,9 @@ const MyJobsScreen: React.FC = () => {
         isDark={isDark}
         status={paymentWait?.status ?? "waiting"}
         onSuccessContinue={handlePaymentSuccessContinue}
-        onRetry={handlePaymentCancel}
+        onDismissFailed={handlePaymentCancel}
         onCancel={handlePaymentCancel}
-        isRetrying={isCancellingPayment}
+        isDismissingFailed={isCancellingPayment}
         isCancelling={isCancellingPayment}
       />
 

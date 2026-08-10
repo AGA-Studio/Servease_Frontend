@@ -152,9 +152,14 @@ const ApplicantCard = ({
   // "el proveedor contraofertó, me toca responder", y "el proveedor ya
   // aceptó el precio de mi oferta, solo falta que yo confirme" — todos
   // menos el primero deben poder aceptar/rechazar/contraofertar de nuevo.
+  // lastOfferBy puede ser null con status "countered" si estado_solicitud
+  // dice "contra" pero no hay ultima_oferta (dato inconsistente/oferta
+  // limpiada) — sin el fallback a null, la tarjeta no caía ni en isYourTurn
+  // ni en isWaitingView y quedaba sin precio ni botones, sin forma de actuar.
   const isYourTurn =
     a.status === "new" ||
-    (a.status === "countered" && (a.lastOfferBy === "provider" || a.offerAccepted));
+    (a.status === "countered" &&
+      (a.lastOfferBy === "provider" || a.offerAccepted || a.lastOfferBy === null));
   const isWaitingView = a.status === "countered" && a.lastOfferBy === "you" && !a.offerAccepted;
   const isAcceptedView = a.status === "accepted";
   const isDeclinedView = a.status === "declined";
@@ -346,7 +351,7 @@ const ApplicantCard = ({
                 <Check size={16} color="#fff" strokeWidth={2.5} />
               </motion.div>
               <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2f6b16" }}>
-                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
+                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(currentAsk, a.moneda))}
               </div>
             </motion.div>
           )}
@@ -544,7 +549,7 @@ const ApplicantCard = ({
               <Check size={14} color="#fff" strokeWidth={2.5} />
             </motion.div>
             <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2f6b16" }}>
-              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
+              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(currentAsk, a.moneda))}
             </div>
           </motion.div>
         )}
