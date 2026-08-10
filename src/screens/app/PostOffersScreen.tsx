@@ -28,6 +28,7 @@ import {
   type PostDetails,
 } from "../../api/servicioApi";
 import { ApiError } from "../../api/apiClient";
+import { useCachedResource } from "../../hooks/useCachedResource";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -278,7 +279,12 @@ const ApplicantCard = ({
                   </span>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <motion.button whileTap={{ scale: 0.95 }} onClick={onReject} style={ghostBtnStyle}>
+                  <motion.button
+                    whileHover={{ backgroundColor: "rgba(255,68,68,0.08)" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onReject}
+                    style={rejectBtnStyle}
+                  >
                     {po.reject}
                   </motion.button>
                   <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={onOpenCounter} style={counterBtnStyle}>
@@ -482,7 +488,7 @@ const ApplicantCard = ({
               {po.accept}
             </motion.button>
             <div style={{ display: "flex", gap: 10 }}>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={onReject} style={{ ...mobileOutlineBtnStyle, flex: 1 }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={onReject} style={{ ...mobileOutlineBtnStyle, ...rejectMobileBtnStyle, flex: 1 }}>
                 {po.reject}
               </motion.button>
               <motion.button whileTap={{ scale: 0.97 }} onClick={onOpenCounter} style={{ ...counterBtnStyle, flex: 1, textAlign: "center" }}>
@@ -567,6 +573,17 @@ const ghostBtnStyle: React.CSSProperties = {
   fontFamily: "inherit",
 };
 
+const rejectBtnStyle: React.CSSProperties = {
+  ...ghostBtnStyle,
+  color: "#FF4444",
+  borderRadius: 9,
+};
+
+const rejectMobileBtnStyle: React.CSSProperties = {
+  border: "1.5px solid rgba(255,68,68,0.4)",
+  color: "#FF4444",
+};
+
 const counterBtnStyle: React.CSSProperties = {
   background: "var(--sidebar-bg)",
   border: "1.5px solid #2EBCCC",
@@ -615,10 +632,6 @@ const PostOffersScreen: React.FC = () => {
   const { toasts, addToast, removeToast } = useToast();
   const { formatFixedMoney } = useCurrency();
 
-  const [post, setPost] = useState<PostDetails | null>(null);
-  const [isLoadingPost, setIsLoadingPost] = useState(true);
-  const [applicants, setApplicants] = useState<Applicant[]>([]);
-  const [isLoadingApplicants, setIsLoadingApplicants] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [counterApplicant, setCounterApplicant] = useState<Applicant | null>(null);
   const [isCounterSubmitting, setIsCounterSubmitting] = useState(false);
@@ -629,41 +642,48 @@ const PostOffersScreen: React.FC = () => {
   } | null>(null);
   const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
 
+  const {
+    data: post,
+    isLoading: isLoadingPost,
+    error: postErrorObj,
+  } = useCachedResource<PostDetails>(
+    postId ? `post-details:${postId}` : null,
+    () => fetchPostDetails(postId!),
+  );
+
   useEffect(() => {
-    if (!postId) return;
-    let cancelled = false;
+    if (postErrorObj) {
+      console.error("fetchPostDetails failed:", postErrorObj);
+      addToast("error", po.errors.postFailed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postErrorObj]);
 
-    fetchPostDetails(postId)
-      .then((data) => {
-        if (!cancelled) setPost(data);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchPostDetails failed:", error);
-        addToast("error", po.errors.postFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingPost(false);
-      });
+  const {
+    data: applicantsRaw,
+    isLoading: isLoadingApplicants,
+    error: applicantsErrorObj,
+  } = useCachedResource<Aplicante[]>(
+    postId ? `aplicantes:${postId}` : null,
+    () => fetchAplicantes(postId!),
+  );
 
-    fetchAplicantes(postId)
-      .then((list) => {
-        if (!cancelled) setApplicants(list.map(aplicanteToApplicant));
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchAplicantes failed:", error);
-        addToast("error", po.errors.applicantsFailed);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingApplicants(false);
-      });
+  useEffect(() => {
+    if (applicantsErrorObj) {
+      console.error("fetchAplicantes failed:", applicantsErrorObj);
+      addToast("error", po.errors.applicantsFailed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicantsErrorObj]);
 
-    return () => {
-      cancelled = true;
-    };
-
-  }, [postId]);
+  // Copia local editable: applicantsRaw viene del cache (instantáneo en
+  // revisitas) y se sincroniza aquí; las acciones (aceptar/rechazar/
+  // contraofertar) mutan esta copia de forma optimista sin tener que
+  // reconstruir la forma cruda de Aplicante.
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  useEffect(() => {
+    if (applicantsRaw) setApplicants(applicantsRaw.map(aplicanteToApplicant));
+  }, [applicantsRaw]);
 
   const notifyActionUnavailable = () => addToast("info", po.actionUnavailable);
 
@@ -848,7 +868,15 @@ const PostOffersScreen: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE }}
-          style={{ margin: "0 0 8px", fontSize: "1.85rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}
+          style={{
+            margin: "0 0 8px",
+            fontSize: "1.85rem",
+            fontWeight: 800,
+            letterSpacing: "-0.02em",
+            color: "var(--text)",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+          }}
         >
           {post?.titulo}
         </motion.h1>

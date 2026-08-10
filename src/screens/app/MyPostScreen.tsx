@@ -26,20 +26,24 @@ import type { MyPost, PostStatus } from "../../data/mockPosts";
 import JobDetailsModal from "../../components/jobdetailsmodal/JobDetailsModal";
 import type { JobDetails } from "../../types/job";
 import { useAuth } from "../../context/AuthContext";
-import { fetchMisPublicaciones } from "../../api/userApi";
+import {
+  fetchMisPublicaciones,
+  type MisPublicacionesResponse,
+} from "../../api/userApi";
 import { fetchCategorias, type Categoria } from "../../api/categoriaApi";
 import {
   deleteServicio,
   fetchAplicantes,
   fetchPostDetails,
   type PostDetails,
-  type ServicioListItem,
   type ServicioResponse,
 } from "../../api/servicioApi";
 import {
   timeAgo,
   mapEstadoIdToStatus,
   mapPostDetailsToJobDetails,
+  STATUS_TO_ESTADO_IDS,
+  type ServicioStatus,
 } from "../../utils/servicio";
 import { getApproxLocation } from "../../utils/location";
 import { ApiError } from "../../api/apiClient";
@@ -520,33 +524,35 @@ const AnimatedCard = ({
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => navigate(buildPostOffersPath(post.id), { state: { post } })}
-            style={{
-              flex: 1,
-              padding: "10px 0",
-              borderRadius: 10,
-              border: "none",
-              background: "#2EBCCC",
-              color: "#ffffff",
-              fontWeight: 700,
-              fontSize: "0.83rem",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              letterSpacing: "0.01em",
-              transition: "background 160ms ease-out",
-            }}
-            onHoverStart={(e) => {
-              (e.target as HTMLButtonElement).style.background = "#239aaa";
-            }}
-            onHoverEnd={(e) => {
-              (e.target as HTMLButtonElement).style.background = "#2EBCCC";
-            }}
-          >
-            {mp.card.viewApplicants}
-          </motion.button>
+          {post.status !== "completed" && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate(buildPostOffersPath(post.id), { state: { post } })}
+              style={{
+                flex: 1,
+                padding: "10px 0",
+                borderRadius: 10,
+                border: "none",
+                background: "#2EBCCC",
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "0.83rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "0.01em",
+                transition: "background 160ms ease-out",
+              }}
+              onHoverStart={(e) => {
+                (e.target as HTMLButtonElement).style.background = "#239aaa";
+              }}
+              onHoverEnd={(e) => {
+                (e.target as HTMLButtonElement).style.background = "#2EBCCC";
+              }}
+            >
+              {mp.card.viewApplicants}
+            </motion.button>
+          )}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
@@ -897,19 +903,39 @@ const MyPostScreen: React.FC = () => {
     fetchCategorias,
   );
 
+  const categoriaId = useMemo(
+    () =>
+      categoryFilter === "all"
+        ? undefined
+        : categorias?.find((c) => c.nombre === categoryFilter)?.id_categoria,
+    [categorias, categoryFilter],
+  );
+
+  const estadoIds =
+    statusFilter === "all"
+      ? undefined
+      : STATUS_TO_ESTADO_IDS[statusFilter as ServicioStatus];
+
   const {
-    data: results,
-    setData: setResults,
+    data: response,
     isLoading,
     error: fetchErrorObj,
     reload: handleRetry,
-  } = useCachedResource<ServicioListItem[]>(
-    userId ? `mis-publicaciones:${userId}` : null,
+  } = useCachedResource<MisPublicacionesResponse>(
+    userId
+      ? `mis-publicaciones:${userId}:${page}:${debouncedSearch.trim()}:${statusFilter}:${categoryFilter}`
+      : null,
     () =>
-      fetchMisPublicaciones(userId!, { page: 1, pageSize: 50 }).then(
-        (r) => r.results,
-      ),
+      fetchMisPublicaciones(userId!, {
+        page,
+        pageSize: PAGE_SIZE,
+        search: debouncedSearch,
+        estadoIds,
+        categoriaId,
+      }),
   );
+
+  const results = response?.results;
 
   const fetchError = fetchErrorObj
     ? fetchErrorObj instanceof ApiError
@@ -973,23 +999,13 @@ const MyPostScreen: React.FC = () => {
     [results, applicantCounts],
   );
 
-  const filtered = posts.filter((p) => {
-    const matchSearch = p.title
-      .toLowerCase()
-      .includes(debouncedSearch.trim().toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || p.status === statusFilter;
-    const matchCategory =
-      categoryFilter === "all" || p.category === categoryFilter;
-    return matchSearch && matchStatus && matchCategory;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil((response?.count ?? 0) / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginated = filtered.slice(
-    (safePage - 1) * PAGE_SIZE,
-    safePage * PAGE_SIZE
-  );
+  const paginated = posts;
+
+  useEffect(() => {
+    if (response && page > totalPages) setPage(totalPages);
+  }, [response, page, totalPages]);
 
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -1050,7 +1066,7 @@ const MyPostScreen: React.FC = () => {
   useEffect(() => {
     const searchQuery = searchParams.get("search");
     if (!searchQuery || posts.length === 0) return;
-    if (filtered.length === 1) handleViewDetails(filtered[0]);
+    if (posts.length === 1) handleViewDetails(posts[0]);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -1060,7 +1076,7 @@ const MyPostScreen: React.FC = () => {
       { replace: true },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posts, filtered, searchParams]);
+  }, [posts, searchParams]);
 
   // Deep-link from Home/Dashboard's category suggestion: /app/my-post?category=X
   // pre-fills the category dropdown (see useState above); just strip it from
@@ -1088,11 +1104,7 @@ const MyPostScreen: React.FC = () => {
     setIsDeleting(true);
     try {
       await deleteServicio(deleteTarget.id);
-      setResults((prev) =>
-        (prev ?? []).filter(
-          (s) => String(s.id_servicio) !== deleteTarget.id,
-        ),
-      );
+      handleRetry();
 
       if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
       addToast("success", mp.success.deleted);
@@ -1106,7 +1118,7 @@ const MyPostScreen: React.FC = () => {
       setIsDeleteConfirmOpen(false);
       setDeleteTarget(null);
     }
-  }, [deleteTarget, addToast, mp.success.deleted, mp.errors.deleteFailed, setResults, userId]);
+  }, [deleteTarget, addToast, mp.success.deleted, mp.errors.deleteFailed, handleRetry, userId]);
 
   const handleEditClick = useCallback(
     (post: MyPost) => {
@@ -1126,26 +1138,12 @@ const MyPostScreen: React.FC = () => {
   );
 
   const handleEditSaved = useCallback(
-    (updated: ServicioResponse) => {
-      const categoriaNombre =
-        (categorias ?? []).find((c) => c.id_categoria === updated.id_categoria)
-          ?.nombre ?? "";
-      setResults((prev) =>
-        (prev ?? []).map((s) =>
-          s.id_servicio === updated.id_servicio
-            ? {
-                ...s,
-                titulo: updated.titulo,
-                precio_inicial: updated.precio_inicial,
-                categoria_nombre: categoriaNombre || s.categoria_nombre,
-              }
-            : s,
-        ),
-      );
+    (_updated: ServicioResponse) => {
+      handleRetry();
       if (userId) invalidateCached(`ultimas-publicaciones:${userId}`);
       addToast("success", mp.success.edited);
     },
-    [addToast, mp.success.edited, categorias, setResults, userId],
+    [addToast, mp.success.edited, handleRetry, userId],
   );
 
   const clearFilters = () => {

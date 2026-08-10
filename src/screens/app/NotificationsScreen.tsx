@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { Bell, BellOff, CheckCheck, ChevronRight } from "lucide-react";
@@ -19,6 +19,7 @@ import {
 import EmptyState from "../../components/emptystate/EmptyState";
 import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
 import LiveTimeAgo from "../../components/livetimeago/LiveTimeAgo";
+import { useCachedResource } from "../../hooks/useCachedResource";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -30,31 +31,28 @@ const NotificationsScreen: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const {
+    data: raw,
+    setData: setRaw,
+    isLoading,
+    error: loadErrorObj,
+  } = useCachedResource<Notificacion[]>(
+    user?.id ? `notificaciones:${user.id}` : null,
+    fetchNotificaciones,
+  );
+  const loadError = !!loadErrorObj;
+
+  const notifications: NotificationItem[] = useMemo(
+    () => (raw ?? []).map(toNotificationItem),
+    [raw],
+  );
 
   const highlightId = (location.state as { highlightId?: number } | null)
     ?.highlightId;
 
   useEffect(() => {
-    let cancelled = false;
-    fetchNotificaciones()
-      .then((data) => {
-        if (!cancelled) setNotifications(data.map(toNotificationItem));
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchNotificaciones failed:", error);
-        setLoadError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (loadErrorObj) console.error("fetchNotificaciones failed:", loadErrorObj);
+  }, [loadErrorObj]);
 
   useRealtimeChannel<Notificacion>({
     table: "notificacion",
@@ -62,30 +60,31 @@ const NotificationsScreen: React.FC = () => {
     filter: user ? `id_usuario=eq.${user.id}` : undefined,
     enabled: !!user,
     onChange: (payload) => {
-      const nueva = toNotificationItem(payload.new as Notificacion);
-      setNotifications((prev) => [nueva, ...prev]);
+      setRaw((prev) => [payload.new as Notificacion, ...(prev ?? [])]);
     },
   });
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = () => {
-    const previous = notifications;
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const previous = raw;
+    setRaw((prev) => (prev ?? []).map((n) => ({ ...n, leido: true })));
     marcarTodasNotificacionesLeidas().catch((error) => {
       console.error("marcarTodasNotificacionesLeidas failed:", error);
-      setNotifications(previous);
+      setRaw(previous ?? []);
     });
   };
 
   const markRead = (id: number) => {
-    const previous = notifications;
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    const previous = raw;
+    setRaw((prev) =>
+      (prev ?? []).map((n) =>
+        n.id_notificacion === id ? { ...n, leido: true } : n,
+      ),
     );
     marcarNotificacionLeida(id).catch((error) => {
       console.error("marcarNotificacionLeida failed:", error);
-      setNotifications(previous);
+      setRaw(previous ?? []);
     });
   };
 

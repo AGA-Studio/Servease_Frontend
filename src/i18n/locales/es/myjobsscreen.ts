@@ -24,9 +24,11 @@ export const myjobsscreen = {
     cancelSuccess: "Postulación cancelada correctamente.",
     cancelFailed: "No se pudo cancelar la postulación. Intenta de nuevo.",
     markCompleted: "Marcar como Completado",
+    markDoneSuccess: "Se avisó al cliente que el trabajo está terminado.",
+    markDoneFailed: "No se pudo avisar al cliente. Intenta de nuevo.",
+    waitingForClient: "Esperando pago del cliente",
     completeSuccess: "¡Servicio completado! Gracias por tu calificación.",
     completeFailed: "No se pudo completar el servicio. Intenta de nuevo.",
-    paymentStartFailed: "No se pudo iniciar el cobro con tarjeta. Intenta de nuevo.",
     paymentCancelFailed: "No se pudo cancelar el cobro. Intenta de nuevo.",
     counterOffer: "Contraoferta",
     counterSuccess: "Contraoferta enviada correctamente.",
@@ -37,11 +39,22 @@ export const myjobsscreen = {
     acceptOfferFailed: "No se pudo aceptar el precio. Intenta de nuevo.",
     waitingForClientConfirm: "Esperando confirmación del cliente",
   },
-  confirmAccept: {
+  offerReceivedModal: {
+    title: "Nueva Oferta Recibida",
+    subtitle: "El cliente te envió una contraoferta en \"{title}\".",
+    offeredAmount: "Monto Ofrecido",
+    counterOffer: "Contraoferta",
+    acceptOffer: "Aceptar Contraoferta",
+  },
+  confirmAcceptOffer: {
     title: "Aceptar Contraoferta",
-    message: "¿Estás seguro de aceptar el precio de ${bid} para \"{title}\"? Se notificará al cliente para que confirme.",
+    message: "¿Aceptar el precio de {bid} para \"{title}\"? Se notificará al cliente para que confirme y asigne el trabajo.",
     confirm: "Sí, Aceptar",
-    cancel: "Cancelar",
+  },
+  confirmMarkDone: {
+    title: "Marcar Trabajo Terminado",
+    message: "¿Confirmas que ya terminaste \"{title}\"? Se le avisará al cliente para que elija cómo pagarte.",
+    confirm: "Sí, Terminé",
   },
   pagination: {
     page: "Página",

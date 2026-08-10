@@ -124,7 +124,7 @@ export const common = {
         {
           h: "13. Contacto",
           c: [
-            { contact: true, email: "0323105874@ut-tijuana.edu.mx", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, México" }
+            { contact: true, email: "soporte@appservease.com", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, México" }
           ]
         }
       ]
@@ -142,7 +142,7 @@ export const common = {
           h: "1. Responsable del Tratamiento de Datos",
           c: [
             "El responsable del tratamiento de los datos personales es el equipo de desarrollo de Servease, conformado por estudiantes de la Universidad Tecnológica de Tijuana bajo el marco del proyecto académico 'Sistema de Control y Contratación de Servicios'.",
-            { contact: true, email: "0323105874@ut-tijuana.edu.mx", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, México" }
+            { contact: true, email: "soporte@appservease.com", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, México" }
           ]
         },
         {
@@ -213,7 +213,7 @@ export const common = {
           c: [
             "Conforme a la LFPDPPP tienes derecho a:",
             ["Acceso: conocer qué datos personales tenemos sobre ti y cómo los utilizamos.", "Rectificación: solicitar la corrección de datos inexactos, incompletos o desactualizados.", "Cancelación: solicitar la eliminación de tus datos cuando ya no sean necesarios o hayas revocado tu consentimiento.", "Oposición: oponerte al tratamiento de tus datos para finalidades específicas, incluyendo las secundarias."],
-            { emailText: "0323105874@ut-tijuana.edu.mx", v: "Para ejercer estos derechos, envía una solicitud a {email} indicando tu nombre completo, correo electrónico registrado, derecho que deseas ejercer y descripción de la solicitud. Responderemos en un plazo máximo de 20 días hábiles conforme a la LFPDPPP." }
+            { emailText: "soporte@appservease.com", v: "Para ejercer estos derechos, envía una solicitud a {email} indicando tu nombre completo, correo electrónico registrado, derecho que deseas ejercer y descripción de la solicitud. Responderemos en un plazo máximo de 20 días hábiles conforme a la LFPDPPP." }
           ]
         },
         {
@@ -245,7 +245,7 @@ export const common = {
         {
           h: "14. Contacto",
           c: [
-            { contact: true, email: "0323105874@ut-tijuana.edu.mx", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, México" }
+            { contact: true, email: "soporte@appservease.com", institution: "Universidad Tecnológica de Tijuana", city: "Tijuana, Baja California, México" }
           ]
         }
       ]

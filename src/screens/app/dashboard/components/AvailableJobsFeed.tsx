@@ -1,11 +1,14 @@
 import { Briefcase } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import type { DashboardJob } from "../../../../types/dashboard";
 import { useI18n } from "../../../../i18n";
 import { ROUTES } from "../../../../router/routes";
 import { JobCard } from "./JobCard";
 import { SkeletonLoader } from "./SkeletonLoader";
 import EmptyState from "../../../../components/emptystate/EmptyState";
+
+const ENTRANCE_EASE = [0.23, 1, 0.32, 1] as const;
 
 interface AvailableJobsFeedProps {
   jobs: DashboardJob[] | undefined;
@@ -111,13 +114,19 @@ export const AvailableJobsFeed = ({ jobs, isLoading, isDark, disponible, onActiv
           ) : !jobs?.length ? (
             <EmptyJobsState isDark={isDark} />
           ) : (
-            jobs.map((job) => (
-              <JobCard
+            jobs.map((job, i) => (
+              <motion.div
                 key={job.id}
-                job={job}
-                onViewDetails={() => onViewDetails(job)}
-                onApply={() => onApply(job)}
-              />
+                initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.35, delay: i * 0.06, ease: ENTRANCE_EASE }}
+              >
+                <JobCard
+                  job={job}
+                  onViewDetails={() => onViewDetails(job)}
+                  onApply={() => onApply(job)}
+                />
+              </motion.div>
             ))
           )}
         </div>

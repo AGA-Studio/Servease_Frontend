@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, useInView } from "motion/react";
 import { useI18n } from "../../i18n";
+import { useCurrency } from "../../context/CurrencyContext";
+import { useAuth } from "../../context/AuthContext";
+import { useCachedResource } from "../../hooks/useCachedResource";
 import { useToast } from "../../components/Toast/useToast";
 import ToastContainer from "../../components/Toast/ToastContainer";
 import FilterSelect from "../../components/filterselect/FilterSelect";
@@ -23,7 +26,6 @@ import CustomizableModal from "../../components/modal/CustomizableModal";
 import EmptyState from "../../components/emptystate/EmptyState";
 import ImageWithFallback from "../../components/imagewithfallback/ImageWithFallback";
 import RatingModal, { type RatingData } from "../../components/ratingmodal/RatingModal";
-import CompleteServiceModal from "../../components/completeservicemodal/CompleteServiceModal";
 import PaymentWaitingModal, {
   type PaymentWaitStatus,
 } from "../../components/completeservicemodal/PaymentWaitingModal";
@@ -33,20 +35,22 @@ import { friendlyErrorMessage } from "../../utils/apiError";
 import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
 import {
   aceptarOferta,
+  calificarCliente,
   cancelarPago,
   cancelPostulacion,
-  completarServicio,
   crearOferta,
   fetchPagoEnCursoProveedor,
   fetchPagoEstado,
+  fetchPendienteCalificarProveedor,
   fetchPostDetails,
-  iniciarPago,
+  marcarTrabajoTerminado,
   type PagoEstado,
 } from "../../api/servicioApi";
 import { fetchTrabajosAplicados, type TrabajoAplicado } from "../../api/userApi";
 import ProviderCounterModal, {
   type ProviderCounterData,
 } from "../../components/counteroffermodal/ProviderCounterModal";
+import OfferReceivedModal from "../../components/counteroffermodal/OfferReceivedModal";
 
 type ProposalStatus =
   | "accepted"
@@ -54,7 +58,6 @@ type ProposalStatus =
   | "rejected"
   | "counteroffer"
   | "completed";
-type PaymentMethod = "efectivo" | "tarjeta";
 
 interface DisplayJob {
   id: string;
@@ -73,6 +76,11 @@ interface DisplayJob {
   // Si la contraparte ya aceptó el monto de esa última oferta (sin que la
   // postulación en sí esté aceptada todavía).
   offerAccepted: boolean;
+  // Comentario que acompaña la última oferta (la "carta" de la contraoferta).
+  offerMessage: string | null;
+  // El proveedor ya avisó que el trabajo está terminado — esperando a que
+  // el cliente elija método de pago.
+  trabajoTerminado: boolean;
 }
 
 function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
@@ -106,6 +114,8 @@ function mapTrabajoAplicadoToDisplay(job: TrabajoAplicado): DisplayJob {
         : "you"
       : null,
     offerAccepted: job.ultima_oferta?.aceptacion ?? false,
+    offerMessage: job.ultima_oferta?.comentario ?? null,
+    trabajoTerminado: job.trabajo_terminado,
   };
 }
 
@@ -449,7 +459,24 @@ const AnimatedJobCard = ({
             )}
           </motion.button>
 
-          {job.proposalStatus === "accepted" && (
+          {job.proposalStatus === "accepted" && job.trabajoTerminado && (
+            <div
+              style={{
+                flex: 1,
+                padding: "10px 0",
+                borderRadius: 10,
+                textAlign: "center",
+                background: isDark ? "#273570" : "#F1F5F9",
+                color: "var(--text-secondary)",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+              }}
+            >
+              {d.actions.waitingForClient}
+            </div>
+          )}
+
+          {job.proposalStatus === "accepted" && !job.trabajoTerminado && (
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
@@ -694,7 +721,9 @@ const MyJobsScreen: React.FC = () => {
   const { isDark, theme } = useTheme();
   const { t } = useI18n();
   const d = t("myjobsscreen");
+  const { formatFixedMoney } = useCurrency();
   const { toasts, addToast, removeToast } = useToast();
+  const { user } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -710,17 +739,13 @@ const MyJobsScreen: React.FC = () => {
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [jobs, setJobs] = useState<DisplayJob[]>([]);
 
-  // Confirmación antes de aceptar el precio de una contraoferta del cliente.
-  const [confirmAcceptJob, setConfirmAcceptJob] = useState<DisplayJob | null>(null);
-  const [isAcceptingOffer, setIsAcceptingOffer] = useState(false);
-
-  // "Marcar completado" flow: complete-service modal -> (cash: drag confirm | card: Stripe via realtime) -> rating modal.
-  const [completingJob, setCompletingJob] = useState<DisplayJob | null>(null);
-  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
-  const [isStartingCardPayment, setIsStartingCardPayment] = useState(false);
+  // "Marcar trabajo terminado" flow: el proveedor solo avisa que terminó —
+  // el cliente elige método de pago del otro lado. De ahí en adelante todo
+  // llega por Realtime: tarjeta pendiente -> PaymentWaitingModal, pago
+  // resuelto (efectivo o tarjeta) -> RatingModal.
+  const [confirmDoneJob, setConfirmDoneJob] = useState<DisplayJob | null>(null);
+  const [isMarkingDone, setIsMarkingDone] = useState(false);
   const [clientInfo, setClientInfo] = useState<{ name: string; avatarUrl?: string } | null>(null);
 
   const [paymentWait, setPaymentWait] = useState<{
@@ -728,11 +753,9 @@ const MyJobsScreen: React.FC = () => {
     idTransaccion: number;
     status: PaymentWaitStatus;
   } | null>(null);
-  const [isRetryingPayment, setIsRetryingPayment] = useState(false);
   const [isCancellingPayment, setIsCancellingPayment] = useState(false);
 
   const [ratingJob, setRatingJob] = useState<DisplayJob | null>(null);
-  const [ratingMethod, setRatingMethod] = useState<PaymentMethod>("efectivo");
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   const [counteringJob, setCounteringJob] = useState<DisplayJob | null>(null);
@@ -740,49 +763,29 @@ const MyJobsScreen: React.FC = () => {
   const [isCounterSubmitting, setIsCounterSubmitting] = useState(false);
   const [counterError, setCounterError] = useState<string | null>(null);
 
+  // Modal de "nueva oferta recibida" (deep-link desde la notificación) y su
+  // confirmación de aceptar — compartida con el botón "Aceptar Precio" del card.
+  const [receivedOfferJob, setReceivedOfferJob] = useState<DisplayJob | null>(null);
+  const [confirmAcceptJob, setConfirmAcceptJob] = useState<DisplayJob | null>(null);
+  const [isAcceptSubmitting, setIsAcceptSubmitting] = useState(false);
+
+  const {
+    data: jobs = [],
+    setData: setJobs,
+    isLoading,
+    error: jobsErrorObj,
+  } = useCachedResource<DisplayJob[]>(
+    user?.id ? `trabajos-aplicados-provider:${user.id}` : null,
+    () => fetchTrabajosAplicados().then((data) => data.map(mapTrabajoAplicadoToDisplay)),
+  );
+
   useEffect(() => {
-    let cancelled = false;
-    fetchTrabajosAplicados()
-      .then((data) => {
-        if (cancelled) return;
-        setJobs(data.map(mapTrabajoAplicadoToDisplay));
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error("fetchTrabajosAplicados failed:", error);
-        addToast("error", friendlyErrorMessage(error, d.errors.fetchFailed));
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!jobsErrorObj) return;
+    console.error("fetchTrabajosAplicados failed:", jobsErrorObj);
+    addToast("error", friendlyErrorMessage(jobsErrorObj, d.errors.fetchFailed));
+  }, [jobsErrorObj, addToast, d.errors.fetchFailed]);
 
-  // Provider waiting for the client to confirm a card payment (realtime-driven).
-  useRealtimeChannel<{ estado: string }>({
-    table: "transaccion",
-    event: "UPDATE",
-    filter: paymentWait ? `id_transaccion=eq.${paymentWait.idTransaccion}` : undefined,
-    enabled: !!paymentWait && paymentWait.status === "waiting",
-    onChange: (payload) => {
-      const nuevoEstado = (payload.new as { estado?: string }).estado;
-      // A decline ("rechazada") isn't terminal — the client can keep
-      // retrying with another card on the same intent, so the provider just
-      // keeps waiting no matter how many attempts it takes. Only a genuine
-      // expiry (30 min timeout, intent actually cancelled server-side) ends
-      // the wait and needs the provider to start a fresh charge.
-      if (nuevoEstado === "completada") {
-        setPaymentWait((prev) => (prev ? { ...prev, status: "success" } : prev));
-      } else if (nuevoEstado === "expirada") {
-        setPaymentWait((prev) => (prev ? { ...prev, status: "failed" } : prev));
-      }
-    },
-  });
-
-  // Backstop for the subscription above: browser tab backgrounding, a dropped
+  // Backstop for the broad Realtime channel below: browser tab backgrounding, a dropped
   // socket, or any other silent Realtime failure would otherwise strand the
   // provider on "waiting" forever with no way to notice the payment resolved.
   useEffect(() => {
@@ -864,15 +867,24 @@ const MyJobsScreen: React.FC = () => {
     [addToast, d],
   );
 
-  // Deep-link from a notification: /app/my-jobs?serviceId=X auto-opens that job's detail.
+  // Deep-link from a notification: /app/my-jobs?serviceId=X auto-opens that job's
+  // detail — or, with &openCounter=1 (click on a "nueva oferta" notification),
+  // opens the dedicated offer-received modal instead.
   useEffect(() => {
     const serviceId = searchParams.get("serviceId");
     if (!serviceId || jobs.length === 0) return;
     const job = jobs.find((j) => j.idServicio === Number(serviceId));
-    if (job) handleViewDetails(job);
+    if (job) {
+      if (searchParams.get("openCounter") === "1") {
+        setReceivedOfferJob(job);
+      } else {
+        handleViewDetails(job);
+      }
+    }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("serviceId");
+      next.delete("openCounter");
       return next;
     }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -910,7 +922,7 @@ const MyJobsScreen: React.FC = () => {
     async (job: DisplayJob) => {
       try {
         await cancelPostulacion(job.idPostulacion);
-        setJobs((prev) => prev.filter((j) => j.id !== job.id));
+        setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
         setIsDetailsOpen(false);
         addToast("success", d.actions.cancelSuccess);
       } catch (error) {
@@ -946,7 +958,7 @@ const MyJobsScreen: React.FC = () => {
           comentario: data.message || undefined,
         });
         setJobs((prev) =>
-          prev.map((j) =>
+          (prev ?? []).map((j) =>
             j.id === counteringJob.id
               ? {
                   ...j,
@@ -970,18 +982,19 @@ const MyJobsScreen: React.FC = () => {
     [counteringJob, addToast, d],
   );
 
-  const handleAcceptOffer = useCallback((job: DisplayJob) => {
+  // El card y el modal de "oferta recibida" solo piden la confirmación;
+  // la llamada real ocurre al confirmar en el CustomizableModal compartido.
+  const handleRequestAcceptOffer = useCallback((job: DisplayJob) => {
     setConfirmAcceptJob(job);
   }, []);
 
   const handleConfirmAcceptOffer = useCallback(async () => {
     if (!confirmAcceptJob) return;
-    const job = confirmAcceptJob;
-    setIsAcceptingOffer(true);
+    setIsAcceptSubmitting(true);
     try {
-      await aceptarOferta(job.idPostulacion);
+      await aceptarOferta(confirmAcceptJob.idPostulacion);
       setJobs((prev) =>
-        prev.map((j) => (j.id === job.id ? { ...j, offerAccepted: true } : j)),
+        (prev ?? []).map((j) => (j.id === confirmAcceptJob.id ? { ...j, offerAccepted: true } : j)),
       );
       addToast("success", d.actions.acceptOfferSuccess);
       setConfirmAcceptJob(null);
@@ -989,17 +1002,20 @@ const MyJobsScreen: React.FC = () => {
       console.error("aceptarOferta failed:", error);
       addToast("error", friendlyErrorMessage(error, d.actions.acceptOfferFailed));
     } finally {
-      setIsAcceptingOffer(false);
+      setIsAcceptSubmitting(false);
     }
   }, [confirmAcceptJob, addToast, d]);
 
-  // Shared by the manual "marcar completado" recheck and the auto-resume-on-
-  // mount effect below: a decline just means keep waiting (client can retry
-  // the same intent), only a genuine expiry needs the provider to restart.
-  const resumePaymentFlow = useCallback((job: DisplayJob, pago: PagoEstado) => {
-    if (pago.estado === "completada") {
-      setRatingMethod("tarjeta");
+  // Compartido por el resume-on-mount, el backstop de "pendiente calificar" y
+  // el Realtime de abajo: abre el RatingModal, ya sea con la info del
+  // cliente que ya tenemos a la mano o pidiéndola si hace falta.
+  const openRatingForJob = useCallback(
+    (job: DisplayJob, info?: { name: string; avatarUrl?: string }) => {
       setRatingJob(job);
+      if (info) {
+        setClientInfo(info);
+        return;
+      }
       setClientInfo(null);
       fetchPostDetails(job.idServicio)
         .then((details) => {
@@ -1008,12 +1024,25 @@ const MyJobsScreen: React.FC = () => {
         .catch((error) => {
           console.error("fetchPostDetails failed:", error);
         });
-    } else if (pago.estado === "expirada") {
-      setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "failed" });
-    } else {
-      setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "waiting" });
-    }
-  }, []);
+    },
+    [],
+  );
+
+  // Shared by the auto-resume-on-mount effect below: a decline isn't
+  // terminal (client can retry the same intent), only a genuine expiry ends
+  // the wait.
+  const resumePaymentFlow = useCallback(
+    (job: DisplayJob, pago: PagoEstado) => {
+      if (pago.estado === "completada") {
+        openRatingForJob(job);
+      } else if (pago.estado === "expirada") {
+        setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "failed" });
+      } else {
+        setPaymentWait({ job, idTransaccion: pago.id_transaccion, status: "waiting" });
+      }
+    },
+    [openRatingForJob],
+  );
 
   // Auto-resumes an in-flight card payment on mount — if the provider closed
   // the tab or navigated away mid-wait, they land back exactly where they
@@ -1035,82 +1064,102 @@ const MyJobsScreen: React.FC = () => {
       });
   }, [isLoading, jobs, resumePaymentFlow]);
 
-  const handleMarkCompletedClick = useCallback(
-    (job: DisplayJob) => {
-      setCompletingJob(job);
-      setClientInfo(null);
-      fetchPostDetails(job.idServicio)
-        .then((details) => {
-          setClientInfo({ name: details.nombre_cliente, avatarUrl: details.url_foto_perfil ?? undefined });
-        })
-        .catch((error) => {
-          console.error("fetchPostDetails failed:", error);
+  // Backstop for a servicio that already completed (cash or card) while the
+  // provider wasn't connected to Realtime — otherwise they'd never see the
+  // rating prompt for it.
+  const hasCheckedPendienteCalificarRef = useRef(false);
+  useEffect(() => {
+    if (hasCheckedPendienteCalificarRef.current || isLoading || ratingJob) return;
+    hasCheckedPendienteCalificarRef.current = true;
+    fetchPendienteCalificarProveedor()
+      .then((pendiente) => {
+        if (!pendiente) return;
+        const job = jobs.find((j) => j.idServicio === pendiente.id_servicio);
+        if (!job) return;
+        openRatingForJob(job, {
+          name: pendiente.cliente_nombre,
+          avatarUrl: pendiente.cliente_foto ?? undefined,
         });
+      })
+      .catch((error) => {
+        console.error("fetchPendienteCalificarProveedor failed:", error);
+      });
+  }, [isLoading, jobs, ratingJob, openRatingForJob]);
 
-      // Recovers the true payment state if a previous card attempt is already
-      // resolved (or still in flight) — Realtime only catches transitions
-      // live, so a reload/navigation while waiting would otherwise strand it.
-      fetchPagoEstado(job.idServicio)
-        .then((pago) => {
-          if (!pago) {
-            setIsCompleteModalOpen(true);
-            return;
-          }
-          resumePaymentFlow(job, pago);
-        })
-        .catch((error) => {
-          console.error("fetchPagoEstado failed:", error);
-          setIsCompleteModalOpen(true);
-        });
+  // El proveedor solo avisa que el trabajo terminó — el cliente elige cómo
+  // pagar del otro lado. Todo lo que sigue (tarjeta pendiente, pago
+  // resuelto) llega por este canal, filtrado por proveedor_id.
+  useRealtimeChannel<{
+    id_transaccion: number;
+    servicio_id: number;
+    estado: string;
+    metodo_pago: string | null;
+  }>({
+    table: "transaccion",
+    event: "*",
+    filter: user ? `proveedor_id=eq.${user.id}` : undefined,
+    enabled: !!user,
+    onChange: (payload) => {
+      const row = payload.new as {
+        id_transaccion: number;
+        servicio_id: number;
+        estado: string;
+        metodo_pago: string | null;
+      };
+
+      if (row.metodo_pago === "tarjeta" && row.estado === "pendiente") {
+        if (paymentWait?.idTransaccion === row.id_transaccion) return;
+        const job = jobs.find((j) => j.idServicio === row.servicio_id);
+        if (job) setPaymentWait({ job, idTransaccion: row.id_transaccion, status: "waiting" });
+        return;
+      }
+
+      if (row.estado === "completada") {
+        if (paymentWait?.idTransaccion === row.id_transaccion) {
+          setPaymentWait((prev) => (prev ? { ...prev, status: "success" } : prev));
+          return;
+        }
+        // Efectivo (o una tarjeta que se resolvió sin que este tab tuviera
+        // el modal de espera abierto) — directo a calificar.
+        const job = jobs.find((j) => j.idServicio === row.servicio_id);
+        if (job) {
+          openRatingForJob(job);
+        }
+        return;
+      }
+
+      if (row.estado === "expirada" && paymentWait?.idTransaccion === row.id_transaccion) {
+        setPaymentWait((prev) => (prev ? { ...prev, status: "failed" } : prev));
+      }
     },
-    [resumePaymentFlow],
-  );
+  });
 
-  const handleConfirmCash = useCallback(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    setTimeout(() => {
-      setIsCompleteModalOpen(false);
-      setRatingMethod("efectivo");
-      setRatingJob(completingJob);
-    }, 550);
-  }, [completingJob]);
+  const handleMarkCompletedClick = useCallback((job: DisplayJob) => {
+    setConfirmDoneJob(job);
+  }, []);
 
-  const handleStartCardPayment = useCallback(async () => {
-    if (!completingJob) return;
-    setIsStartingCardPayment(true);
+  const handleConfirmMarkDone = useCallback(async () => {
+    if (!confirmDoneJob) return;
+    setIsMarkingDone(true);
     try {
-      const res = await iniciarPago(completingJob.idServicio);
-      setIsCompleteModalOpen(false);
-      setPaymentWait({ job: completingJob, idTransaccion: res.id_transaccion, status: "waiting" });
+      await marcarTrabajoTerminado(confirmDoneJob.idServicio);
+      setJobs((prev) =>
+        (prev ?? []).map((j) =>
+          j.id === confirmDoneJob.id ? { ...j, trabajoTerminado: true } : j,
+        ),
+      );
+      addToast("success", d.actions.markDoneSuccess);
+      setConfirmDoneJob(null);
     } catch (error) {
-      console.error("iniciarPago failed:", error);
-      addToast("error", friendlyErrorMessage(error, d.actions.paymentStartFailed));
+      console.error("marcarTrabajoTerminado failed:", error);
+      addToast("error", friendlyErrorMessage(error, d.actions.markDoneFailed));
     } finally {
-      setIsStartingCardPayment(false);
+      setIsMarkingDone(false);
     }
-  }, [completingJob, addToast, d]);
+  }, [confirmDoneJob, addToast, d]);
 
-  const handlePaymentSuccessContinue = useCallback(() => {
-    if (!paymentWait) return;
-    setRatingMethod("tarjeta");
-    setRatingJob(paymentWait.job);
-    setPaymentWait(null);
-  }, [paymentWait]);
-
-  const handlePaymentRetry = useCallback(async () => {
-    if (!paymentWait) return;
-    setIsRetryingPayment(true);
-    try {
-      const res = await iniciarPago(paymentWait.job.idServicio);
-      setPaymentWait({ job: paymentWait.job, idTransaccion: res.id_transaccion, status: "waiting" });
-    } catch (error) {
-      console.error("iniciarPago retry failed:", error);
-      addToast("error", friendlyErrorMessage(error, d.actions.paymentStartFailed));
-    } finally {
-      setIsRetryingPayment(false);
-    }
-  }, [paymentWait, addToast, d]);
-
+  // Since payment resolution now always drives the rating step forward via
+  // Realtime, "retry" here just means bail out and let the client try again.
   const handlePaymentCancel = useCallback(async () => {
     if (!paymentWait) return;
     setIsCancellingPayment(true);
@@ -1125,30 +1174,35 @@ const MyJobsScreen: React.FC = () => {
     }
   }, [paymentWait, addToast, d]);
 
+  const handlePaymentSuccessContinue = useCallback(() => {
+    if (!paymentWait) return;
+    openRatingForJob(paymentWait.job);
+    setPaymentWait(null);
+  }, [paymentWait, openRatingForJob]);
+
   const handleProviderRatingSubmit = useCallback(
     async (data: RatingData) => {
       if (!ratingJob) return;
       setIsSubmittingRating(true);
       try {
-        await completarServicio(ratingJob.idServicio, {
-          metodo_pago: ratingMethod,
+        await calificarCliente(ratingJob.idServicio, {
           puntuacion: data.rating,
           comentario: data.comment,
         });
         setJobs((prev) =>
-          prev.map((j) => (j.id === ratingJob.id ? { ...j, proposalStatus: "completed" as const } : j)),
+          (prev ?? []).map((j) => (j.id === ratingJob.id ? { ...j, proposalStatus: "completed" as const } : j)),
         );
         addToast("success", d.actions.completeSuccess);
         setRatingJob(null);
       } catch (error) {
-        console.error("completarServicio failed:", error);
+        console.error("calificarCliente failed:", error);
         addToast("error", friendlyErrorMessage(error, d.actions.completeFailed));
         throw error;
       } finally {
         setIsSubmittingRating(false);
       }
     },
-    [ratingJob, ratingMethod, addToast, d],
+    [ratingJob, addToast, d],
   );
 
   const clearFilters = () => {
@@ -1517,7 +1571,7 @@ const MyJobsScreen: React.FC = () => {
                     onViewDetails={handleViewDetails}
                     onMarkCompleted={handleMarkCompletedClick}
                     onCounterOffer={handleOpenCounter}
-                    onAcceptOffer={handleAcceptOffer}
+                    onAcceptOffer={handleRequestAcceptOffer}
                   />
                 ))}
               </motion.div>
@@ -1560,17 +1614,16 @@ const MyJobsScreen: React.FC = () => {
         }
       />
 
-      {completingJob && (
-        <CompleteServiceModal
-          isOpen={isCompleteModalOpen}
-          onClose={() => setIsCompleteModalOpen(false)}
-          isDark={isDark}
-          jobTitle={completingJob.title}
-          amount={completingJob.budget.toLocaleString()}
-          currency={completingJob.currency}
-          onConfirmCash={handleConfirmCash}
-          onStartCardPayment={handleStartCardPayment}
-          isStartingCardPayment={isStartingCardPayment}
+      {confirmDoneJob && (
+        <CustomizableModal
+          isOpen
+          variant="success"
+          title={d.confirmMarkDone.title}
+          subtitle={d.confirmMarkDone.message.replace("{title}", confirmDoneJob.title)}
+          confirmText={d.confirmMarkDone.confirm}
+          isSubmitting={isMarkingDone}
+          onConfirm={handleConfirmMarkDone}
+          onClose={() => !isMarkingDone && setConfirmDoneJob(null)}
         />
       )}
 
@@ -1579,9 +1632,9 @@ const MyJobsScreen: React.FC = () => {
         isDark={isDark}
         status={paymentWait?.status ?? "waiting"}
         onSuccessContinue={handlePaymentSuccessContinue}
-        onRetry={handlePaymentRetry}
+        onRetry={handlePaymentCancel}
         onCancel={handlePaymentCancel}
-        isRetrying={isRetryingPayment}
+        isRetrying={isCancellingPayment}
         isCancelling={isCancellingPayment}
       />
 
@@ -1603,19 +1656,39 @@ const MyJobsScreen: React.FC = () => {
         onSubmit={handleSendCounterOffer}
       />
 
+      {receivedOfferJob && (
+        <OfferReceivedModal
+          isOpen={!!receivedOfferJob}
+          onClose={() => setReceivedOfferJob(null)}
+          jobTitle={receivedOfferJob.title}
+          amount={receivedOfferJob.budget}
+          currency={receivedOfferJob.currency}
+          message={receivedOfferJob.offerMessage}
+          onCounter={() => {
+            const job = receivedOfferJob;
+            setReceivedOfferJob(null);
+            handleOpenCounter(job);
+          }}
+          onAccept={() => {
+            const job = receivedOfferJob;
+            setReceivedOfferJob(null);
+            handleRequestAcceptOffer(job);
+          }}
+        />
+      )}
+
       {confirmAcceptJob && (
         <CustomizableModal
           isOpen
           variant="success"
-          title={d.confirmAccept.title}
-          subtitle={d.confirmAccept.message
-            .replace("{bid}", confirmAcceptJob.budget.toLocaleString())
+          title={d.confirmAcceptOffer.title}
+          subtitle={d.confirmAcceptOffer.message
+            .replace("{bid}", formatFixedMoney(confirmAcceptJob.budget, confirmAcceptJob.currency))
             .replace("{title}", confirmAcceptJob.title)}
-          confirmText={d.confirmAccept.confirm}
-          cancelText={d.confirmAccept.cancel}
-          isSubmitting={isAcceptingOffer}
+          confirmText={d.confirmAcceptOffer.confirm}
+          isSubmitting={isAcceptSubmitting}
           onConfirm={handleConfirmAcceptOffer}
-          onClose={() => !isAcceptingOffer && setConfirmAcceptJob(null)}
+          onClose={() => !isAcceptSubmitting && setConfirmAcceptJob(null)}
         />
       )}
 

@@ -32,6 +32,7 @@ import {
 } from "../../api/userApi";
 import { SkeletonLoader } from "./dashboard/components/SkeletonLoader";
 import { timeAgo, mapEstadoToStatus } from "../../utils/servicio";
+import { formatPhone } from "../../utils/validation";
 import ReviewsModal from "../../components/reviewsmodal/ReviewsModal";
 import Avatar from "../../components/avatar/Avatar";
 import EmptyState from "../../components/emptystate/EmptyState";
@@ -715,7 +716,7 @@ const ClientProfileScreen: React.FC = () => {
                   {p.personalInfo.phone}
                 </span>
                 <span style={{ color: "var(--text)", fontWeight: 700, fontSize: "0.85rem" }}>
-                  {profile?.celular || p.personalInfo.phoneNotSet}
+                  {profile?.celular ? formatPhone(profile.celular) : p.personalInfo.phoneNotSet}
                 </span>
               </div>
             )}
