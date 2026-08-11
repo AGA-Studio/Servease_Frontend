@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { Bell, BellOff, CheckCheck, ChevronRight } from "lucide-react";
+import { Bell, BellOff, CheckCheck, ChevronRight, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
 import { useAuth } from "../../context/AuthContext";
@@ -18,10 +18,12 @@ import {
 } from "../../utils/notifications";
 import EmptyState from "../../components/emptystate/EmptyState";
 import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
+import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 import LiveTimeAgo from "../../components/livetimeago/LiveTimeAgo";
 import { useCachedResource } from "../../hooks/useCachedResource";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
+const PAGE_SIZE = 15;
 
 const NotificationsScreen: React.FC = () => {
   const { isDark } = useThemeMode();
@@ -31,6 +33,10 @@ const NotificationsScreen: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
 
+  const [hasMore, setHasMore] = useState(true);
+  const [pagesLoaded, setPagesLoaded] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const {
     data: raw,
     setData: setRaw,
@@ -38,7 +44,11 @@ const NotificationsScreen: React.FC = () => {
     error: loadErrorObj,
   } = useCachedResource<Notificacion[]>(
     user?.id ? `notificaciones:${user.id}` : null,
-    fetchNotificaciones,
+    () =>
+      fetchNotificaciones({ page: 1, page_size: PAGE_SIZE }).then((r) => {
+        setHasMore(r.next !== null);
+        return r.results;
+      }),
   );
   const loadError = !!loadErrorObj;
 
@@ -64,7 +74,25 @@ const NotificationsScreen: React.FC = () => {
     },
   });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Independiente de la lista paginada — así el badge siempre refleja el
+  // total real de no leídas, no solo las que ya se cargaron en pantalla.
+  const unreadCount = useUnreadNotificationCount();
+
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = pagesLoaded + 1;
+      const r = await fetchNotificaciones({ page: nextPage, page_size: PAGE_SIZE });
+      setRaw((prev) => [...(prev ?? []), ...r.results]);
+      setHasMore(r.next !== null);
+      setPagesLoaded(nextPage);
+    } catch (error) {
+      console.error("fetchNotificaciones (load more) failed:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const markAllRead = () => {
     const previous = raw;
@@ -225,6 +253,40 @@ const NotificationsScreen: React.FC = () => {
                 onClick={() => handleClick(notif)}
               />
             ))}
+
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginTop: 4,
+                  padding: "12px 0",
+                  borderRadius: 12,
+                  border: `1px solid var(--divider)`,
+                  background: "none",
+                  color: "#2EBCCC",
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: isLoadingMore ? "not-allowed" : "pointer",
+                  opacity: isLoadingMore ? 0.7 : 1,
+                  fontFamily: "inherit",
+                }}
+              >
+                {isLoadingMore && (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  >
+                    <Loader2 size={14} />
+                  </motion.div>
+                )}
+                {ns.loadMore}
+              </button>
+            )}
           </div>
         )}
       </div>

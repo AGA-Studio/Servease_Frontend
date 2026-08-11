@@ -35,8 +35,8 @@ const ACTIVITY_TYPE_BY_TIPO: Record<string, DashboardActivityType> = {
 
 async function fetchRecentActivity(): Promise<DashboardActivity[]> {
   try {
-    const data = await fetchNotificaciones();
-    return data.slice(0, 5).map((n) => ({
+    const { results: data } = await fetchNotificaciones({ page_size: 5 });
+    return data.map((n) => ({
       id: String(n.id_notificacion),
       type: ACTIVITY_TYPE_BY_TIPO[n.tipo] ?? "message",
       date: n.fecha,

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Send, Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useThemeMode } from "../../theme/useThemeMode";
+import { useCurrency } from "../../context/CurrencyContext";
 import Avatar from "../avatar/Avatar";
 import { formatBidInputValue } from "../../utils/bidInput";
 
@@ -68,6 +69,7 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
   const { t } = useI18n();
   const d = t("providercountermodal");
   const { isDark } = useThemeMode();
+  const { currency, convert, formatFixedMoney } = useCurrency();
 
   const cardBg = isDark ? "#1e2d5e" : "#ffffff";
   const cardMuted = isDark ? "#273570" : "#F8FAFB";
@@ -77,9 +79,16 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
   const text = isDark ? "#ffffff" : "#1B244C";
   const textSecondary = "#989898";
 
-  // El incremento sugerido es en la moneda del servicio: 50 pesos o 5 dolares.
-  const bidStep = client.currency === "USD" ? 5 : 50;
-  const defaultBid = Math.max(0, client.currentBid + bidStep);
+  // client.currentBid viene crudo en la moneda del servicio (nunca la mezcles
+  // con la moneda de quien ve la pantalla sin convertir primero — ese era el
+  // bug: sumar pesos + dolares como si fueran el mismo número).
+  const serviceCurrency = client.currency === "USD" ? "USD" : "MXN";
+  const bidStep = serviceCurrency === "USD" ? 5 : 50;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const currentBidInViewerCurrency = round2(
+    convert(client.currentBid, serviceCurrency, currency),
+  );
+  const defaultBid = Math.max(0, round2(currentBidInViewerCurrency + convert(bidStep, serviceCurrency, currency)));
   const [newBid, setNewBid] = useState<number>(defaultBid);
   const [bidDisplay, setBidDisplay] = useState<string>(formatBidInputValue(String(defaultBid)).display);
   const [message, setMessage] = useState("");
@@ -87,7 +96,7 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
 
   const validate = (): string | null => {
     if (!Number.isFinite(newBid) || newBid <= 0) return d.errors.invalidBid;
-    if (newBid === client.currentBid) return d.errors.sameBid;
+    if (round2(newBid) === currentBidInViewerCurrency) return d.errors.sameBid;
     if (message.length > MAX_MESSAGE_LENGTH) return d.errors.messageTooLong;
     return null;
   };
@@ -101,7 +110,12 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
       return;
     }
     setValidationError(null);
-    await onSubmit?.({ newBid, message: message.trim() });
+    // El backend guarda todo en la moneda del servicio — convertir de vuelta
+    // antes de enviar, nunca mandar el numero crudo que se ve en pantalla.
+    await onSubmit?.({
+      newBid: round2(convert(newBid, currency, serviceCurrency)),
+      message: message.trim(),
+    });
   };
 
   const displayedError = validationError ?? errorMessage;
@@ -194,7 +208,9 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
                 <p style={{ margin: 0, fontSize: "0.65rem", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", color: textSecondary }}>
                   {d.currentBid}
                 </p>
-                <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 800, color: text }}>${client.currentBid}</p>
+                <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 800, color: text }}>
+                  {formatFixedMoney(currentBidInViewerCurrency, currency)}
+                </p>
               </div>
             </motion.div>
 
@@ -235,7 +251,7 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
                       borderRadius: 12,
                       border: `1px solid ${border}`,
                       background: inputBg,
-                      padding: "10px 16px 10px 28px",
+                      padding: "10px 48px 10px 28px",
                       fontSize: "0.9rem",
                       fontWeight: 700,
                       color: text,
@@ -247,6 +263,20 @@ export const ProviderCounterModal: React.FC<ProviderCounterModalProps> = ({
                       margin: 0,
                     } as React.CSSProperties}
                   />
+                  <span
+                    style={{
+                      position: "absolute",
+                      right: 14,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      color: textSecondary,
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {currency}
+                  </span>
                 </div>
               </div>
 
