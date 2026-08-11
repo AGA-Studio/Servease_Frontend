@@ -6,4 +6,5 @@ export const notificationsscreen = {
     subtitle: "Aquí verás las novedades de tus servicios, postulaciones, ofertas y mensajes.",
   },
   loadFailed: "No se pudieron cargar las notificaciones. Intenta de nuevo más tarde.",
+  loadMore: "Cargar más",
 };

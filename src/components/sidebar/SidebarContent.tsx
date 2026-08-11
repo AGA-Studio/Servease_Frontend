@@ -9,11 +9,10 @@ import ThemeToggle from "./ThemeToggle";
 import ServeaseLogoDark from "../../assets/Servease-Icono-Modo-Oscuro.svg";
 import ServeaseLogo from "../../assets/Servease-Icono.svg";
 import { ChevronLeft } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { fetchNotificaciones, type Notificacion } from "../../api/notificacionApi";
-import { useRealtimeChannel } from "../../hooks/useRealtimeChannel";
+import { useUnreadNotificationCount } from "../../hooks/useUnreadNotificationCount";
 
 interface Props {
   isCollapsed: boolean;
@@ -62,29 +61,7 @@ const SidebarContent: React.FC<Props> = ({
   const logo = isDark ? ServeaseLogoDark : ServeaseLogo;
 
   const [logoHovered, setLogoHovered] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchNotificaciones({ leido: false })
-      .then((data) => {
-        if (!cancelled) setUnreadCount(data.length);
-      })
-      .catch((error) => {
-        console.error("fetchNotificaciones (sidebar badge) failed:", error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [location.pathname]);
-
-  useRealtimeChannel<Notificacion>({
-    table: "notificacion",
-    event: "INSERT",
-    filter: user ? `id_usuario=eq.${user.id}` : undefined,
-    enabled: !!user,
-    onChange: () => setUnreadCount((prev) => prev + 1),
-  });
+  const unreadCount = useUnreadNotificationCount(location.pathname);
 
   const clientItems = NAV_ITEMS.filter((item) => item.group === "client");
   const providerItems = NAV_ITEMS.filter((item) => item.group === "provider");

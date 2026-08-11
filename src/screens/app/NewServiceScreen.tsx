@@ -132,6 +132,7 @@ interface ValidationErrors {
   description?: string;
   location?: string;
   budget?: string;
+  date?: string;
 }
 
 const TOTAL_STEPS = 3;
@@ -203,6 +204,9 @@ function CustomDateTimePicker({
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const isViewingCurrentMonth =
+    viewYear === now.getFullYear() && viewMonth === now.getMonth();
 
   const commit = (day: number, hour: string, minute: string) => {
     const d = new Date(
@@ -235,6 +239,7 @@ function CustomDateTimePicker({
         <div className="flex items-center justify-between mb-3">
           <button
             type="button"
+            disabled={isViewingCurrentMonth}
             onClick={() => {
               if (viewMonth === 0) {
                 setViewMonth(11);
@@ -244,8 +249,9 @@ function CustomDateTimePicker({
             style={{
               background: "none",
               border: "none",
-              cursor: "pointer",
-              color: accentColor,
+              cursor: isViewingCurrentMonth ? "not-allowed" : "pointer",
+              color: isViewingCurrentMonth ? mutedColor : accentColor,
+              opacity: isViewingCurrentMonth ? 0.5 : 1,
               padding: 4,
             }}
           >
@@ -308,10 +314,12 @@ function CustomDateTimePicker({
                 now.getDate() === day &&
                 now.getMonth() === viewMonth &&
                 now.getFullYear() === viewYear;
+              const isPast = new Date(viewYear, viewMonth, day) < today;
               return (
                 <button
                   key={day}
                   type="button"
+                  disabled={isPast}
                   onClick={() => {
                     setSelectedDay(day);
                     commit(day, selectedHour, selectedMinute);
@@ -329,20 +337,21 @@ function CustomDateTimePicker({
                         ? `1.5px solid ${accentColor}`
                         : "none",
                     background: isSelected ? accentColor : "transparent",
-                    color: isSelected ? "#fff" : textColor,
+                    color: isPast ? mutedColor : isSelected ? "#fff" : textColor,
+                    opacity: isPast ? 0.4 : 1,
                     fontSize: "0.8rem",
                     fontWeight: isSelected ? 700 : 400,
-                    cursor: "pointer",
+                    cursor: isPast ? "not-allowed" : "pointer",
                     transition: "background 0.15s",
                     fontFamily: "inherit",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected)
+                    if (!isSelected && !isPast)
                       e.currentTarget.style.background =
                         "rgba(46,188,204,0.15)";
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected)
+                    if (!isSelected && !isPast)
                       e.currentTarget.style.background = "transparent";
                   }}
                 >
@@ -776,6 +785,15 @@ const NewServiceScreen: React.FC = () => {
       else if (!locationCoords) e.location = ns.validation.locationNotResolved;
 
       if (!isValidPrice(form.budget)) e.budget = ns.validation.budgetInvalid;
+
+      if (form.date) {
+        const selected = new Date(form.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (Number.isNaN(selected.getTime()) || selected < today) {
+          e.date = ns.validation.dateInPast;
+        }
+      }
     }
     return e;
   };
@@ -1499,11 +1517,14 @@ const NewServiceScreen: React.FC = () => {
         }
       />
 
-      <InputField label={ns.details.dateLabel ?? "Date & Time"} isDark={isDark}>
+      <InputField label={ns.details.dateLabel ?? "Date & Time"} isDark={isDark} error={errors.date}>
         <div className="relative w-full">
           <CustomDateTimePicker
             value={form.date}
-            onChange={(v) => set("date", v)}
+            onChange={(v) => {
+              set("date", v);
+              if (errors.date) setErrors((prev) => ({ ...prev, date: undefined }));
+            }}
             isDark={isDark}
           />
         </div>
