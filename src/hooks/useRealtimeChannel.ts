@@ -42,6 +42,13 @@ export function useRealtimeChannel<T extends object>({
     let retryCount = 0;
     const topic = `realtime:${table}:${filter ?? "all"}:${Math.random().toString(36).slice(2)}`;
 
+    const removeCurrentChannel = () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+    };
+
     const setupAndSubscribe = async () => {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -54,20 +61,31 @@ export function useRealtimeChannel<T extends object>({
 
       if (!isSubscribed) return;
 
+      // supabase-js cachea canales por topic: reusar el mismo topic en un
+      // retry sin quitar el canal anterior (aún errored/joining) hace que
+      // supabase.channel(topic) devuelva ESA MISMA instancia en vez de una
+      // nueva, y .on()/.subscribe() pueden tirar o no hacer nada — hay que
+      // removerlo explícitamente antes de crear el siguiente.
+      removeCurrentChannel();
+
       channel = supabase
         .channel(topic)
         .on(
           "postgres_changes",
           { event, schema: "public", table, filter },
           (payload: RealtimePostgresChangesPayload<T>) => {
-            console.debug(`[realtime:${table}] event received`, payload);
+            if (import.meta.env.DEV) {
+              console.debug(`[realtime:${table}] event received`, payload);
+            }
             onChangeRef.current(payload);
           },
         )
         .subscribe((status, err) => {
           if (status === "SUBSCRIBED") {
             retryCount = 0;
-            console.debug(`[realtime:${table}] subscribed (filter: ${filter ?? "none"})`);
+            if (import.meta.env.DEV) {
+              console.debug(`[realtime:${table}] subscribed (filter: ${filter ?? "none"})`);
+            }
             return;
           }
 
@@ -90,9 +108,7 @@ export function useRealtimeChannel<T extends object>({
     return () => {
       isSubscribed = false;
       if (retryTimer) clearTimeout(retryTimer);
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      removeCurrentChannel();
     };
   }, [table, event, filter, enabled]);
 }

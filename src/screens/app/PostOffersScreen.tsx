@@ -55,8 +55,12 @@ interface Applicant {
   offerAccepted: boolean;
 }
 
+// Una vez que hubo una contraoferta, counterAmount es el monto vigente —
+// incluso después de aceptar (status ya no es "countered" en ese momento,
+// pero el precio acordado sigue siendo el de la contraoferta, no el bid
+// original).
 function getCurrentAsk(a: Applicant): number {
-  return a.status === "countered" ? (a.counterAmount ?? a.bid) : a.bid;
+  return a.counterAmount ?? a.bid;
 }
 
 function mapEstadoSolicitud(estado: string | null, hasOferta: boolean): ApplicantStatus {
@@ -152,9 +156,14 @@ const ApplicantCard = ({
   // "el proveedor contraofertó, me toca responder", y "el proveedor ya
   // aceptó el precio de mi oferta, solo falta que yo confirme" — todos
   // menos el primero deben poder aceptar/rechazar/contraofertar de nuevo.
+  // lastOfferBy puede ser null con status "countered" si estado_solicitud
+  // dice "contra" pero no hay ultima_oferta (dato inconsistente/oferta
+  // limpiada) — sin el fallback a null, la tarjeta no caía ni en isYourTurn
+  // ni en isWaitingView y quedaba sin precio ni botones, sin forma de actuar.
   const isYourTurn =
     a.status === "new" ||
-    (a.status === "countered" && (a.lastOfferBy === "provider" || a.offerAccepted));
+    (a.status === "countered" &&
+      (a.lastOfferBy === "provider" || a.offerAccepted || a.lastOfferBy === null));
   const isWaitingView = a.status === "countered" && a.lastOfferBy === "you" && !a.offerAccepted;
   const isAcceptedView = a.status === "accepted";
   const isDeclinedView = a.status === "declined";
@@ -346,7 +355,7 @@ const ApplicantCard = ({
                 <Check size={16} color="#fff" strokeWidth={2.5} />
               </motion.div>
               <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#2f6b16" }}>
-                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
+                {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(currentAsk, a.moneda))}
               </div>
             </motion.div>
           )}
@@ -544,7 +553,7 @@ const ApplicantCard = ({
               <Check size={14} color="#fff" strokeWidth={2.5} />
             </motion.div>
             <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#2f6b16" }}>
-              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(a.bid, a.moneda))}
+              {po.acceptedMessage.replace("{name}", a.name).replace("{bid}", formatFixedMoney(currentAsk, a.moneda))}
             </div>
           </motion.div>
         )}
@@ -1020,6 +1029,7 @@ const PostOffersScreen: React.FC = () => {
           name: counterApplicant?.name ?? "",
           avatarUrl: counterApplicant?.avatar,
           originalBid: counterApplicant ? getCurrentAsk(counterApplicant) : 0,
+          currency: counterApplicant?.moneda,
         }}
         isSubmitting={isCounterSubmitting}
         errorMessage={counterError}

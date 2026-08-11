@@ -79,13 +79,18 @@ const ApplyJobModal: React.FC<Props> = ({
   const serviceCurrency = jobCurrency === "USD" ? "USD" : "MXN";
 
   const [option, setOption] = useState<"accept" | "counter">("counter");
+  // El incremento sugerido es en la moneda del servicio: 50 pesos o 5 dolares.
+  const bidStep = serviceCurrency === "USD" ? 5 : 50;
   const defaultCounterOffer =
-    Math.round(convert(clientPrice + 30, serviceCurrency, currency) * 100) / 100;
+    Math.round(convert(clientPrice + bidStep, serviceCurrency, currency) * 100) / 100;
   const [counterOfferNumeric, setCounterOfferNumeric] = useState<number>(defaultCounterOffer);
   const [counterOfferDisplay, setCounterOfferDisplay] = useState<string>(
     formatBidInputValue(String(defaultCounterOffer)).display,
   );
   const [coverLetter, setCoverLetter] = useState("");
+  // Sin esto, dejar el campo en 0/vacío hacía que `convert(0, ...) || clientPrice`
+  // sustituyera silenciosamente el precio del cliente en vez de bloquear el envío.
+  const isCounterOfferInvalid = option === "counter" && counterOfferNumeric <= 0;
 
   useEffect(() => {
     if (isOpen) {
@@ -620,18 +625,18 @@ const ApplyJobModal: React.FC<Props> = ({
                 {d.actions.cancel}
               </motion.button>
               <motion.button
-                onClick={() =>
+                onClick={() => {
+                  if (isCounterOfferInvalid) return;
                   onSubmit?.({
                     option,
                     price:
                       option === "accept"
                         ? clientPrice
-                        : convert(counterOfferNumeric, currency, serviceCurrency) ||
-                          clientPrice,
+                        : convert(counterOfferNumeric, currency, serviceCurrency),
                     coverLetter,
-                  })
-                }
-                disabled={isSubmitting}
+                  });
+                }}
+                disabled={isSubmitting || isCounterOfferInvalid}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 style={{
