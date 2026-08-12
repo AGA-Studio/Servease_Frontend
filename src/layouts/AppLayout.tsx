@@ -13,6 +13,7 @@ import { useI18n } from "../i18n";
 import { ROUTES } from "../router/routes";
 import { useAuth } from "../context/AuthContext";
 import ClientRatingModal, { type ClientRatingData } from "../components/ratingmodal/ClientRatingModal";
+import RatingModal, { type RatingData } from "../components/ratingmodal/RatingModal";
 import CardPaymentModal from "../components/payment/CardPaymentModal";
 import CompleteServiceModal from "../components/completeservicemodal/CompleteServiceModal";
 import { useToast } from "../components/Toast/useToast";
@@ -21,11 +22,13 @@ import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 import { friendlyErrorMessage } from "../utils/apiError";
 import { roleHasCapability } from "../utils/roles";
 import {
+  calificarCliente,
   calificarServicio,
   fetchAplicantes,
   fetchPagoPendiente,
   fetchPagoPendienteCliente,
   fetchPendienteCalificar,
+  fetchPendienteCalificarProveedor,
   fetchPostDetails,
   fetchTrabajoTerminadoPendiente,
   iniciarPagoCliente,
@@ -60,12 +63,14 @@ const AppLayout: React.FC = () => {
   const crm = t("clientratingmodal");
   const cpm = t("cardpaymentmodal");
   const csm = t("completeservicemodal");
+  const mjs = t("myjobsscreen");
   const { user } = useAuth();
   const { toasts, addToast, removeToast } = useToast();
   // No es un chequeo estricto de "role === client" — un proveedor también
   // puede publicar su propio servicio y necesita ver estos modales cuando
   // actúa como cliente en ese servicio (jerarquía de roles, ver utils/roles).
   const isClient = !!user && roleHasCapability(user.role, "client");
+  const isProvider = !!user && roleHasCapability(user.role, "provider");
 
   interface CardPaymentPrompt {
     idServicio: number;
@@ -110,7 +115,7 @@ const AppLayout: React.FC = () => {
 
   interface RatingPrompt {
     idServicio: number;
-    provider: { name: string; avatarUrl?: string };
+    provider: { name: string; avatarUrl?: string; rating?: number; reviewsCount?: number };
   }
   const [ratingPrompt, setRatingPrompt] = useState<RatingPrompt | null>(null);
   const [isSubmittingClientRating, setIsSubmittingClientRating] = useState(false);
@@ -129,6 +134,8 @@ const AppLayout: React.FC = () => {
           provider: {
             name: pendiente.proveedor_nombre,
             avatarUrl: pendiente.proveedor_foto ?? undefined,
+            rating: pendiente.rating,
+            reviewsCount: pendiente.num_reviews,
           },
         });
       })
@@ -139,6 +146,44 @@ const AppLayout: React.FC = () => {
       cancelled = true;
     };
   }, [isClient, user]);
+
+  interface RatingPromptProvider {
+    idServicio: number;
+    client: { name: string; avatarUrl?: string; rating?: number; reviewsCount?: number };
+  }
+  const [ratingPromptProvider, setRatingPromptProvider] =
+    useState<RatingPromptProvider | null>(null);
+  const [isSubmittingProviderRating, setIsSubmittingProviderRating] = useState(false);
+
+  // Contraparte del bloque de arriba pero para el proveedor — antes esto
+  // solo vivía en MyJobsScreen (mount-only), así que si el trabajo se
+  // completaba mientras el proveedor estaba en cualquier otra pantalla, el
+  // modal de calificación nunca le aparecía hasta recargar y volver a "Mis
+  // Trabajos". Vivir aquí (AppLayout, siempre montado) lo resuelve para
+  // cualquier pantalla, igual que ya pasa del lado del cliente.
+  useEffect(() => {
+    if (!isProvider || !user) return;
+    let cancelled = false;
+    fetchPendienteCalificarProveedor()
+      .then((pendiente) => {
+        if (cancelled || !pendiente) return;
+        setRatingPromptProvider({
+          idServicio: pendiente.id_servicio,
+          client: {
+            name: pendiente.cliente_nombre,
+            avatarUrl: pendiente.cliente_foto ?? undefined,
+            rating: pendiente.rating,
+            reviewsCount: pendiente.num_reviews,
+          },
+        });
+      })
+      .catch((error) => {
+        console.error("fetchPendienteCalificarProveedor failed:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isProvider, user]);
 
   // Same as above but for a card payment the provider already started before
   // this session connected — Realtime's INSERT sub below only catches it live.
@@ -266,6 +311,8 @@ const AppLayout: React.FC = () => {
               provider: {
                 name: aceptado?.nombre_proveedor ?? "",
                 avatarUrl: aceptado?.url_foto_perfil ?? undefined,
+                rating: aceptado?.rating,
+                reviewsCount: aceptado?.num_reviews,
               },
             });
           })
@@ -278,6 +325,37 @@ const AppLayout: React.FC = () => {
       if (row.trabajo_terminado && row.estado === "progreso") {
         openCompleteJob(row.id_servicio);
       }
+    },
+  });
+
+  // Provider waiting for their payment to resolve so the rating prompt can
+  // pop live — servicio no tiene proveedor_id (solo se sabe vía la
+  // postulacion aceptada), así que se escucha transaccion en su lugar; su
+  // 'completada' llega en el mismo momento en que el servicio se completa.
+  useRealtimeChannel<{ servicio_id: number; estado: string }>({
+    table: "transaccion",
+    event: "UPDATE",
+    filter: user ? `proveedor_id=eq.${user.id}` : undefined,
+    enabled: isProvider && !!user,
+    onChange: (payload) => {
+      const row = payload.new as { servicio_id: number; estado: string };
+      if (row.estado !== "completada") return;
+
+      fetchPostDetails(row.servicio_id)
+        .then((details) => {
+          setRatingPromptProvider({
+            idServicio: row.servicio_id,
+            client: {
+              name: details.nombre_cliente,
+              avatarUrl: details.url_foto_perfil ?? undefined,
+              rating: details.rating_cliente,
+              reviewsCount: details.num_reviews_cliente,
+            },
+          });
+        })
+        .catch((error) => {
+          console.error("fetchPostDetails failed:", error);
+        });
     },
   });
 
@@ -373,6 +451,27 @@ const AppLayout: React.FC = () => {
       }
     },
     [ratingPrompt, addToast, crm],
+  );
+
+  const handleProviderRatingSubmit = useCallback(
+    async (data: RatingData) => {
+      if (!ratingPromptProvider) return;
+      setIsSubmittingProviderRating(true);
+      try {
+        await calificarCliente(ratingPromptProvider.idServicio, {
+          puntuacion: data.rating,
+          comentario: data.comment,
+        });
+        addToast("success", mjs.actions.completeSuccess);
+        setRatingPromptProvider(null);
+      } catch (error) {
+        console.error("calificarCliente failed:", error);
+        addToast("error", friendlyErrorMessage(error, mjs.actions.completeFailed));
+      } finally {
+        setIsSubmittingProviderRating(false);
+      }
+    },
+    [ratingPromptProvider, addToast, mjs],
   );
 
   const bg     = isDark ? "#1B244C" : "#F6F8F8";
@@ -484,6 +583,21 @@ const AppLayout: React.FC = () => {
             />
           )}
         </>
+      )}
+
+      {isProvider && ratingPromptProvider && (
+        <RatingModal
+          isOpen={!!ratingPromptProvider}
+          onClose={() => setRatingPromptProvider(null)}
+          provider={{
+            name: ratingPromptProvider.client.name,
+            avatarUrl: ratingPromptProvider.client.avatarUrl,
+            rating: ratingPromptProvider.client.rating ?? 0,
+            reviewsCount: ratingPromptProvider.client.reviewsCount ?? 0,
+          }}
+          onSubmit={handleProviderRatingSubmit}
+          isSubmitting={isSubmittingProviderRating}
+        />
       )}
 
       <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />

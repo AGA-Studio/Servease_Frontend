@@ -88,6 +88,7 @@ export const newservice = {
     locationNotResolved:
       "Presiona Enter para ubicar tu colonia, o usa tu ubicación actual.",
     budgetInvalid: "Ingresa un presupuesto válido (mayor a 0, máx. 2 decimales).",
+    dateInPast: "La fecha no puede ser anterior a hoy.",
   },
   errors: {
     locationNotFound: "No se encontró esa ubicación. Intenta ser más específico.",

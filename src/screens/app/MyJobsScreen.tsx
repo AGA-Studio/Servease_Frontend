@@ -751,7 +751,7 @@ const MyJobsScreen: React.FC = () => {
   // resuelto (efectivo o tarjeta) -> RatingModal.
   const [confirmDoneJob, setConfirmDoneJob] = useState<DisplayJob | null>(null);
   const [isMarkingDone, setIsMarkingDone] = useState(false);
-  const [clientInfo, setClientInfo] = useState<{ name: string; avatarUrl?: string } | null>(null);
+  const [clientInfo, setClientInfo] = useState<{ name: string; avatarUrl?: string; rating?: number; reviewsCount?: number } | null>(null);
 
   const [paymentWait, setPaymentWait] = useState<{
     job: DisplayJob;
@@ -1015,7 +1015,7 @@ const MyJobsScreen: React.FC = () => {
   // el Realtime de abajo: abre el RatingModal, ya sea con la info del
   // cliente que ya tenemos a la mano o pidiéndola si hace falta.
   const openRatingForJob = useCallback(
-    (job: DisplayJob, info?: { name: string; avatarUrl?: string }) => {
+    (job: DisplayJob, info?: { name: string; avatarUrl?: string; rating?: number; reviewsCount?: number }) => {
       setRatingJob(job);
       if (info) {
         setClientInfo(info);
@@ -1024,7 +1024,12 @@ const MyJobsScreen: React.FC = () => {
       setClientInfo(null);
       fetchPostDetails(job.idServicio)
         .then((details) => {
-          setClientInfo({ name: details.nombre_cliente, avatarUrl: details.url_foto_perfil ?? undefined });
+          setClientInfo({
+            name: details.nombre_cliente,
+            avatarUrl: details.url_foto_perfil ?? undefined,
+            rating: details.rating_cliente,
+            reviewsCount: details.num_reviews_cliente,
+          });
         })
         .catch((error) => {
           console.error("fetchPostDetails failed:", error);
@@ -1085,6 +1090,8 @@ const MyJobsScreen: React.FC = () => {
         openRatingForJob(job, {
           name: pendiente.cliente_nombre,
           avatarUrl: pendiente.cliente_foto ?? undefined,
+          rating: pendiente.rating,
+          reviewsCount: pendiente.num_reviews,
         });
       })
       .catch((error) => {
@@ -1713,8 +1720,8 @@ const MyJobsScreen: React.FC = () => {
           provider={{
             name: clientInfo?.name || ratingJob.title,
             avatarUrl: clientInfo?.avatarUrl,
-            rating: 0,
-            reviewsCount: 0,
+            rating: clientInfo?.rating ?? 0,
+            reviewsCount: clientInfo?.reviewsCount ?? 0,
           }}
           onSubmit={handleProviderRatingSubmit}
           isSubmitting={isSubmittingRating}

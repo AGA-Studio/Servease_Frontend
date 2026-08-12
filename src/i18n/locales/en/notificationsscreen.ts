@@ -6,4 +6,5 @@ export const notificationsscreen = {
     subtitle: "You'll see updates about your services, applications, offers and messages here.",
   },
   loadFailed: "Couldn't load notifications. Please try again later.",
+  loadMore: "Load more",
 };

@@ -555,14 +555,25 @@ const JobDetailsModal: React.FC<Props> = ({
                           overflow: "hidden",
                         }}
                       >
-                        <ImageWithFallback
-                          src={currentImage}
-                          alt={job.title}
-                          isDark={isDark}
-                          borderRadius={16}
-                          size="lg"
-                          style={{ width: "100%", height: "100%" }}
-                        />
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.div
+                            key={currentImage ?? selectedThumb}
+                            initial={{ opacity: 0, scale: 1.03 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.98 }}
+                            transition={{ duration: 0.3, ease: EASE }}
+                            style={{ position: "absolute", inset: 0 }}
+                          >
+                            <ImageWithFallback
+                              src={currentImage}
+                              alt={job.title}
+                              isDark={isDark}
+                              borderRadius={16}
+                              size="lg"
+                              style={{ width: "100%", height: "100%" }}
+                            />
+                          </motion.div>
+                        </AnimatePresence>
 
                         {gallery.length > 1 && (
                           <>

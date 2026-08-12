@@ -570,7 +570,7 @@ const HomeScreen: React.FC = () => {
     error: activitiesErrorObj,
   } = useCachedResource(
     user?.id ? `notificaciones:${user.id}` : null,
-    fetchNotificaciones,
+    () => fetchNotificaciones().then((r) => r.results),
   );
 
   useEffect(() => {

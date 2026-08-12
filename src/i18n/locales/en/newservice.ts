@@ -88,6 +88,7 @@ export const newservice = {
     locationNotResolved:
       "Press Enter to locate your neighborhood, or use your current location.",
     budgetInvalid: "Enter a valid budget (greater than 0, max 2 decimals).",
+    dateInPast: "The date can't be earlier than today.",
   },
   errors: {
     locationNotFound: "That location wasn't found. Try being more specific.",

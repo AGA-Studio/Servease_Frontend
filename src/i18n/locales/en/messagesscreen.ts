@@ -25,11 +25,26 @@ export const messagesscreen = {
   locationExact: "Exact Location",
   locationLive: "Live Location",
   sharingLocation: "Sharing current location...",
+  location: "Location",
+  downloadAttachment: "Download file",
+
+  // Location picker (share in chat)
+  locationPickerTitle: "Share location",
+  locationPickerSubtitle: "Drag the pin or tap the map to fine-tune the spot",
+  useCurrentLocation: "Use my current location",
+  locatingDevice: "Getting your location...",
+  locationPermissionDenied: "We couldn't access your location. Pick it on the map.",
+  sendLocationButton: "Send location",
+
+  // Sidebar: split between active chats and chats for finished services
+  activeChats: "Active",
+  pastChats: "Past",
   
   // Error Messages and Validations
   errorLoadingChats: "Failed to load conversations",
   errorLoadingMessages: "Failed to load messages",
   errorSendingMessage: "Could not send message",
+  errorDownloadingAttachment: "Could not download the file",
   rateLimitExceeded: "You're sending messages too fast. Please wait a moment.",
   fileInvalidType: "Invalid file type. Only images and documents are allowed.",
   fileTooLarge: "File exceeds the 10MB limit.",

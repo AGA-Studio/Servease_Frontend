@@ -19,8 +19,11 @@ import {
 } from "../../../utils/notifications";
 import { ROUTES } from "../../../router/routes";
 import { useRealtimeChannel } from "../../../hooks/useRealtimeChannel";
+import { useUnreadNotificationCount } from "../../../hooks/useUnreadNotificationCount";
 import LiveTimeAgo from "../../livetimeago/LiveTimeAgo";
 import { useCachedResource } from "../../../hooks/useCachedResource";
+
+const POPOVER_PAGE_SIZE = 15;
 
 interface Colors {
   cardBg: string;
@@ -161,7 +164,7 @@ const NotificationsPopover = ({ isDark }: Props) => {
     error: loadErrorObj,
   } = useCachedResource<Notificacion[]>(
     user?.id ? `notificaciones:${user.id}` : null,
-    fetchNotificaciones,
+    () => fetchNotificaciones({ page_size: POPOVER_PAGE_SIZE }).then((r) => r.results),
   );
   const loadError = !!loadErrorObj;
 
@@ -170,7 +173,9 @@ const NotificationsPopover = ({ isDark }: Props) => {
     [raw],
   );
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Independiente de la lista (que solo trae la primera página) — así el
+  // badge nunca queda corto solo porque el popover no cargó todo.
+  const unreadCount = useUnreadNotificationCount();
 
   useEffect(() => {
     if (loadErrorObj) console.error("fetchNotificaciones failed:", loadErrorObj);
