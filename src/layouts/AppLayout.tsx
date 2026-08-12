@@ -115,7 +115,7 @@ const AppLayout: React.FC = () => {
 
   interface RatingPrompt {
     idServicio: number;
-    provider: { name: string; avatarUrl?: string };
+    provider: { name: string; avatarUrl?: string; rating?: number; reviewsCount?: number };
   }
   const [ratingPrompt, setRatingPrompt] = useState<RatingPrompt | null>(null);
   const [isSubmittingClientRating, setIsSubmittingClientRating] = useState(false);
@@ -134,6 +134,8 @@ const AppLayout: React.FC = () => {
           provider: {
             name: pendiente.proveedor_nombre,
             avatarUrl: pendiente.proveedor_foto ?? undefined,
+            rating: pendiente.rating,
+            reviewsCount: pendiente.num_reviews,
           },
         });
       })
@@ -147,7 +149,7 @@ const AppLayout: React.FC = () => {
 
   interface RatingPromptProvider {
     idServicio: number;
-    client: { name: string; avatarUrl?: string };
+    client: { name: string; avatarUrl?: string; rating?: number; reviewsCount?: number };
   }
   const [ratingPromptProvider, setRatingPromptProvider] =
     useState<RatingPromptProvider | null>(null);
@@ -170,6 +172,8 @@ const AppLayout: React.FC = () => {
           client: {
             name: pendiente.cliente_nombre,
             avatarUrl: pendiente.cliente_foto ?? undefined,
+            rating: pendiente.rating,
+            reviewsCount: pendiente.num_reviews,
           },
         });
       })
@@ -307,6 +311,8 @@ const AppLayout: React.FC = () => {
               provider: {
                 name: aceptado?.nombre_proveedor ?? "",
                 avatarUrl: aceptado?.url_foto_perfil ?? undefined,
+                rating: aceptado?.rating,
+                reviewsCount: aceptado?.num_reviews,
               },
             });
           })
@@ -342,6 +348,8 @@ const AppLayout: React.FC = () => {
             client: {
               name: details.nombre_cliente,
               avatarUrl: details.url_foto_perfil ?? undefined,
+              rating: details.rating_cliente,
+              reviewsCount: details.num_reviews_cliente,
             },
           });
         })
@@ -584,8 +592,8 @@ const AppLayout: React.FC = () => {
           provider={{
             name: ratingPromptProvider.client.name,
             avatarUrl: ratingPromptProvider.client.avatarUrl,
-            rating: 0,
-            reviewsCount: 0,
+            rating: ratingPromptProvider.client.rating ?? 0,
+            reviewsCount: ratingPromptProvider.client.reviewsCount ?? 0,
           }}
           onSubmit={handleProviderRatingSubmit}
           isSubmitting={isSubmittingProviderRating}

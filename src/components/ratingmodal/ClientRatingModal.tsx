@@ -16,6 +16,8 @@ interface ClientRatingModalProps {
   provider: {
     name: string;
     avatarUrl?: string;
+    rating?: number;
+    reviewsCount?: number;
   };
   onSubmit: (data: ClientRatingData) => void | Promise<void>;
   isSubmitting?: boolean;
@@ -129,6 +131,15 @@ export const ClientRatingModal: React.FC<ClientRatingModalProps> = ({
               <Avatar photoUrl={provider.avatarUrl} name={provider.name} size={48} />
               <div>
                 <h4 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: text }}>{provider.name}</h4>
+                {provider.rating != null && provider.reviewsCount != null && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: "0.7rem", fontWeight: 700, color: "#2EBCCC" }}>
+                    <Star size={12} fill="#2EBCCC" color="#2EBCCC" />
+                    <span>{provider.rating.toFixed(1)}</span>
+                    <span style={{ color: textSecondary, fontWeight: 500 }}>
+                      ({provider.reviewsCount} {d.reviews})
+                    </span>
+                  </div>
+                )}
                 <span
                   style={{
                     display: "inline-block",

@@ -16,7 +16,6 @@ import {
   Image,
   FileText,
   MapPin,
-  Radio,
   Download,
   AlertCircle,
   RefreshCw,
@@ -28,6 +27,10 @@ import { useThemeMode } from "../../theme/useThemeMode";
 import { useAuth } from "../../context/AuthContext";
 import Avatar from "../../components/avatar/Avatar";
 import EmptyState from "../../components/emptystate/EmptyState";
+import LocationMap from "../../components/map/LocationMap";
+import LocationPickerModal from "../../components/locationpickermodal/LocationPickerModal";
+import { useToast } from "../../components/Toast/useToast";
+import ToastContainer from "../../components/Toast/ToastContainer";
 import { chatApi } from "../../api/chatApi";
 import { buildClientProfileViewPath, buildProviderProfileViewPath } from "../../router/routes";
 import type {
@@ -42,12 +45,91 @@ import type {
   ReadReceiptPayload,
 } from "../../hooks/useConversationChannel";
 
+const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg"]);
+
+// Espeja el whitelist del backend (CreateMensajeSerializer) — video, audio,
+// objetos 3D, ejecutables, etc. quedan fuera a propósito.
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "application/pdf",
+  "text/plain",
+]);
+
+function getFileExtension(name?: string | null): string {
+  if (!name) return "";
+  const idx = name.lastIndexOf(".");
+  return idx === -1 ? "" : name.slice(idx + 1).toLowerCase();
+}
+
+/** Los adjuntos requieren auth JWT (endpoint de blob, no una URL pública
+ * embebible), así que las imágenes se traen como blob y se muestran con un
+ * object URL en vez de un <img src> directo. */
+const ChatImageAttachment: React.FC<{
+  messageId: number | string;
+  alt: string;
+  onOpenFallback: () => void;
+}> = ({ messageId, alt, onOpenFallback }) => {
+  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    chatApi
+      .downloadArchivoAdjunto(messageId)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [messageId]);
+
+  if (failed) {
+    return (
+      <button
+        type="button"
+        onClick={onOpenFallback}
+        className="flex items-center gap-2.5 p-2 bg-black/10 hover:bg-black/20 transition rounded-xl text-xs font-medium w-full text-left"
+      >
+        <FileText className="w-5 h-5 flex-shrink-0" />
+        <span className="truncate flex-1">{alt}</span>
+        <Download className="w-4 h-4 flex-shrink-0 opacity-80" />
+      </button>
+    );
+  }
+
+  if (!src) {
+    return <div className="w-48 h-36 rounded-xl bg-black/10 animate-pulse" />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
+      className="max-w-[240px] max-h-[240px] rounded-xl object-cover cursor-pointer"
+    />
+  );
+};
+
 const MessagesScreen: React.FC = () => {
   const { t } = useI18n();
   const d = t("messagesscreen");
   const { isDark } = useThemeMode();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const { toasts, addToast, removeToast } = useToast();
 
   // Estados de datos API
   const [chats, setChats] = useState<ConversacionItem[]>([]);
@@ -77,6 +159,8 @@ const MessagesScreen: React.FC = () => {
   const [attachMenuOpen, setAttachMenuOpen] = useState<boolean>(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState<boolean>(false);
+  const [isSendingLocation, setIsSendingLocation] = useState<boolean>(false);
 
   // Referencias y Timers
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -279,8 +363,9 @@ const MessagesScreen: React.FC = () => {
 
     const textToSend = customPayload?.contenido ?? messageText.trim();
     const fileToSend = customPayload?.archivo ?? pendingFile;
+    const hasLocation = customPayload?.latitud != null && customPayload?.longitud != null;
 
-    if (!textToSend && !fileToSend) return;
+    if (!textToSend && !fileToSend && !hasLocation) return;
 
     // Si la conversación está archivada, bloqueamos el envío
     if (currentChatDetail?.archivada) return;
@@ -292,6 +377,8 @@ const MessagesScreen: React.FC = () => {
       const createdMsg = await chatApi.sendMensaje(selectedChatId, {
         contenido: textToSend || undefined,
         archivo: fileToSend || undefined,
+        latitud: customPayload?.latitud,
+        longitud: customPayload?.longitud,
         reply_to: customPayload?.reply_to,
       });
 
@@ -302,9 +389,11 @@ const MessagesScreen: React.FC = () => {
     } catch (err: any) {
       console.error("Error al enviar mensaje:", err);
       if (err?.status === 429) {
-        alert(d.rateLimitExceeded || "Estás enviando mensajes muy rápido. Espera un momento.");
+        addToast("error", d.rateLimitExceeded || "Estás enviando mensajes muy rápido. Espera un momento.");
       } else {
-        alert(err?.data?.detail || d.errorSendingMessage || "No se pudo enviar el mensaje");
+        // ApiError expone el motivo real (ej. "Tipo de archivo no
+        // permitido.") en `message`, no en `.data.detail` (no existe).
+        addToast("error", err?.message || d.errorSendingMessage || "No se pudo enviar el mensaje");
       }
     } finally {
       setSendingMessage(false);
@@ -316,15 +405,19 @@ const MessagesScreen: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validación de tipo (excluir video)
-    if (file.type.startsWith("video/")) {
-      alert(d.fileInvalidType || "Tipo de archivo no permitido.");
+    // Validación de tamaño (Máx 10MB) — antes de tipo: un archivo permitido
+    // pero pesado (ej. un PDF de 40MB) debe avisar por peso, no por tipo.
+    if (file.size > 10 * 1024 * 1024) {
+      addToast("error", d.fileTooLarge || "El archivo excede el límite permitido de 10MB.");
+      e.target.value = "";
       return;
     }
 
-    // Validación de tamaño (Máx 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert(d.fileTooLarge || "El archivo excede el límite permitido de 10MB.");
+    // Validación de tipo — espeja el whitelist del backend (imágenes +
+    // PDF/TXT). Videos, audio, objetos 3D, etc. quedan fuera.
+    if (!ALLOWED_ATTACHMENT_TYPES.has(file.type)) {
+      addToast("error", d.fileInvalidType || "Tipo de archivo no permitido.");
+      e.target.value = "";
       return;
     }
 
@@ -333,26 +426,23 @@ const MessagesScreen: React.FC = () => {
     e.target.value = "";
   };
 
-  const handleSendLocation = (type: "location_exact" | "location_live") => {
+  const handleOpenLocationPicker = () => {
     setAttachMenuOpen(false);
-    const locText =
-      type === "location_exact"
-        ? `📍 ${d.locationExact || "Ubicación exacta"}`
-        : `📡 ${d.locationLive || "Ubicación en tiempo real"}`;
+    setIsLocationPickerOpen(true);
+  };
 
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          handleSendMessage(undefined, {
-            contenido: `${locText} [${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}]`,
-          });
-        },
-        () => {
-          handleSendMessage(undefined, { contenido: locText });
-        }
-      );
-    } else {
-      handleSendMessage(undefined, { contenido: locText });
+  const handleSendLocationPick = async (lat: number, lon: number) => {
+    setIsSendingLocation(true);
+    try {
+      // El backend guarda 6 decimales (~11cm de precisión) — el GPS del
+      // dispositivo devuelve más dígitos de los que el campo admite.
+      await handleSendMessage(undefined, {
+        latitud: Number(lat.toFixed(6)),
+        longitud: Number(lon.toFixed(6)),
+      });
+      setIsLocationPickerOpen(false);
+    } finally {
+      setIsSendingLocation(false);
     }
   };
 
@@ -369,6 +459,7 @@ const MessagesScreen: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error al descargar el archivo:", err);
+      addToast("error", d.errorDownloadingAttachment || "No se pudo descargar el archivo");
     }
   };
 
@@ -394,12 +485,88 @@ const MessagesScreen: React.FC = () => {
       })
     : filteredChats;
 
+  // Servicio completado -> conversación archivada (solo lectura, sin poder
+  // enviar). Se separan del resto para que el sidebar distinga de un vistazo
+  // los chats con los que aún se puede hablar de los ya cerrados.
+  const activeVisibleChats = visibleChats.filter((chat) => !chat.archivada);
+  const pastVisibleChats = visibleChats.filter((chat) => chat.archivada);
+
   const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
     // Marca como leído localmente al abrir; el backend no expone aún un
     // endpoint explícito de "marcar leído", así que limpiamos el contador aquí.
     setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
     setFilteredChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
+  };
+
+  const renderChatRow = (chat: ConversacionItem, i: number) => {
+    const isSelected = selectedChatId === chat.id;
+    const isUnread = chat.unreadCount > 0 && !isSelected;
+    return (
+      <motion.div
+        key={chat.id}
+        layout
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.18, delay: i * 0.03 }}
+        onClick={() => handleSelectChat(chat.id)}
+        className={`flex items-center gap-3.5 py-4 pr-4 pl-3 cursor-pointer transition-colors border-l-4 ${
+          isSelected
+            ? "bg-[#2EBCCC]/[0.1] border-[#2EBCCC]"
+            : isUnread
+            ? "bg-[var(--msg-input)]/60 border-transparent hover:bg-[var(--msg-input)]"
+            : "border-transparent hover:bg-[var(--msg-input)]"
+        } ${chat.archivada ? "opacity-70" : ""}`}
+      >
+        <div className="relative flex-shrink-0 ml-1">
+          <Avatar photoUrl={chat.avatar} name={chat.name} size={48} />
+          {isUnread && (
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#2EBCCC] rounded-full border-2 border-[var(--msg-card)]" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-baseline gap-1 mb-0.5">
+            <h4
+              className={`text-sm truncate ${
+                isUnread ? "font-extrabold text-[var(--msg-text)]" : "font-bold text-[var(--msg-text)]"
+              }`}
+            >
+              {chat.name}
+            </h4>
+            <span
+              className={`text-[11px] flex-shrink-0 ${
+                isSelected
+                  ? "text-[#2EBCCC] font-bold"
+                  : isUnread
+                  ? "text-[#2EBCCC] font-bold"
+                  : "text-[var(--msg-text-muted)]"
+              }`}
+            >
+              {chat.timeAgoKey}
+            </span>
+          </div>
+          {chat.servicio_titulo && (
+            <p className="text-[11px] text-[#2EBCCC] font-semibold truncate">{chat.servicio_titulo}</p>
+          )}
+          <p className="text-xs text-[var(--msg-text-muted)] truncate">{chat.professionKey}</p>
+          <p
+            className={`text-xs truncate mt-1 ${
+              isUnread
+                ? "text-[var(--msg-text)] font-semibold opacity-100"
+                : "text-[var(--msg-text-muted)] opacity-80"
+            }`}
+          >
+            {chat.lastMessagePreview}
+          </p>
+        </div>
+        {isUnread && (
+          <span className="w-5 h-5 bg-[#2EBCCC] text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0">
+            {chat.unreadCount}
+          </span>
+        )}
+      </motion.div>
+    );
   };
 
   const currentChat = chats.find((c) => c.id === selectedChatId);
@@ -538,12 +705,13 @@ const MessagesScreen: React.FC = () => {
         }
       `}</style>
 
-      {/* Input nativo oculto para selección de archivos (sin videos) */}
+      {/* Input nativo oculto — solo lo que el backend realmente acepta
+          (imágenes incl. SVG, PDF, TXT). Nada de video/audio/objetos 3D. */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileSelect}
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf,text/plain,.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.txt"
         className="hidden"
       />
 
@@ -669,77 +837,27 @@ const MessagesScreen: React.FC = () => {
                 <p className="text-sm text-[var(--msg-text-muted)]">{d.noResults}</p>
               </motion.div>
             ) : (
-              <AnimatePresence initial={false}>
-                {visibleChats.map((chat, i) => {
-                  const isSelected = selectedChatId === chat.id;
-                  const isUnread = chat.unreadCount > 0 && !isSelected;
-                  return (
-                    <motion.div
-                      key={chat.id}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.18, delay: i * 0.03 }}
-                      onClick={() => handleSelectChat(chat.id)}
-                      className={`flex items-center gap-3.5 py-4 pr-4 pl-3 cursor-pointer transition-colors border-l-4 ${
-                        isSelected
-                          ? "bg-[#2EBCCC]/[0.1] border-[#2EBCCC]"
-                          : isUnread
-                          ? "bg-[var(--msg-input)]/60 border-transparent hover:bg-[var(--msg-input)]"
-                          : "border-transparent hover:bg-[var(--msg-input)]"
-                      }`}
-                    >
-                      <div className="relative flex-shrink-0 ml-1">
-                        <Avatar photoUrl={chat.avatar} name={chat.name} size={48} />
-                        {isUnread && (
-                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#2EBCCC] rounded-full border-2 border-[var(--msg-card)]" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline gap-1 mb-0.5">
-                          <h4
-                            className={`text-sm truncate ${
-                              isUnread ? "font-extrabold text-[var(--msg-text)]" : "font-bold text-[var(--msg-text)]"
-                            }`}
-                          >
-                            {chat.name}
-                          </h4>
-                          <span
-                            className={`text-[11px] flex-shrink-0 ${
-                              isSelected
-                                ? "text-[#2EBCCC] font-bold"
-                                : isUnread
-                                ? "text-[#2EBCCC] font-bold"
-                                : "text-[var(--msg-text-muted)]"
-                            }`}
-                          >
-                            {chat.timeAgoKey}
-                          </span>
-                        </div>
-                        {chat.servicio_titulo && (
-                          <p className="text-[11px] text-[#2EBCCC] font-semibold truncate">{chat.servicio_titulo}</p>
-                        )}
-                        <p className="text-xs text-[var(--msg-text-muted)] truncate">{chat.professionKey}</p>
-                        <p
-                          className={`text-xs truncate mt-1 ${
-                            isUnread
-                              ? "text-[var(--msg-text)] font-semibold opacity-100"
-                              : "text-[var(--msg-text-muted)] opacity-80"
-                          }`}
-                        >
-                          {chat.lastMessagePreview}
-                        </p>
-                      </div>
-                      {isUnread && (
-                        <span className="w-5 h-5 bg-[#2EBCCC] text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0">
-                          {chat.unreadCount}
-                        </span>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+              <>
+                {pastVisibleChats.length > 0 && activeVisibleChats.length > 0 && (
+                  <p className="px-4 pt-3 pb-1 text-[10px] font-extrabold tracking-wider uppercase text-[var(--msg-text-muted)]">
+                    {d.activeChats}
+                  </p>
+                )}
+                <AnimatePresence initial={false}>
+                  {activeVisibleChats.map((chat, i) => renderChatRow(chat, i))}
+                </AnimatePresence>
+
+                {pastVisibleChats.length > 0 && (
+                  <>
+                    <p className="px-4 pt-4 pb-1 text-[10px] font-extrabold tracking-wider uppercase text-[var(--msg-text-muted)]">
+                      {d.pastChats}
+                    </p>
+                    <AnimatePresence initial={false}>
+                      {pastVisibleChats.map((chat, i) => renderChatRow(chat, i))}
+                    </AnimatePresence>
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -934,18 +1052,42 @@ const MessagesScreen: React.FC = () => {
                                   </p>
                                 )}
 
+                                {/* Ubicación compartida */}
+                                {msg.latitud != null && msg.longitud != null && (
+                                  <div className={textContent ? "mt-2 pt-2 border-t border-white/20" : ""}>
+                                    <LocationMap
+                                      lat={msg.latitud}
+                                      lon={msg.longitud}
+                                      height={160}
+                                      style={{ width: 220 }}
+                                    />
+                                  </div>
+                                )}
+
                                 {/* Adjunto del Backend */}
                                 {msg.archivo && (
                                   <div className={textContent ? "mt-2 pt-2 border-t border-white/20" : ""}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDownloadAttachment(msg.id, "archivo_adjunto")}
-                                      className="flex items-center gap-2.5 p-2 bg-black/10 hover:bg-black/20 transition rounded-xl text-xs font-medium w-full text-left"
-                                    >
-                                      <FileText className="w-5 h-5 flex-shrink-0" />
-                                      <span className="truncate flex-1">Descargar Archivo Adjunto</span>
-                                      <Download className="w-4 h-4 flex-shrink-0 opacity-80" />
-                                    </button>
+                                    {IMAGE_EXTENSIONS.has(getFileExtension(msg.archivo_nombre)) ? (
+                                      <ChatImageAttachment
+                                        messageId={msg.id}
+                                        alt={msg.archivo_nombre || d.downloadAttachment}
+                                        onOpenFallback={() =>
+                                          handleDownloadAttachment(msg.id, msg.archivo_nombre || undefined)
+                                        }
+                                      />
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDownloadAttachment(msg.id, msg.archivo_nombre || undefined)}
+                                        className="flex items-center gap-2.5 p-2 bg-black/10 hover:bg-black/20 transition rounded-xl text-xs font-medium w-full text-left"
+                                      >
+                                        <FileText className="w-5 h-5 flex-shrink-0" />
+                                        <span className="truncate flex-1">
+                                          {msg.archivo_nombre || d.downloadAttachment}
+                                        </span>
+                                        <Download className="w-4 h-4 flex-shrink-0 opacity-80" />
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1064,24 +1206,13 @@ const MessagesScreen: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => handleSendLocation("location_exact")}
+                          onClick={handleOpenLocationPicker}
                           className="flex items-center gap-3 px-3 py-2.5 text-xs font-medium rounded-xl hover:bg-[var(--msg-input)] transition text-left text-[var(--msg-text)]"
                         >
                           <div className="p-2 rounded-lg bg-red-500/10 text-red-500">
                             <MapPin className="w-4 h-4" />
                           </div>
-                          <span>{d.locationExact || "Ubicación exacta"}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleSendLocation("location_live")}
-                          className="flex items-center gap-3 px-3 py-2.5 text-xs font-medium rounded-xl hover:bg-[var(--msg-input)] transition text-left text-[var(--msg-text)]"
-                        >
-                          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                            <Radio className="w-4 h-4" />
-                          </div>
-                          <span>{d.locationLive || "Ubicación en tiempo real"}</span>
+                          <span>{d.location}</span>
                         </button>
                       </motion.div>
                     )}
@@ -1163,6 +1294,15 @@ const MessagesScreen: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+
+      <LocationPickerModal
+        isOpen={isLocationPickerOpen}
+        onClose={() => setIsLocationPickerOpen(false)}
+        onSend={handleSendLocationPick}
+        isSending={isSendingLocation}
+      />
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} theme={isDark ? "dark" : "light"} />
     </>
   );
 };

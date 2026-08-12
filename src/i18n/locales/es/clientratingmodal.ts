@@ -2,6 +2,7 @@ export const clientratingmodal = {
   title: "Califica tu Experiencia",
   subtitle: "Tu servicio fue marcado como completado. Comparte tu opinión sobre el proveedor.",
   completed: "Completado",
+  reviews: "reseñas",
   selectRating: "SELECCIONA TU CALIFICACIÓN",
   shareExperience: "ELIGE UN COMENTARIO (OPCIONAL)",
   submit: "Enviar Calificación",

@@ -61,8 +61,11 @@ export interface Mensaje {
   leido: boolean;
   editado: boolean;
   estado_entrega: "enviado" | "recibido" | "leido";
-  tipo_mensaje: "texto" | "archivo" | "sistema";
+  tipo_mensaje: "texto" | "archivo" | "ubicacion" | "sistema";
   archivo?: string | null;
+  archivo_nombre?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
   reply_to?: number | null;
   attachment?: MensajeAttachment;
 }
@@ -88,6 +91,8 @@ export interface GetMensajesParams {
 export interface SendMensajePayload {
   contenido?: string;
   archivo?: File;
+  latitud?: number;
+  longitud?: number;
   reply_to?: number;
 }
 
@@ -175,9 +180,11 @@ export const chatApi = {
       return apiPost<Mensaje>(endpoint, formData);
     }
 
-    // Si es solo texto
+    // Si es solo texto o ubicación
     return apiPost<Mensaje>(endpoint, {
       contenido: payload.contenido,
+      latitud: payload.latitud,
+      longitud: payload.longitud,
       reply_to: payload.reply_to,
     });
   },

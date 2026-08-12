@@ -180,8 +180,11 @@ export async function crearOferta(
 export interface PendienteCalificar {
   id_servicio: number;
   titulo: string;
+  proveedor_id: string | null;
   proveedor_nombre: string;
   proveedor_foto: string | null;
+  rating: number;
+  num_reviews: number;
 }
 
 export async function fetchPendienteCalificar(): Promise<PendienteCalificar | null> {
@@ -386,8 +389,11 @@ export async function calificarCliente(
 export interface PendienteCalificarProveedor {
   id_servicio: number;
   titulo: string;
+  cliente_id: string | null;
   cliente_nombre: string;
   cliente_foto: string | null;
+  rating: number;
+  num_reviews: number;
 }
 
 export async function fetchPendienteCalificarProveedor(): Promise<PendienteCalificarProveedor | null> {
